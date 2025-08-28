@@ -1,68 +1,49 @@
 package main
 
 import (
-	"fmt"
-	"log"
-	"net/http"
+	"context"
+	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 
-	"github.com/evidenceledger/certauth/authorizationserver"
-	"github.com/evidenceledger/certauth/oauth2client"
-	"github.com/evidenceledger/certauth/resourceserver"
-	goauth "golang.org/x/oauth2"
-	"golang.org/x/oauth2/clientcredentials"
+	"github.com/evidenceledger/certauth/internal/server"
 )
 
-// A valid oauth2 client (check the store) that additionally requests an OpenID Connect id token
-var clientConf = goauth.Config{
-	ClientID:     "my-client",
-	ClientSecret: "foobar",
-	RedirectURL:  "https://cert.mycredential.eu/callback",
-	Scopes:       []string{"photos", "openid", "offline"},
-	Endpoint: goauth.Endpoint{
-		TokenURL: "https://cert.mycredential.eu/oauth2/token",
-		AuthURL:  "https://cert.mycredential.eu/oauth2/auth",
-	},
-}
-
-// The same thing (valid oauth2 client) but for using the client credentials grant
-var appClientConf = clientcredentials.Config{
-	ClientID:     "my-client",
-	ClientSecret: "foobar",
-	Scopes:       []string{"fosite"},
-	TokenURL:     "https://cert.mycredential.eu/oauth2/token",
-}
-
-// Samle client as above, but using a different secret to demonstrate secret rotation
-var appClientConfRotated = clientcredentials.Config{
-	ClientID:     "my-client",
-	ClientSecret: "foobaz",
-	Scopes:       []string{"fosite"},
-	TokenURL:     "https://cert.mycredential.eu/oauth2/token",
-}
-
 func main() {
-	// ### oauth2 server ###
-	authorizationserver.RegisterHandlers() // the authorization server (fosite)
+	// Initialize logging
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+	slog.SetDefault(logger)
 
-	// ### oauth2 client ###
-	http.HandleFunc("/", oauth2client.HomeHandler(clientConf)) // show some links on the index
-
-	// the following handlers are oauth2 consumers
-	http.HandleFunc("/client", oauth2client.ClientEndpoint(appClientConf))            // complete a client credentials flow
-	http.HandleFunc("/client-new", oauth2client.ClientEndpoint(appClientConfRotated)) // complete a client credentials flow using rotated secret
-	http.HandleFunc("/owner", oauth2client.OwnerHandler(clientConf))                  // complete a resource owner password credentials flow
-	http.HandleFunc("/callback", oauth2client.CallbackHandler(clientConf))            // the oauth2 callback endpoint
-
-	// ### protected resource ###
-	http.HandleFunc("/protected", resourceserver.ProtectedEndpoint(appClientConf))
-
-	port := "3846"
-	if os.Getenv("PORT") != "" {
-		port = os.Getenv("PORT")
+	// Get admin password from environment or command line
+	adminPassword := os.Getenv("CERTAUTH_ADMIN_PASSWORD")
+	if adminPassword == "" {
+		slog.Error("Admin password required. Set CERTAUTH_ADMIN_PASSWORD environment variable")
+		os.Exit(1)
 	}
 
-	fmt.Println("Please open your webbrowser at https://cert.mycredential.eu")
-	// _ = exec.Command("open", "http://localhost:"+port).Run()
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	// Create and start server
+	srv := server.New(adminPassword)
+
+	// Setup graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Handle shutdown signals
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigChan
+		slog.Info("Shutdown signal received")
+		cancel()
+	}()
+
+	// Start server
+	if err := srv.Start(ctx); err != nil {
+		slog.Error("Server failed", "error", err)
+		os.Exit(1)
+	}
 }

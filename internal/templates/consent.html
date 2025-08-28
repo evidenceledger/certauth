@@ -1,0 +1,116 @@
+{{define "content"}}
+<div class="auth-card">
+    <div class="auth-header">
+        <h2 class="ui header" style="color: white;">
+            <i class="shield alternate icon"></i>
+            <div class="content">
+                Certificate Authentication
+                <div class="sub header" style="color: rgba(255,255,255,0.8);">
+                    {{.RPName}} requests access to your certificate information
+                </div>
+            </div>
+        </h2>
+    </div>
+    
+    <div class="auth-content">
+        <!-- Certificate Information -->
+        <div class="cert-info">
+            <h4 class="ui header">
+                <i class="certificate icon"></i>
+                <div class="content">
+                    Certificate Information
+                    <div class="sub header">The following information will be shared with {{.RPName}}</div>
+                </div>
+            </h4>
+            
+            <div class="ui two column grid">
+                <div class="column">
+                    <div class="field-label">Organization</div>
+                    <div class="field-value">{{.CertificateData.Subject.Organization}}</div>
+                    
+                    <div class="field-label">Organization Identifier</div>
+                    <div class="field-value">{{.CertificateData.Subject.OrganizationIdentifier}}</div>
+                    
+                    <div class="field-label">Country</div>
+                    <div class="field-value">{{.CertificateData.Subject.Country}}</div>
+                    
+                    {{if .CertificateData.Subject.GivenName}}
+                    <div class="field-label">Given Name</div>
+                    <div class="field-value">{{.CertificateData.Subject.GivenName}}</div>
+                    {{end}}
+                </div>
+                
+                <div class="column">
+                    <div class="field-label">Organizational Unit</div>
+                    <div class="field-value">{{.CertificateData.Subject.OrganizationalUnit}}</div>
+                    
+                    <div class="field-label">Locality</div>
+                    <div class="field-value">{{.CertificateData.Subject.Locality}}</div>
+                    
+                    <div class="field-label">Province</div>
+                    <div class="field-value">{{.CertificateData.Subject.Province}}</div>
+                    
+                    {{if .CertificateData.Subject.Surname}}
+                    <div class="field-label">Surname</div>
+                    <div class="field-value">{{.CertificateData.Subject.Surname}}</div>
+                    {{end}}
+                </div>
+            </div>
+            
+            <div class="ui divider"></div>
+            
+            <div class="ui two column grid">
+                <div class="column">
+                    <div class="field-label">Valid From</div>
+                    <div class="field-value">{{.CertificateData.ValidFrom.Format "2006-01-02 15:04:05"}}</div>
+                </div>
+                <div class="column">
+                    <div class="field-label">Valid To</div>
+                    <div class="field-value">{{.CertificateData.ValidTo.Format "2006-01-02 15:04:05"}}</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Consent Form -->
+        <form method="POST" action="/oauth2/consent" id="consent-form">
+            <input type="hidden" name="auth_code" value="{{.AuthCode}}">
+            <input type="hidden" name="state" value="{{.State}}">
+            
+            <div class="ui segment">
+                <h4 class="ui header">
+                    <i class="check circle outline icon"></i>
+                    <div class="content">
+                        Authorization Request
+                        <div class="sub header">Do you authorize {{.RPName}} to access this information?</div>
+                    </div>
+                </h4>
+                
+                <div class="ui info message">
+                    <i class="info circle icon"></i>
+                    <div class="content">
+                        <div class="header">About this request</div>
+                        <p>{{.RPDescription}}</p>
+                        <p><strong>Organization:</strong> {{.RPName}}</p>
+                        <p><strong>Domain:</strong> {{.RPOrigin}}</p>
+                    </div>
+                </div>
+                
+                <div class="ui divider"></div>
+                
+                <!-- Action Buttons -->
+                <div class="ui two buttons">
+                    <button type="button" class="ui red button" onclick="window.close()">
+                        <i class="times icon"></i>
+                        Cancel
+                    </button>
+                    
+                    <button type="submit" class="ui btn-primary button">
+                        <i class="check icon"></i>
+                        Authorize Access
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{{end}}

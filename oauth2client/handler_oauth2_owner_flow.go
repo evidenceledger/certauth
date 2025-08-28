@@ -36,7 +36,7 @@ func OwnerHandler(c oauth2.Config) func(rw http.ResponseWriter, req *http.Reques
 			rw.Write([]byte(`<p><a href="/">Go back</a></p>`))
 			return
 		}
-		rw.Write([]byte(fmt.Sprintf(`<p>Awesome, you just received an access token!<br><br>%s<br><br><strong>more info:</strong><br><br>%s</p>`, token.AccessToken, token)))
+		rw.Write([]byte(fmt.Sprintf(`<p>Awesome, you just received an access token!<br><br>%s<br><br><strong>more info:</strong><br><br>%v</p>`, token.AccessToken, token.Extra)))
 		rw.Write([]byte(`<p><a href="/">Go back</a></p>`))
 	}
 }

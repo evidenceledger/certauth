@@ -113,7 +113,7 @@ func CallbackHandler(c oauth2.Config) func(rw http.ResponseWriter, req *http.Req
 			"?refresh="+url.QueryEscape(token.RefreshToken),
 			"?revoke="+url.QueryEscape(token.RefreshToken)+"&access_token="+url.QueryEscape(token.AccessToken),
 			token.RefreshToken,
-			token,
+			token.Extra,
 		)))
 	}
 }
