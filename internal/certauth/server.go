@@ -2,8 +2,10 @@ package certauth
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"log/slog"
+	"net"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -11,31 +13,42 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
+	"github.com/evidenceledger/certauth/internal/cache"
+	"github.com/evidenceledger/certauth/internal/certconfig"
 	"github.com/evidenceledger/certauth/internal/database"
-	"github.com/evidenceledger/certauth/internal/handlers"
+	"github.com/evidenceledger/certauth/internal/html"
 	"github.com/evidenceledger/certauth/internal/jwt"
 	"github.com/evidenceledger/certauth/internal/middleware"
 	"github.com/evidenceledger/certauth/internal/models"
-	"github.com/evidenceledger/certauth/internal/templates"
-	"github.com/evidenceledger/certauth/x509util"
+	"github.com/evidenceledger/certauth/internal/util/x509util"
 )
 
 // Server represents the CertAuth OpenID Provider server
 type Server struct {
+	cfg        certconfig.Config
 	app        *fiber.App
 	db         *database.Database
 	adminPW    string
-	handlers   *handlers.OIDCHandlers
 	adminAuth  *middleware.AdminAuth
 	jwtService *jwt.Service
-	renderer   *templates.Renderer
-
-	// Certificate data storage (in a real implementation, this would be persistent)
-	certificateData map[string]*models.CertificateData // auth_code -> certificate_data
+	html       *html.RendererFiber
+	cache      *cache.Cache
 }
 
+const templateDebug = true
+
+//go:embed views/*
+var viewsfs embed.FS
+
 // New creates a new CertAuth server
-func New(db *database.Database, adminPassword string) *Server {
+func New(db *database.Database, cache *cache.Cache, adminPassword string, cfg certconfig.Config) *Server {
+
+	htmlrender, err := html.NewRendererFiber(templateDebug, viewsfs, "internal/certauth/views")
+	if err != nil {
+		slog.Error("Failed to initialize template engine", "error", err)
+		panic(err)
+	}
+
 	app := fiber.New(fiber.Config{
 		AppName:                 "CertAuth OP",
 		EnableTrustedProxyCheck: false,
@@ -49,39 +62,27 @@ func New(db *database.Database, adminPassword string) *Server {
 	app.Use(cors.New())
 
 	// Initialize JWT service
-	jwtService, err := jwt.NewService("https://certauth.mycredential.eu")
+	jwtService, err := jwt.NewService(cfg.CertAuthURL)
 	if err != nil {
 		slog.Error("Failed to initialize JWT service", "error", err)
 		panic(err)
 	}
 
-	// Initialize template renderer
-	renderer, err := templates.NewRenderer()
-	if err != nil {
-		slog.Error("Failed to initialize template renderer", "error", err)
-		panic(err)
-	}
-
-	handlers := handlers.NewOIDCHandlers(db)
 	adminAuth := middleware.NewAdminAuth(adminPassword)
 
-	server := &Server{
-		app:             app,
-		db:              db,
-		adminPW:         adminPassword,
-		handlers:        handlers,
-		adminAuth:       adminAuth,
-		jwtService:      jwtService,
-		renderer:        renderer,
-		certificateData: make(map[string]*models.CertificateData),
+	s := &Server{
+		app:        app,
+		db:         db,
+		adminPW:    adminPassword,
+		adminAuth:  adminAuth,
+		jwtService: jwtService,
+		html:       htmlrender,
+		cache:      cache,
+		cfg:        cfg,
 	}
 
-	// Set the JWT service and certificate data getter in handlers
-	handlers.SetJWTService(jwtService)
-	handlers.SetCertificateDataGetter(server.GetCertificateData)
-
-	server.setupRoutes()
-	return server
+	s.setupRoutes()
+	return s
 }
 
 // setupRoutes sets up all the server routes
@@ -92,38 +93,37 @@ func (s *Server) setupRoutes() {
 	})
 
 	// OIDC Discovery endpoints
-	s.app.Get("/.well-known/openid_configuration", s.handlers.Discovery)
+	s.app.Get("/.well-known/openid-configuration", s.handleDiscovery)
 	s.app.Get("/.well-known/jwks.json", s.handleJWKS)
 
 	// OIDC endpoints
-	s.app.Get("/oauth2/auth", s.handlers.Authorization)
-	s.app.Post("/oauth2/token", s.handlers.Token)
-	s.app.Get("/oauth2/userinfo", s.handlers.UserInfo)
-	s.app.Get("/logout", s.handlers.Logout)
+	s.app.Get("/oauth2/auth", s.Authorization)
+	s.app.Post("/oauth2/token", s.Token)
+	s.app.Get("/oauth2/userinfo", s.UserInfo)
+	s.app.Get("/logout", s.Logout)
 
 	// Certificate selection screen - shows before redirecting to CertSec
 	s.app.Get("/certificate-select", s.handleCertificateSelect)
 
+	// Certificate consent screen - shows after redirecting from CertSec
+	s.app.Get("/certificate-back", s.handleCertificateBack)
+
 	// Test callback endpoint for testing the complete flow
 	s.app.Get("/callback", s.handleTestCallback)
-
-	// Internal endpoints for back-channel communication
-	s.app.Post("/internal/consent", s.handleInternalConsent)
-	s.app.Post("/internal/certificate", s.handleInternalCertificate)
 
 	// Test endpoints for JWT token generation
 	s.app.Post("/test/token", s.handleTestToken)
 	s.app.Post("/test/token/personal", s.handleTestPersonalToken)
-	s.app.Get("/test/callback", s.handleTestCallback) // Add this line
+	s.app.Get("/test/callback", s.handleTestCallback)
 
 	// Admin routes (protected)
 	admin := s.app.Group("/admin")
 	admin.Use(s.adminAuth.AuthMiddleware())
 
-	admin.Get("/rp", s.handlers.ListRP)
-	admin.Post("/rp", s.handlers.CreateRP)
-	admin.Put("/rp/:id", s.handlers.UpdateRP)
-	admin.Delete("/rp/:id", s.handlers.DeleteRP)
+	admin.Get("/rp", s.ListRP)
+	admin.Post("/rp", s.CreateRP)
+	admin.Put("/rp/:id", s.UpdateRP)
+	admin.Delete("/rp/:id", s.DeleteRP)
 }
 
 // handleCertificateSelect handles the certificate selection screen
@@ -138,71 +138,24 @@ func (s *Server) handleCertificateSelect(c *fiber.Ctx) error {
 
 	slog.Info("Certificate selection requested", "auth_code", authCode)
 
-	// Return a proper HTML page for certificate selection
-	html := `<!DOCTYPE html>
-<html>
-<head>
-    <title>Certificate Selection Required</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 40px; }
-        .container { max-width: 600px; margin: 0 auto; }
-        .button { background: #007cba; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 10px; }
-        .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 4px; margin: 20px 0; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Certificate Selection Required</h1>
-        <p>The application requires you to select a certificate for authentication.</p>
-        
-        <div class="warning">
-            <strong>Note:</strong> Clicking the button below will redirect you to a secure domain where your browser will prompt you to select a certificate from your certificate store.
-        </div>
-        
-        <p>Click the button below to proceed with certificate selection:</p>
-        
-        <button class="button" onclick="proceedWithCertificate()">Proceed with Certificate</button>
-        
-        <script>
-        function proceedWithCertificate() {
-            // Redirect to CertSec where the browser will prompt for certificate selection
-            window.location.href = 'https://certsec.mycredential.eu/auth?code=` + authCode + `';
-        }
-        </script>
-    </div>
-</body>
-</html>`
+	// Send HTML response
+	return s.html.Render(c, "certificate_select", fiber.Map{
+		"authCode":   authCode,
+		"certsecURL": s.cfg.CertSecURL,
+	})
 
-	c.Set("Content-Type", "text/html; charset=utf-8")
-	return c.Send([]byte(html))
 }
 
-// handleJWKS handles the JSON Web Key Set endpoint
-func (s *Server) handleJWKS(c *fiber.Ctx) error {
-	jwks := s.jwtService.GetJWKS()
-	return c.JSON(jwks)
-}
-
-// handleInternalConsent handles consent data from CertSec
-func (s *Server) handleInternalConsent(c *fiber.Ctx) error {
-	slog.Debug("Internal consent request received")
-
-	// Parse the consent response
-	var consentReq models.CertificateConsentRequest
-	if err := c.BodyParser(&consentReq); err != nil {
-		slog.Error("Failed to parse consent request", "error", err)
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
-	}
-
-	authCode := consentReq.AuthCode
+func (s *Server) handleCertificateBack(c *fiber.Ctx) error {
+	// Get auth code from query parameter
+	authCode := c.Query("code")
 	if authCode == "" {
-		slog.Error("Missing or invalid auth_code in consent request")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Missing authorization code",
 		})
 	}
+
+	slog.Info("Certificate selection requested", "auth_code", authCode)
 
 	// Retrieve the AuthorizationRequest associated with the authCode
 	authCodeObj, err := s.db.GetAuthCode(authCode)
@@ -219,62 +172,37 @@ func (s *Server) handleInternalConsent(c *fiber.Ctx) error {
 		})
 	}
 
-	if !consentReq.ConsentGranted {
-		slog.Info("Consent denied by user", "auth_code", authCode)
-		// Return JSON response for denied consent
-		return c.JSON(fiber.Map{
-			"success":  true,
-			"redirect": authCodeObj.RedirectURI + "?error=access_denied&state=" + authCodeObj.State,
+	// Retrieve the entry from the cache
+	certDataAny, ok := s.cache.Get(authCode)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Authorization code not found",
 		})
 	}
 
-	// Store the certificate data for later token generation
-	if consentReq.CertificateData != nil {
-		s.certificateData[authCode] = consentReq.CertificateData
-		slog.Info("Consent received and certificate data stored",
-			"auth_code", authCode,
-			"certificate_type", consentReq.CertificateData.CertificateType,
-			"organization_id", consentReq.CertificateData.OrganizationID,
-			"organization", consentReq.CertificateData.Subject.Organization,
-			"country", consentReq.CertificateData.Subject.Country,
-		)
+	certData, ok := certDataAny.(*models.CertificateData)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid certificate data",
+		})
 	}
 
-	// Return JSON response with success and redirect URL
-	slog.Info("**** handleInternalConsent: Consent received and certificate data stored", "Method", c.Method(), "auth_code", authCode, "redirect", authCodeObj.RedirectURI+"?code="+authCode+"&state="+authCodeObj.State)
-	return c.JSON(fiber.Map{
-		"success":  true,
-		"redirect": authCodeObj.RedirectURI + "?code=" + authCode + "&state=" + authCodeObj.State,
+	slog.Info("Certificate received", "auth_code", authCode, "cert_length", len(certData.Certificate.Raw))
+
+	// Send HTML response
+	return s.html.Render(c, "certificate_consent", fiber.Map{
+		"authCode":    authCode,
+		"authCodeObj": authCodeObj,
+		"certType":    certData.CertificateType,
+		"subject":     certData.Subject,
 	})
 
 }
 
-// handleInternalCertificate handles certificate data from CertSec
-func (s *Server) handleInternalCertificate(c *fiber.Ctx) error {
-	slog.Debug("Internal certificate data request received")
-
-	// Parse the certificate exchange request
-	var certExchange models.CertificateExchange
-	if err := c.BodyParser(&certExchange); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
-	}
-
-	// Store the certificate data for later token generation
-	if certExchange.CertificateData != nil {
-		s.certificateData[certExchange.AuthCode] = certExchange.CertificateData
-		slog.Info("Certificate data stored for auth code",
-			"auth_code", certExchange.AuthCode,
-			"organization_id", certExchange.CertificateData.OrganizationID,
-			"certificate_type", certExchange.CertificateData.CertificateType,
-		)
-	}
-
-	return c.JSON(fiber.Map{
-		"success": true,
-		"message": "Certificate data stored successfully",
-	})
+// handleJWKS handles the JSON Web Key Set endpoint
+func (s *Server) handleJWKS(c *fiber.Ctx) error {
+	jwks := s.jwtService.GetJWKS()
+	return c.JSON(jwks)
 }
 
 // handleTestToken creates a test token with organizational certificate data
@@ -452,18 +380,10 @@ func (s *Server) generateTestTokens(c *fiber.Ctx, certData *models.CertificateDa
 	})
 }
 
-// GetCertificateData retrieves certificate data for an auth code
-func (s *Server) GetCertificateData(authCode string) *models.CertificateData {
-	certData := s.certificateData[authCode]
-	if certData != nil {
-		// Remove the data after retrieval (one-time use)
-		delete(s.certificateData, authCode)
-	}
-	return certData
-}
-
 // Start starts the server
-func (s *Server) Start(ctx context.Context, addr string) error {
+func (s *Server) Start(ctx context.Context) error {
+
+	addr := net.JoinHostPort("0.0.0.0", s.cfg.CertAuthPort)
 	slog.Info("Starting CertAuth server", "addr", addr)
 
 	// Start server in goroutine

@@ -70,6 +70,11 @@ func (d *Database) ListRelyingParties() ([]models.RelyingParty, error) {
 
 // CreateRelyingParty creates a new relying party
 func (d *Database) CreateRelyingParty(rp *models.RelyingParty, clientSecret string) error {
+
+	if len(clientSecret) < 8 {
+		return errl.Errorf("client secret must be at least 8 characters long")
+	}
+
 	// Hash the client secret
 	hashedSecret, err := bcrypt.GenerateFromPassword([]byte(clientSecret), bcrypt.DefaultCost)
 	if err != nil {
@@ -99,7 +104,7 @@ func (d *Database) CreateRelyingParty(rp *models.RelyingParty, clientSecret stri
 // UpdateRelyingParty updates an existing relying party
 func (d *Database) UpdateRelyingParty(rp *models.RelyingParty, clientSecret string) error {
 	var query string
-	var args []interface{}
+	var args []any
 
 	if clientSecret != "" {
 		// Hash the new client secret
@@ -114,7 +119,7 @@ func (d *Database) UpdateRelyingParty(rp *models.RelyingParty, clientSecret stri
 			    scopes = ?, token_expiry = ?, client_secret_hash = ?, updated_at = CURRENT_TIMESTAMP
 			WHERE id = ?
 		`
-		args = []interface{}{
+		args = []any{
 			rp.Name, rp.Description, rp.RedirectURL, rp.OriginURL,
 			rp.Scopes, rp.TokenExpiry, hashedSecret, rp.ID,
 		}
@@ -125,7 +130,7 @@ func (d *Database) UpdateRelyingParty(rp *models.RelyingParty, clientSecret stri
 			    scopes = ?, token_expiry = ?, updated_at = CURRENT_TIMESTAMP
 			WHERE id = ?
 		`
-		args = []interface{}{
+		args = []any{
 			rp.Name, rp.Description, rp.RedirectURL, rp.OriginURL,
 			rp.Scopes, rp.TokenExpiry, rp.ID,
 		}

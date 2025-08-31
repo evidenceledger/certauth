@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Example RP - Welcome</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .logout {
+            background: #dc3545;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .logout:hover {
+            background: #c82333;
+        }
+
+        .user-info {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+
+        .token-info {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .cert-info {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+
+        .cert-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .cert-item {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+
+        .cert-label {
+            font-weight: bold;
+            color: #495057;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .cert-value {
+            color: #212529;
+            margin-top: 5px;
+        }
+
+        .success {
+            color: #155724;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎉 Welcome to Example RP</h1>
+            <a href="/logout" class="logout">Logout</a>
+        </div>
+
+        <div class="user-info">
+            <h2>✅ Authentication Successful!</h2>
+            <p><strong>User ID:</strong> {{ .session.UserID }}</p>
+            <p><strong>Session ID:</strong> {{ .session.SessionID }}</p>
+            <p><strong>Login Time:</strong> {{ .session.CreatedAt }}</p>
+            <p><strong>Last Accessed:</strong> {{ .session.LastAccessed }}</p>
+        </div>
+
+        <div class="cert-info">
+            <h3>📋 Certificate Information</h3>
+            <p>This is the certificate data that would be available from the eIDAS certificate:</p>
+            <div class="cert-grid">
+                <div class="cert-item">
+                    <div class="cert-label">Organization</div>
+                    <div class="cert-value">{{ .certInfo.organization }}</div>
+                </div>
+                <div class="cert-item">
+                    <div class="cert-label">Organization ID</div>
+                    <div class="cert-value">{{ .certInfo.organization_id }}</div>
+                </div>
+                <div class="cert-item">
+                    <div class="cert-label">Common Name</div>
+                    <div class="cert-value">{{ .certInfo.common_name }}</div>
+                </div>
+                <div class="cert-item">
+                    <div class="cert-label">Email Address</div>
+                    <div class="cert-value">{{ .certInfo.email }}</div>
+                </div>
+                <div class="cert-item">
+                    <div class="cert-label">Country</div>
+                    <div class="cert-value">{{ .certInfo.country }}</div>
+                </div>
+                <div class="cert-item">
+                    <div class="cert-label">Locality</div>
+                    <div class="cert-value">{{ .certInfo.locality }}</div>
+                </div>
+                <div class="cert-item">
+                    <div class="cert-label">Province</div>
+                    <div class="cert-value">{{ .certInfo.province }}</div>
+                </div>
+                <div class="cert-item">
+                    <div class="cert-label">Certificate Type</div>
+                    <div class="cert-value">{{ .certInfo.certificate_type }}</div>
+                </div>
+                <div class="cert-item">
+                    <div class="cert-label">Valid From</div>
+                    <div class="cert-value">{{ .certInfo.valid_from }}</div>
+                </div>
+                <div class="cert-item">
+                    <div class="cert-label">Valid To</div>
+                    <div class="cert-value">{{ .certInfo.valid_to }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="token-info">
+            <h3>Access Token:</h3>
+            <div style="word-break: break-all;">{{ .session.AccessToken }}</div>
+        </div>
+
+        <div class="token-info">
+            <h3>ID Token:</h3>
+            <div style="word-break: break-all;">{{ .session.IDToken }}</div>
+        </div>
+
+        <div
+            style="margin-top: 30px; padding: 20px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
+            <h3>ℹ️ How This Works</h3>
+            <p>In a real implementation:</p>
+            <ul>
+                <li>The ID Token would be a JWT containing the certificate information</li>
+                <li>The RP would validate the JWT signature</li>
+                <li>The certificate data would be extracted from the JWT claims</li>
+                <li>This data can be used to identify the user and their organization</li>
+            </ul>
+        </div>
+    </div>
+</body>
+
+</html>

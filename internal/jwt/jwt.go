@@ -7,10 +7,13 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log/slog"
+	"maps"
 	"time"
 
 	"github.com/evidenceledger/certauth/internal/models"
 	"github.com/golang-jwt/jwt/v5"
+
+	"github.com/lestrrat-go/jwx/v3/jwk"
 )
 
 // Service handles JWT token generation
@@ -42,19 +45,19 @@ func NewService(issuer string) (*Service, error) {
 func (s *Service) GenerateIDToken(authCode *models.AuthCode, certData *models.CertificateData, rp *models.RelyingParty) (string, error) {
 	now := time.Now()
 
-	// Determine the subject identifier based on certificate type
-	var subject string
-	if certData.CertificateType == "organizational" && certData.Subject.OrganizationIdentifier != "" {
-		subject = certData.Subject.OrganizationIdentifier
+	// Determine the sub identifier based on certificate type
+	var sub string
+	if certData.Subject.OrganizationIdentifier != "" {
+		sub = certData.Subject.OrganizationIdentifier
 	} else {
 		// For personal certificates, use serial number or generate a unique identifier
 		if certData.Subject.SerialNumber != "" {
-			subject = certData.Subject.SerialNumber
+			sub = certData.Subject.SerialNumber
 		} else if certData.Subject.CommonName != "" {
-			subject = certData.Subject.CommonName + "_" + certData.Subject.SerialNumber
+			sub = certData.Subject.CommonName + "_" + certData.Subject.SerialNumber
 		} else {
 			// Fallback: generate a hash based on certificate data
-			subject = fmt.Sprintf("%s_%s_%s",
+			sub = fmt.Sprintf("%s_%s_%s",
 				certData.Subject.GivenName,
 				certData.Subject.Surname,
 				certData.Subject.SerialNumber)
@@ -65,7 +68,7 @@ func (s *Service) GenerateIDToken(authCode *models.AuthCode, certData *models.Ce
 	claims := jwt.MapClaims{
 		// Standard claims
 		"iss":   s.issuer,                                                    // Issuer
-		"sub":   subject,                                                     // Subject (org ID or personal identifier)
+		"sub":   sub,                                                         // Subject (org ID or personal identifier)
 		"aud":   rp.ClientID,                                                 // Audience
 		"exp":   now.Add(time.Duration(rp.TokenExpiry) * time.Second).Unix(), // Expiration
 		"iat":   now.Unix(),                                                  // Issued at
@@ -88,9 +91,7 @@ func (s *Service) GenerateIDToken(authCode *models.AuthCode, certData *models.Ce
 
 	// Add custom elsi_ claims for ETSI standardized fields
 	elsiClaims := s.generateELSIClaims(certData)
-	for key, value := range elsiClaims {
-		claims[key] = value
-	}
+	maps.Copy(claims, elsiClaims)
 
 	// Add certificate type information
 	claims["elsi_certificate_type"] = certData.CertificateType
@@ -143,8 +144,8 @@ func (s *Service) GenerateAccessToken(authCode *models.AuthCode, certData *model
 }
 
 // generateELSIClaims generates custom elsi_ claims for ETSI standardized fields
-func (s *Service) generateELSIClaims(certData *models.CertificateData) map[string]interface{} {
-	claims := make(map[string]interface{})
+func (s *Service) generateELSIClaims(certData *models.CertificateData) map[string]any {
+	claims := make(map[string]any)
 
 	// Map certificate fields to elsi_ claims
 	if certData.Subject.Organization != "" {
@@ -193,40 +194,19 @@ func (s *Service) GetPublicKey() (string, error) {
 }
 
 // GetJWKS returns the JSON Web Key Set
-func (s *Service) GetJWKS() map[string]interface{} {
-	// For now, return a simple JWKS structure
-	// In production, you might want to include more metadata
-	return map[string]interface{}{
-		"keys": []map[string]interface{}{
-			{
-				"kty": "RSA",
-				"alg": "RS256",
-				"use": "sig",
-				"kid": "certauth-key", // Key ID
-				// Note: In a real implementation, you would include the actual public key
-				// components (n, e) here
-			},
-		},
-	}
-}
+func (s *Service) GetJWKS() map[string]any {
 
-// ValidateIDToken validates an ID token (for future use)
-func (s *Service) ValidateIDToken(tokenString string) (*jwt.Token, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		// Validate signing method
-		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return s.publicKey, nil
-	})
-
+	jk, err := jwk.Import(s.publicKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse token: %w", err)
+		return nil
 	}
 
-	if !token.Valid {
-		return nil, fmt.Errorf("invalid token")
-	}
+	jk.Set("use", "sig")
+	jk.Set(jwk.KeyIDKey, "certauth-key")
+	jk.Set(jwk.AlgorithmKey, "RS256")
 
-	return token, nil
+	jwks := map[string]any{
+		"keys": []any{jk},
+	}
+	return jwks
 }

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Consent Required</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .button { background: #007cba; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 10px; }
+        .button.danger { background: #dc3545; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; border-radius: 4px; margin: 20px 0; }
+        .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 4px; margin: 20px 0; }
+        .cert-info { background: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; border-radius: 4px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Consent Required</h1>
+        <p>The application <strong>Test Application</strong> is requesting access to your certificate information.</p>
+        
+        <div class="info">
+            <h3>Certificate Information:</h3>
+            <ul>
+                <li><strong>Certificate Type:</strong> {{ .certType }}</li>
+                <li><strong>Common Name:</strong> {{ .subject.CommonName }}</li>
+                <li><strong>Organization:</strong> {{ .subject.Organization }}</li>
+                <li><strong>Organizational Unit:</strong> {{ .subject.OrganizationalUnit }}</li>
+                <li><strong>Country:</strong> {{ .subject.Country }}</li>
+                <li><strong>Email:</strong> {{ .subject.EmailAddress }}</li>
+                <li><strong>Valid From:</strong> {{ .cert.NotBefore }}</li>
+                <li><strong>Valid To:</strong> {{ .cert.NotAfter }}</li>
+            </ul>
+        </div>
+
+        {{ if .subject.OrganizationIdentifier }}
+        <div class="cert-info">
+            <h4>Organization Details:</h4>
+            <ul>
+                <li><strong>Organization Identifier:</strong> {{ .subject.OrganizationIdentifier }}</li>
+                <li><strong>Locality:</strong> {{ .subject.Locality }}</li>
+                <li><strong>Province:</strong> {{ .subject.Province }}</li>
+                <li><strong>Street Address:</strong> {{ .subject.StreetAddress }}</li>
+                <li><strong>Postal Code:</strong> {{ .subject.PostalCode }}</li>
+            </ul>
+        </div>
+
+        {{ else }}
+
+        <div class="warning">
+            <strong>Warning:</strong> This is a personal certificate (does not contain organization identifier). 
+            The relying party may have specific requirements for organizational certificates.
+        </div>
+        {{ end }}
+
+        <p>Do you want to proceed with the authentication?</p>
+        
+        <button class="button" onclick="window.location.href='{{ .authCodeObj.RedirectURI }}?code={{ .authCode }}&state={{ .authCodeObj.State }}'">Grant Access</button>
+        <button class="button danger" onclick="window.location.href='{{ .authCodeObj.RedirectURI }}?error=access_denied&state={{ .authCodeObj.State }}'">Deny Access</button>
+
+    </div>
+</body>
+
+</html>

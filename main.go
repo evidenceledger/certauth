@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -10,22 +11,61 @@ import (
 	"github.com/evidenceledger/certauth/internal/server"
 )
 
+var (
+	adminPassword string
+	certauthPort  string
+	certsecPort   string
+	certauthURL   string
+	certsecURL    string
+	onboardURL    string
+	onboardPort   string
+)
+
 func main() {
+	// The password for admin screens
+	flag.StringVar(&adminPassword, "admin-password", "", "Admin password for the server")
+
+	// The URL and port for the CertAuth server, which is the OP url also
+	flag.StringVar(&certauthPort, "certauth-port", "8090", "Port for the main OP server")
+	flag.StringVar(&certauthURL, "certauth-url", "https://certauth.mycredential.eu", "URL for the CertAuth server")
+
+	// The URL and port for the CertSec server, the one asking for the certificate via TLS client authentication
+	flag.StringVar(&certsecPort, "certsec-port", "8091", "Port for the CertSec server")
+	flag.StringVar(&certsecURL, "certsec-url", "https://certsec.mycredential.eu", "URL for the CertSec server")
+
+	// The URL and port for the Onboard server, the example RP
+	flag.StringVar(&onboardPort, "onboard-port", "8092", "Port for the Onboard server")
+	flag.StringVar(&onboardURL, "onboard-url", "http://localhost:8092", "URL for the Onboard server")
+
+	flag.Parse()
+
 	// Initialize logging
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}))
 	slog.SetDefault(logger)
 
-	// Get admin password from environment or command line
-	adminPassword := os.Getenv("CERTAUTH_ADMIN_PASSWORD")
+	// Get admin password from command line (priority) or environment variable
 	if adminPassword == "" {
-		slog.Error("Admin password required. Set CERTAUTH_ADMIN_PASSWORD environment variable")
-		os.Exit(1)
+		adminPassword := os.Getenv("CERTAUTH_ADMIN_PASSWORD")
+		if adminPassword == "" {
+			slog.Error("Admin password required. Set CERTAUTH_ADMIN_PASSWORD environment variable")
+			os.Exit(1)
+		}
 	}
 
-	// Create and start server
-	srv := server.New(adminPassword)
+	// Create the configuration
+	cfg := server.Config{
+		CertAuthPort: certauthPort,
+		CertAuthURL:  certauthURL,
+		CertSecPort:  certsecPort,
+		CertSecURL:   certsecURL,
+		OnboardPort:  onboardPort,
+		OnboardURL:   onboardURL,
+	}
+
+	// Create the main server. This will initialize the individual HTTP services and the database.
+	srv := server.New(adminPassword, cfg)
 
 	// Setup graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())

@@ -5,31 +5,61 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
+	"github.com/evidenceledger/certauth/internal/cache"
 	"github.com/evidenceledger/certauth/internal/certauth"
+	"github.com/evidenceledger/certauth/internal/certconfig"
 	"github.com/evidenceledger/certauth/internal/certsec"
 	"github.com/evidenceledger/certauth/internal/database"
-	"github.com/evidenceledger/certauth/internal/examplerp"
+	onboard "github.com/evidenceledger/certauth/internal/onboard"
 )
+
+// Config is the configuration for the server
+type Config struct {
+	CertAuthPort string
+	CertAuthURL  string
+	CertSecPort  string
+	CertSecURL   string
+	OnboardPort  string
+	OnboardURL   string
+}
 
 // Server manages both CertAuth and CertSec servers
 type Server struct {
+	cfg       Config
 	certauth  *certauth.Server
 	certsec   *certsec.Server
-	examplerp *examplerp.Server
+	examplerp *onboard.Server
 	db        *database.Database
 	adminPW   string
 }
 
 // New creates a new server instance
-func New(adminPassword string) *Server {
+func New(adminPassword string, cfg Config) *Server {
+
+	// Create a global cache with expiration time of 10 minutes
+	cache := cache.New(10 * time.Minute)
+
 	// Initialize database
 	db := database.New()
 
-	// Create servers
-	ca := certauth.New(db, adminPassword)
-	cs := certsec.New(db)
-	erp := examplerp.New("8092", "https://certauth.mycredential.eu", "example-rp", "example-secret")
+	// Create the authentication and authorization servers.
+	// They share the same database and cache.
+
+	certCfg := certconfig.Config{
+		CertAuthURL:  cfg.CertAuthURL,
+		CertAuthPort: cfg.CertAuthPort,
+		CertSecURL:   cfg.CertSecURL,
+		CertSecPort:  cfg.CertSecPort,
+	}
+
+	ca := certauth.New(db, cache, adminPassword, certCfg)
+	cs := certsec.New(db, cache, certCfg)
+
+	// Create the example RP server.
+	// It uses the CertAuth server as the OP.
+	erp := onboard.New(cfg.OnboardPort, cfg.OnboardURL, cfg.CertAuthURL, "example-rp", "example-secret")
 
 	return &Server{
 		certauth:  ca,
@@ -37,7 +67,9 @@ func New(adminPassword string) *Server {
 		examplerp: erp,
 		db:        db,
 		adminPW:   adminPassword,
+		cfg:       cfg,
 	}
+
 }
 
 // Start starts both servers
@@ -54,7 +86,7 @@ func (s *Server) Start(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := s.certauth.Start(ctx, ":8090"); err != nil {
+		if err := s.certauth.Start(ctx); err != nil {
 			errChan <- fmt.Errorf("certauth server failed: %w", err)
 		}
 	}()
@@ -63,7 +95,7 @@ func (s *Server) Start(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := s.certsec.Start(ctx, ":8091"); err != nil {
+		if err := s.certsec.Start(ctx); err != nil {
 			errChan <- fmt.Errorf("certsec server failed: %w", err)
 		}
 	}()
@@ -72,18 +104,19 @@ func (s *Server) Start(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		time.Sleep(2 * time.Second)
 		if err := s.examplerp.Start(); err != nil {
 			errChan <- fmt.Errorf("example rp server failed: %w", err)
 		}
 	}()
 
 	slog.Info("Servers started",
-		"certauth_port", 8090,
-		"certsec_port", 8091,
-		"examplerp_port", 8092,
-		"certauth_domain", "certauth.mycredential.eu",
-		"certsec_domain", "certsec.mycredential.eu",
-		"examplerp_url", "https://certauth.mycredential.eu/rp")
+		"certauth_port", s.cfg.CertAuthPort,
+		"certsec_port", s.cfg.CertSecPort,
+		"examplerp_port", s.cfg.OnboardPort,
+		"certauth_domain", s.cfg.CertAuthURL,
+		"certsec_domain", s.cfg.CertSecURL,
+		"examplerp_url", s.cfg.OnboardURL)
 
 	// Wait for either server to fail or context to be cancelled
 	select {
