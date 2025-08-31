@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/evidenceledger/certauth/internal/errl"
 	"github.com/gofiber/fiber/v2"
@@ -69,11 +70,23 @@ func newEngine(templateDebug bool, viewsfs embed.FS, extDir string) (*html.Engin
 		return nil, errl.Error(err)
 	}
 
+	exists := false
+
+	// Check if extDir exists in the os file system
+	fi, err := os.Stat(extDir)
+	if err == nil {
+		if fi.IsDir() {
+			exists = true
+		}
+	}
+
 	// Use external templates if templateDebug is true, otherwise use embedded templates
-	if templateDebug {
+	if exists {
+		slog.Info("Using external templates")
 		engine = html.NewFileSystem(http.Dir(extDir), ".hbs")
 		engine.Reload(true)
 	} else {
+		slog.Info("Using embedded templates")
 		engine = html.NewFileSystem(http.FS(viewsDir), ".hbs")
 		engine.Reload(true)
 	}
