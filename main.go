@@ -47,10 +47,31 @@ func main() {
 
 	// Get admin password from command line (priority) or environment variable
 	if adminPassword == "" {
-		adminPassword := os.Getenv("CERTAUTH_ADMIN_PASSWORD")
+		adminPassword = os.Getenv("CERTAUTH_ADMIN_PASSWORD")
 		if adminPassword == "" {
 			slog.Error("Admin password required. Set CERTAUTH_ADMIN_PASSWORD environment variable")
 			os.Exit(1)
+		}
+	}
+
+	if certauthURL == "" {
+		certauthURL = os.Getenv("CERTAUTH_URL")
+		if certauthURL == "" {
+			certauthURL = "https://certauth.evidenceledger.eu"
+		}
+	}
+
+	if certsecURL == "" {
+		certsecURL = os.Getenv("CERTSEC_URL")
+		if certsecURL == "" {
+			certsecURL = "https://certsec.evidenceledger.eu"
+		}
+	}
+
+	if onboardURL == "" {
+		onboardURL = os.Getenv("ONBOARD_URL")
+		if onboardURL == "" {
+			onboardURL = "https://onboard.evidenceledger.eu"
 		}
 	}
 

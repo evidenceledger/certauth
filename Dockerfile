@@ -15,7 +15,7 @@ COPY . .
 
 # Build the binary with CGO enabled
 # -ldflags="-w -s" strips debug information and symbols, reducing the binary size
-RUN go build -ldflags="-w -s" -o /certauth ./cmd/isbetmf
+RUN go build -ldflags="-w -s" -o /certauth .
 
 # Final stage
 FROM alpine/curl:latest
