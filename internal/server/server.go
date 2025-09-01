@@ -17,6 +17,7 @@ import (
 
 // Config is the configuration for the server
 type Config struct {
+	Development  bool
 	CertAuthPort string
 	CertAuthURL  string
 	CertSecPort  string
@@ -48,6 +49,7 @@ func New(adminPassword string, cfg Config) *Server {
 	// They share the same database and cache.
 
 	certCfg := certconfig.Config{
+		Development:  cfg.Development,
 		CertAuthURL:  cfg.CertAuthURL,
 		CertAuthPort: cfg.CertAuthPort,
 		CertSecURL:   cfg.CertSecURL,
@@ -59,7 +61,14 @@ func New(adminPassword string, cfg Config) *Server {
 
 	// Create the example RP server.
 	// It uses the CertAuth server as the OP.
-	erp := onboard.New(cfg.OnboardPort, cfg.OnboardURL, cfg.CertAuthURL, "isbeonboard", "isbesecret")
+
+	clientid := "isbeonboard"
+	clientsecret := "isbesecret"
+	if cfg.Development {
+		clientid = "example-rp"
+		clientsecret = "example-secret"
+	}
+	erp := onboard.New(cfg.OnboardPort, cfg.OnboardURL, cfg.CertAuthURL, clientid, clientsecret)
 
 	return &Server{
 		certauth:  ca,

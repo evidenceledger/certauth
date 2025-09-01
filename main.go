@@ -12,6 +12,8 @@ import (
 )
 
 var (
+	development bool
+
 	adminPassword string
 	certauthPort  string
 	certsecPort   string
@@ -22,6 +24,9 @@ var (
 )
 
 func main() {
+	// If we are in development environment or not
+	flag.BoolVar(&development, "dev", false, "Development mode")
+
 	// The password for admin screens
 	flag.StringVar(&adminPassword, "admin-password", "", "Admin password for the server")
 
@@ -45,12 +50,21 @@ func main() {
 	}))
 	slog.SetDefault(logger)
 
+	// Say if we are in development or not
+	if development {
+		slog.Info("Running in development mode")
+	}
+
 	// Get admin password from command line (priority) or environment variable
 	if adminPassword == "" {
 		adminPassword = os.Getenv("CERTAUTH_ADMIN_PASSWORD")
 		if adminPassword == "" {
-			slog.Error("Admin password required. Set CERTAUTH_ADMIN_PASSWORD environment variable")
-			os.Exit(1)
+			if development {
+				adminPassword = "pepe"
+			} else {
+				slog.Error("Admin password required. Set CERTAUTH_ADMIN_PASSWORD environment variable")
+				os.Exit(1)
+			}
 		}
 	}
 
@@ -77,6 +91,7 @@ func main() {
 
 	// Create the configuration
 	cfg := server.Config{
+		Development:  development,
 		CertAuthPort: certauthPort,
 		CertAuthURL:  certauthURL,
 		CertSecPort:  certsecPort,
