@@ -89,7 +89,8 @@ func New(db *database.Database, cache *cache.Cache, adminPassword string, cfg ce
 func (s *Server) setupRoutes() {
 	// Health check
 	s.app.Get("/health", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"status": "healthy"})
+		slog.Info("Health check", "from", c.Hostname())
+		return c.JSON(fiber.Map{"status": "healthy", "hostname": c.Hostname()})
 	})
 
 	// OIDC Discovery endpoints

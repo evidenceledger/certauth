@@ -57,21 +57,21 @@ func main() {
 	if certauthURL == "" {
 		certauthURL = os.Getenv("CERTAUTH_URL")
 		if certauthURL == "" {
-			certauthURL = "https://certauth.evidenceledger.eu"
+			certauthURL = "https://certauth.mycredential.eu"
 		}
 	}
 
 	if certsecURL == "" {
 		certsecURL = os.Getenv("CERTSEC_URL")
 		if certsecURL == "" {
-			certsecURL = "https://certsec.evidenceledger.eu"
+			certsecURL = "https://certsec.mycredential.eu"
 		}
 	}
 
 	if onboardURL == "" {
 		onboardURL = os.Getenv("ONBOARD_URL")
 		if onboardURL == "" {
-			onboardURL = "https://onboard.evidenceledger.eu"
+			onboardURL = "http://localhost:8092o"
 		}
 	}
 

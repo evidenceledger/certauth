@@ -51,6 +51,21 @@ func (d *Database) initializeTestData() error {
 		return fmt.Errorf("failed to create example RP: %w", err)
 	}
 
+	// Add ISBE Onboarding RP
+	onboardRP := &models.RelyingParty{
+		Name:        "ISBE Onboarding",
+		Description: "The ISBE Onboarding Application",
+		ClientID:    "isbeonboard",
+		RedirectURL: "https://onboard.evidenceledger.eu/callback",
+		OriginURL:   "https://onboard.evidenceledger.eu",
+		Scopes:      "openid eidas",
+		TokenExpiry: 3600,
+	}
+
+	if err := d.CreateRelyingParty(onboardRP, "isbe-secret"); err != nil {
+		return fmt.Errorf("failed to create ISBE Onboarding RP: %w", err)
+	}
+
 	slog.Info("Test data initialized", "rp_count", 2)
 	return nil
 }
