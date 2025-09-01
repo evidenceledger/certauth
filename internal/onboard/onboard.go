@@ -48,6 +48,7 @@ var viewsfs embed.FS
 // clientID is our RP client ID as registered in the OP.
 // clientSecret is our RP client secret as registered in the OP.
 func New(internalPort, ourURL, providerURL, clientID, clientSecret string) *Server {
+	slog.Info("Initializing RP", "internal_port", internalPort, "our_url", ourURL, "provider_url", providerURL, "client_id", clientID)
 
 	// Initialize the template engine
 	htmlrender, err := html.NewRendererStd(templateDebug, viewsfs, "internal/onboard/views")

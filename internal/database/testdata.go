@@ -62,10 +62,10 @@ func (d *Database) initializeTestData() error {
 		TokenExpiry: 3600,
 	}
 
-	if err := d.CreateRelyingParty(onboardRP, "isbe-secret"); err != nil {
+	if err := d.CreateRelyingParty(onboardRP, "isbesecret"); err != nil {
 		return fmt.Errorf("failed to create ISBE Onboarding RP: %w", err)
 	}
 
-	slog.Info("Test data initialized", "rp_count", 2)
+	slog.Info("Test data initialized", "rp_count", 3)
 	return nil
 }

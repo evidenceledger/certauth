@@ -59,7 +59,7 @@ func New(adminPassword string, cfg Config) *Server {
 
 	// Create the example RP server.
 	// It uses the CertAuth server as the OP.
-	erp := onboard.New(cfg.OnboardPort, cfg.OnboardURL, cfg.CertAuthURL, "example-rp", "example-secret")
+	erp := onboard.New(cfg.OnboardPort, cfg.OnboardURL, cfg.CertAuthURL, "isbeonboard", "isbesecret")
 
 	return &Server{
 		certauth:  ca,
