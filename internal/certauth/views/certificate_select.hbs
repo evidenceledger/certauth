@@ -3,58 +3,41 @@
 
 <head>
     <title>Certificate Selection Required</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 40px;
-        }
-
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        .button {
-            background: #007cba;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin: 10px;
-        }
-
-        .warning {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            padding: 15px;
-            border-radius: 4px;
-            margin: 20px 0;
-        }
-    </style>
+    {{template "partials/fomantic"}}
 </head>
 
 <body>
-    <div class="container">
-        <h1>Authentication with eIDAS certificate</h1>
-        <p>The application requires you to select a certificate for authentication.</p>
-
-        <div class="warning">
-            <strong>Note:</strong> Clicking the button below will redirect you to a secure domain where your browser
-            will prompt you to select a certificate from your certificate store.
+    <div class="ui main text container">
+        <div class="ui raised very padded segment">
+            <h1 class="ui header">
+                <i class="id card outline icon"></i>
+                <div class="content">
+                    Authentication with eIDAS Certificate
+                    <div class="sub header">Certificate Selection Required</div>
+                </div>
+            </h1>
+            <div class="ui yellow icon message">
+                <i class="info circle icon"></i>
+                <div class="content">
+                    <div class="header">Note</div>
+                    Clicking the button below will redirect you to a secure domain where your browser will prompt you to
+                    select a certificate from your certificate store.
+                </div>
+            </div>
+            <p>The application requires you to select a certificate for authentication.</p>
+            <div class="ui divider"></div>
+            <p>Click the button below to proceed with certificate selection:</p>
+            <button class="ui blue large button" onclick="proceedWithCertificate()">
+                <i class="certificate icon"></i>
+                Proceed with Certificate
+            </button>
         </div>
-
-        <p>Click the button below to proceed with certificate selection:</p>
-
-        <button class="button" onclick="proceedWithCertificate()">Proceed with Certificate</button>
-
-        <script>
-            function proceedWithCertificate() {
-                // Redirect to CertSec where the browser will prompt for certificate selection
-                window.location.href = '{{ .certsecURL }}/auth?code={{ .authCode }}';
-            }
-        </script>
     </div>
+    <script>
+        function proceedWithCertificate() {
+            window.location.href = '{{ .certsecURL }}/auth?code={{ .authCode }}';
+        }
+    </script>
 </body>
 
 </html>

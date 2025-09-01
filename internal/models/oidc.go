@@ -89,23 +89,30 @@ type RPSession struct {
 type ELSI_IDTokenClaims struct {
 	Audience               string `json:"aud"`
 	CertificateType        string `json:"elsi_certificate_type"`
-	Country                string `json:"elsi_country"`
-	Organization           string `json:"elsi_organization"`
-	OrganizationIdentifier string `json:"elsi_organization_identifier"`
-	SerialNumber           string `json:"elsi_serial_number"`
+	Country                string `json:"country"`
+	Organization           string `json:"organization"`
+	OrganizationalUnit     string `json:"organizational_unit"`
+	OrganizationIdentifier string `json:"organization_identifier"`
+	SerialNumber           string `json:"serial_number"`
 	Expiration             int64  `json:"exp"`
 	IssuedAt               int64  `json:"iat"`
 	Issuer                 string `json:"iss"`
 	Name                   string `json:"name"`
 	Nonce                  string `json:"nonce"`
 	Subject                string `json:"sub"`
+	CommonName             string `json:"common_name"`
+	Surname                string `json:"surname"`
 	FamilyName             string `json:"family_name"`
 	GivenName              string `json:"given_name"`
 	Email                  string `json:"email"`
-	Locality               string `json:"elsi_locality"`
-	Province               string `json:"elsi_province"`
-	StreetAddress          string `json:"elsi_street_address"`
-	PostalCode             string `json:"elsi_postal_code"`
+	Locality               string `json:"locality"`
+	Province               string `json:"province"`
+	StreetAddress          string `json:"street_address"`
+	PostalCode             string `json:"postal_code"`
+	ValidFrom              int64  `json:"valid_from"`
+	ValidTo                int64  `json:"valid_to"`
+	ValidFromStr           string `json:"-"`
+	ValidToStr             string `json:"-"`
 }
 
 func (c *ELSI_IDTokenClaims) GetExpirationTime() (*jwt.NumericDate, error) {

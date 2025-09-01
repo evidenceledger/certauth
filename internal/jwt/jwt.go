@@ -76,9 +76,12 @@ func (s *Service) GenerateIDToken(authCode *models.AuthCode, certData *models.Ce
 	}
 
 	// Add standard claims from certificate if available
-	if certData.Subject.CommonName != "" {
+	if certData.Subject.Organization != "" {
+		claims["name"] = certData.Subject.CommonName
+	} else if certData.Subject.CommonName != "" {
 		claims["name"] = certData.Subject.CommonName
 	}
+
 	if certData.Subject.GivenName != "" {
 		claims["given_name"] = certData.Subject.GivenName
 	}
@@ -149,31 +152,37 @@ func (s *Service) generateELSIClaims(certData *models.CertificateData) map[strin
 
 	// Map certificate fields to elsi_ claims
 	if certData.Subject.Organization != "" {
-		claims["elsi_organization"] = certData.Subject.Organization
+		claims["organization"] = certData.Subject.Organization
 	}
 	if certData.Subject.OrganizationalUnit != "" {
-		claims["elsi_organizational_unit"] = certData.Subject.OrganizationalUnit
+		claims["organizational_unit"] = certData.Subject.OrganizationalUnit
+	}
+	if certData.Subject.CommonName != "" {
+		claims["common_name"] = certData.Subject.CommonName
 	}
 	if certData.Subject.Locality != "" {
-		claims["elsi_locality"] = certData.Subject.Locality
+		claims["locality"] = certData.Subject.Locality
 	}
 	if certData.Subject.Province != "" {
-		claims["elsi_province"] = certData.Subject.Province
+		claims["province"] = certData.Subject.Province
 	}
 	if certData.Subject.StreetAddress != "" {
-		claims["elsi_street_address"] = certData.Subject.StreetAddress
+		claims["street_address"] = certData.Subject.StreetAddress
 	}
 	if certData.Subject.PostalCode != "" {
-		claims["elsi_postal_code"] = certData.Subject.PostalCode
+		claims["postal_code"] = certData.Subject.PostalCode
 	}
 	if certData.Subject.SerialNumber != "" {
-		claims["elsi_serial_number"] = certData.Subject.SerialNumber
+		claims["serial_number"] = certData.Subject.SerialNumber
 	}
 	if certData.Subject.Country != "" {
-		claims["elsi_country"] = certData.Subject.Country
+		claims["country"] = certData.Subject.Country
 	}
 	// Always include the organization identifier
-	claims["elsi_organization_identifier"] = certData.Subject.OrganizationIdentifier
+	claims["organization_identifier"] = certData.Subject.OrganizationIdentifier
+
+	claims["valid_from"] = certData.ValidFrom.Unix()
+	claims["valid_to"] = certData.ValidTo.Unix()
 
 	return claims
 }

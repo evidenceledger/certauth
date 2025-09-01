@@ -295,7 +295,7 @@ func (s *Server) generateTokens(authCode *models.AuthCode, rp *models.RelyingPar
 	if s.jwtService == nil {
 		// Fallback to basic tokens if JWT service is not available
 		accessToken := generateRandomToken()
-		return map[string]interface{}{
+		return map[string]any{
 			"access_token": accessToken,
 			"token_type":   "Bearer",
 			"expires_in":   3600,
@@ -323,7 +323,7 @@ func (s *Server) generateTokens(authCode *models.AuthCode, rp *models.RelyingPar
 			"organization", certData.Subject.Organization,
 		)
 
-		return map[string]interface{}{
+		return map[string]any{
 			"access_token": accessToken.AccessToken,
 			"token_type":   accessToken.TokenType,
 			"expires_in":   accessToken.ExpiresIn,

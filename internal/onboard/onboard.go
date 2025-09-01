@@ -373,7 +373,6 @@ func (s *Server) renderWelcomePage(w http.ResponseWriter, session *models.RPSess
 
 	fmt.Printf("ID token claims: %+v\n", idTokenClaims)
 
-	// Sample certificate data for demonstration
 	certInfo := map[string]string{
 		"organization":     idTokenClaims.Organization,
 		"organization_id":  idTokenClaims.OrganizationIdentifier,
@@ -387,9 +386,13 @@ func (s *Server) renderWelcomePage(w http.ResponseWriter, session *models.RPSess
 		"valid_to":         time.Unix(idTokenClaims.Expiration, 0).Format("2006-01-02 15:04:05"),
 	}
 
+	idTokenClaims.ValidFromStr = time.Unix(idTokenClaims.ValidFrom, 0).Format("2006-01-02 15:04:05")
+	idTokenClaims.ValidToStr = time.Unix(idTokenClaims.ValidTo, 0).Format("2006-01-02 15:04:05")
+
 	data := map[string]any{
 		"session":  session,
 		"certInfo": certInfo,
+		"subject":  idTokenClaims,
 	}
 
 	s.html.Render(w, "welcome", data)

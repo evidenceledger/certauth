@@ -1,65 +1,116 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Consent Required</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 40px; }
-        .container { max-width: 800px; margin: 0 auto; }
-        .button { background: #007cba; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 10px; }
-        .button.danger { background: #dc3545; }
-        .info { background: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; border-radius: 4px; margin: 20px 0; }
-        .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 4px; margin: 20px 0; }
-        .cert-info { background: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; border-radius: 4px; margin: 20px 0; }
-    </style>
+    {{template "partials/fomantic"}}
 </head>
+
 <body>
-    <div class="container">
-        <h1>Consent Required</h1>
-        <p>
-            The application <strong>ISBE Onboarding</strong> is requesting access to your certificate information.
-            If you grant access, this is the information that we will send to the application.
-        </p>
-        
-        <div class="info">
-            <h3>Certificate Information:</h3>
-            <ul>
-                <li><strong>Certificate Type:</strong> {{ .certType }}</li>
-                <li><strong>Common Name:</strong> {{ .subject.CommonName }}</li>
-                <li><strong>Organization:</strong> {{ .subject.Organization }}</li>
-                <li><strong>Organizational Unit:</strong> {{ .subject.OrganizationalUnit }}</li>
-                <li><strong>Country:</strong> {{ .subject.Country }}</li>
-                <li><strong>Email:</strong> {{ .subject.EmailAddress }}</li>
-                <li><strong>Valid From:</strong> {{ .cert.NotBefore }}</li>
-                <li><strong>Valid To:</strong> {{ .cert.NotAfter }}</li>
-            </ul>
+    <div class="ui main text container">
+        <div class="ui raised padded segment">
+            <h1 class="ui header">
+                <i class="shield alternate icon"></i>
+                <div class="content">
+                    Consent Required
+                    <div class="sub header">Certificate Information Access Request</div>
+                </div>
+            </h1>
+            <div class="ui warning message">
+                <p>
+                    The application <strong>ISBE Onboarding</strong> is requesting access to your certificate
+                    information.<br>
+                    If you grant access, this is the information that we will send to the application.
+                </p>
+            </div>
+
+            <div class="ui teal segment">
+
+                {{ if .subject.OrganizationIdentifier }}
+                <h3 class="ui header"><i class="building icon"></i>Organization Certificate Details</h3>
+                {{ else }}
+                <h3 class="ui header"><i class="user icon"></i>Personal Certificate Details</h3>
+                {{ end }}
+
+                <div class="ui list">
+
+                    {{ if .subject.OrganizationIdentifier }}
+                    <div class="item"><strong>Organization Identifier:</strong> {{ .subject.OrganizationIdentifier }}</div>
+                    {{ end }}
+
+                    {{ if .subject.Organization }}
+                    <div class="item"><strong>Organization:</strong> {{ .subject.Organization }}</div>
+                    {{ end }}
+
+                    {{ if .subject.OrganizationalUnit }}
+                    <div class="item"><strong>Organizational Unit:</strong> {{ .subject.OrganizationalUnit }}</div>
+                    {{ end }}
+
+                    {{ if .subject.Country }}
+                    <div class="item"><strong>Country:</strong> {{ .subject.Country }}</div>
+                    {{ end }}
+
+
+                    {{ if .subject.CommonName }}
+                    <div class="item"><strong>Common Name:</strong> {{ .subject.CommonName }}</div>
+                    {{ end }}
+
+                    {{ if .subject.SerialNumber }}
+                    <div class="item"><strong>Serial Number:</strong> {{ .subject.SerialNumber }}</div>
+                    {{ end }}
+
+
+                    {{ if .subject.EmailAddress }}
+                    <div class="item"><strong>Email:</strong> {{ .subject.EmailAddress }}</div>
+                    {{ end }}
+
+
+                    {{ if .subject.Locality }}
+                    <div class="item"><strong>Locality:</strong> {{ .subject.Locality }}</div>
+                    {{ end }}
+
+                    {{ if .subject.Province }}
+                    <div class="item"><strong>Province:</strong> {{ .subject.Province }}</div>
+                    {{ end }}
+
+                    {{ if .subject.StreetAddress }}
+                    <div class="item"><strong>Street Address:</strong> {{ .subject.StreetAddress }}</div>
+                    {{ end }}
+
+                    {{ if .subject.PostalCode }}
+                    <div class="item"><strong>Postal Code:</strong> {{ .subject.PostalCode }}</div>
+                    {{ end }}
+                </div>
+            </div>
+
+            {{ if .subject.OrganizationIdentifier }}
+            {{ else }}
+            <div class="ui yellow icon message">
+                <i class="exclamation triangle icon"></i>
+                <div class="content">
+                    <div class="header">Warning</div>
+                    This is a personal certificate (does not contain organization identifier).
+                    The relying party may have specific requirements for organizational certificates.
+                </div>
+            </div>
+            {{ end }}
+
+            <div class="ui divider"></div>
+            <div class="ui segment">
+                <p>Do you want to proceed with the authentication?</p>
+                <div class="ui two buttons">
+                    <a class="ui green button"
+                        href="{{ .authCodeObj.RedirectURI }}?code={{ .authCode }}&state={{ .authCodeObj.State }}">
+                        <i class="check icon"></i> Grant Access
+                    </a>
+                    <a class="ui red button"
+                        href="{{ .authCodeObj.RedirectURI }}?error=access_denied&state={{ .authCodeObj.State }}">
+                        <i class="times circle icon"></i> Deny Access
+                    </a>
+                </div>
+            </div>
         </div>
-
-        {{ if .subject.OrganizationIdentifier }}
-        <div class="cert-info">
-            <h4>Organization Details:</h4>
-            <ul>
-                <li><strong>Organization Identifier:</strong> {{ .subject.OrganizationIdentifier }}</li>
-                <li><strong>Locality:</strong> {{ .subject.Locality }}</li>
-                <li><strong>Province:</strong> {{ .subject.Province }}</li>
-                <li><strong>Street Address:</strong> {{ .subject.StreetAddress }}</li>
-                <li><strong>Postal Code:</strong> {{ .subject.PostalCode }}</li>
-            </ul>
-        </div>
-
-        {{ else }}
-
-        <div class="warning">
-            <strong>Warning:</strong> This is a personal certificate (does not contain organization identifier). 
-            The relying party may have specific requirements for organizational certificates.
-        </div>
-        {{ end }}
-
-        <p>Do you want to proceed with the authentication?</p>
-        
-        <button class="button" onclick="window.location.href='{{ .authCodeObj.RedirectURI }}?code={{ .authCode }}&state={{ .authCodeObj.State }}'">Grant Access</button>
-        <button class="button danger" onclick="window.location.href='{{ .authCodeObj.RedirectURI }}?error=access_denied&state={{ .authCodeObj.State }}'">Deny Access</button>
-
     </div>
 </body>
 
-</html>
+</html>    

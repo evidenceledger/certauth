@@ -12,14 +12,7 @@
             "mode": "auto",
             "program": "main.go",
             "args": [
-                "--admin-password",
-                "admin",
-                "-certauth-url",
-                "https://certauth.mycredential.eu",
-                "-certsec-url",
-                "https://certsec.mycredential.eu",
-                "-onboard-url",
-                "http://localhost:8092",
+                "-dev",
             ]
         }
     ]
