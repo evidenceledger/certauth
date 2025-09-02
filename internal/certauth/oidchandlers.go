@@ -306,6 +306,9 @@ func (s *Server) generateTokens(authCode *models.AuthCode, rp *models.RelyingPar
 
 	// If we have certificate data, generate real JWT tokens
 	if certData != nil {
+
+		storedEmail, found := s.cache.Get(authCode.Code + "_verified_email")
+		slog.Debug("generateTokens", "storedEmail", storedEmail, "found", found)
 		// Generate ID token
 		idToken, err := s.jwtService.GenerateIDToken(authCode, certData, rp)
 		if err != nil {

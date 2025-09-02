@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Email Confirmation (1 of 2)</title>
+    {{template "partials/fomantic"}}
+</head>
+
+<body>
+    <div class="ui main text container">
+        <div class="ui raised padded segment">
+            <h1 class="ui header">
+                <i class="envelope icon"></i>
+                <div class="content">
+                    Email Confirmation (1 of 2)
+                    <div class="sub header">Additional Verification Required</div>
+                </div>
+            </h1>
+            <div class="ui info message">
+                <p>
+                    We have successfully verified your certificate. Now we need to confirm your email address to complete the authentication process.
+                </p>
+            </div>
+
+            <div class="ui teal segment">
+                <h3 class="ui header"><i class="id card icon"></i>Certificate Information Retrieved</h3>
+                <p>Your certificate has been verified and contains the following information:</p>
+
+                {{ if .subject.OrganizationIdentifier }}
+                <h4 class="ui header"><i class="building icon"></i>Organization Certificate Details</h4>
+                {{ else }}
+                <h4 class="ui header"><i class="user icon"></i>Personal Certificate Details</h4>
+                {{ end }}
+
+                <div class="ui list">
+                    {{ if .subject.OrganizationIdentifier }}
+                    <div class="item"><strong>Organization Identifier:</strong> {{ .subject.OrganizationIdentifier }}</div>
+                    {{ end }}
+
+                    {{ if .subject.Organization }}
+                    <div class="item"><strong>Organization:</strong> {{ .subject.Organization }}</div>
+                    {{ end }}
+
+                    {{ if .subject.OrganizationalUnit }}
+                    <div class="item"><strong>Organizational Unit:</strong> {{ .subject.OrganizationalUnit }}</div>
+                    {{ end }}
+
+                    {{ if .subject.Country }}
+                    <div class="item"><strong>Country:</strong> {{ .subject.Country }}</div>
+                    {{ end }}
+
+                    {{ if .subject.CommonName }}
+                    <div class="item"><strong>Common Name:</strong> {{ .subject.CommonName }}</div>
+                    {{ end }}
+
+                    {{ if .subject.SerialNumber }}
+                    <div class="item"><strong>Serial Number:</strong> {{ .subject.SerialNumber }}</div>
+                    {{ end }}
+
+                    {{ if .subject.EmailAddress }}
+                    <div class="item"><strong>Email from Certificate:</strong> {{ .subject.EmailAddress }}</div>
+                    {{ end }}
+
+                    {{ if .subject.Locality }}
+                    <div class="item"><strong>Locality:</strong> {{ .subject.Locality }}</div>
+                    {{ end }}
+
+                    {{ if .subject.Province }}
+                    <div class="item"><strong>Province:</strong> {{ .subject.Province }}</div>
+                    {{ end }}
+
+                    {{ if .subject.StreetAddress }}
+                    <div class="item"><strong>Street Address:</strong> {{ .subject.StreetAddress }}</div>
+                    {{ end }}
+
+                    {{ if .subject.PostalCode }}
+                    <div class="item"><strong>Postal Code:</strong> {{ .subject.PostalCode }}</div>
+                    {{ end }}
+                </div>
+            </div>
+
+            {{ if .subject.OrganizationIdentifier }}
+            {{ else }}
+            <div class="ui yellow icon message">
+                <i class="exclamation triangle icon"></i>
+                <div class="content">
+                    <div class="header">Note</div>
+                    This is a personal certificate (does not contain organization identifier).
+                    The relying party may have specific requirements for organizational certificates.
+                </div>
+            </div>
+            {{ end }}
+
+            <div class="ui divider"></div>
+            
+            <div class="ui segment">
+                <h3 class="ui header"><i class="envelope icon"></i>Email Confirmation</h3>
+                <p>Please enter your email address below. We will send you a verification code to confirm ownership of this email address.</p>
+                
+                <form class="ui form" method="POST" action="/request-email-verification">
+                    <input type="hidden" name="auth_code" value="{{ .authCode }}">
+                    <div class="field">
+                        <label for="email">Email Address</label>
+                        <input type="email" id="email" name="email" placeholder="Enter your email address" required>
+                    </div>
+                    <button type="submit" class="ui blue button">
+                        <i class="paper plane icon"></i> Send Verification Code
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>    

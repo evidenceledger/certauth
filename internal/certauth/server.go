@@ -5,13 +5,16 @@ import (
 	"embed"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"net"
+	"regexp"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/fiber/v2/utils"
 
 	"github.com/evidenceledger/certauth/internal/cache"
 	"github.com/evidenceledger/certauth/internal/certconfig"
@@ -107,7 +110,13 @@ func (s *Server) setupRoutes() {
 	s.app.Get("/certificate-select", s.handleCertificateSelect)
 
 	// Certificate consent screen - shows after redirecting from CertSec
-	s.app.Get("/certificate-back", s.handleCertificateBack)
+	s.app.Get("/certificate-back", s.handleCertificateReceive)
+
+	// Email verification form submission
+	s.app.Post("/request-email-verification", s.handleRequestEmailVerification)
+
+	// Email verification code verification
+	s.app.Post("/verify-email-code", s.handleVerifyEmailCode)
 
 	// Test callback endpoint for testing the complete flow
 	s.app.Get("/callback", s.handleTestCallback)
@@ -140,14 +149,14 @@ func (s *Server) handleCertificateSelect(c *fiber.Ctx) error {
 	slog.Info("Certificate selection requested", "auth_code", authCode)
 
 	// Send HTML response
-	return s.html.Render(c, "certificate_select", fiber.Map{
+	return s.html.Render(c, "1_certificate_select", fiber.Map{
 		"authCode":   authCode,
 		"certsecURL": s.cfg.CertSecURL,
 	})
 
 }
 
-func (s *Server) handleCertificateBack(c *fiber.Ctx) error {
+func (s *Server) handleCertificateReceive(c *fiber.Ctx) error {
 	// Get auth code from query parameter
 	authCode := c.Query("code")
 	if authCode == "" {
@@ -191,7 +200,7 @@ func (s *Server) handleCertificateBack(c *fiber.Ctx) error {
 	slog.Info("Certificate received", "auth_code", authCode, "cert_length", len(certData.Certificate.Raw))
 
 	// Send HTML response
-	return s.html.Render(c, "certificate_consent", fiber.Map{
+	return s.html.Render(c, "2_certificate_received", fiber.Map{
 		"authCode":    authCode,
 		"authCodeObj": authCodeObj,
 		"certType":    certData.CertificateType,
@@ -378,6 +387,180 @@ func (s *Server) generateTestTokens(c *fiber.Ctx, certData *models.CertificateDa
 		"id_token":         idToken,
 		"certificate_type": certData.CertificateType,
 		"organization_id":  certData.OrganizationID,
+	})
+}
+
+// handleRequestEmailVerification handles the email verification form submission
+func (s *Server) handleRequestEmailVerification(c *fiber.Ctx) error {
+	// Get form data
+	email := utils.CopyString(c.FormValue("email"))
+	authCode := c.FormValue("auth_code")
+
+	if email == "" || authCode == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Missing email or authorization code",
+		})
+	}
+
+	// Basic email format validation
+	if !isValidEmail(email) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid email format",
+		})
+	}
+
+	slog.Info("Email verification requested", "email", email, "auth_code", authCode)
+
+	// Retrieve the certificate data from cache
+	certDataAny, ok := s.cache.Get(authCode)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Certificate data not found",
+		})
+	}
+
+	certData, ok := certDataAny.(*models.CertificateData)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid certificate data",
+		})
+	}
+
+	// Generate a random 6-digit verification code
+	verificationCode := generateRandomCode()
+
+	// For testing purposes, we'll store the code in the cache
+	// In production, this would be sent via email
+	s.cache.Set(authCode+"_email", email, 10*time.Minute)
+	s.cache.Set(authCode+"_code", verificationCode, 10*time.Minute)
+
+	slog.Info("Verification code generated", "code", verificationCode, "auth_code", authCode)
+
+	// Render the confirm_email template
+	return s.html.Render(c, "3_confirm_email", fiber.Map{
+		"email":            email,
+		"authCode":         authCode,
+		"verificationCode": verificationCode, // For testing - remove in production
+		"subject":          certData.Subject,
+	})
+}
+
+// isValidEmail performs basic email format validation
+func isValidEmail(email string) bool {
+	// Simple regex for basic email validation
+	emailRegex := `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
+	matched, _ := regexp.MatchString(emailRegex, email)
+	return matched
+}
+
+// generateRandomCode generates a random 6-digit verification code
+func generateRandomCode() string {
+	// Generate a random 6-digit number
+	code := rand.Intn(900000) + 100000 // 100000 to 999999
+	return fmt.Sprintf("%06d", code)
+}
+
+// handleVerifyEmailCode handles the email verification code verification
+func (s *Server) handleVerifyEmailCode(c *fiber.Ctx) error {
+	// Get form data
+	verificationCode := utils.CopyString(c.FormValue("verification_code"))
+	authCode := utils.CopyString(c.FormValue("auth_code"))
+	email := utils.CopyString(c.FormValue("email"))
+
+	if verificationCode == "" || authCode == "" || email == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Missing verification code, authorization code, or email",
+		})
+	}
+
+	slog.Info("Email verification code verification requested", "email", email, "auth_code", authCode)
+
+	// Retrieve the stored verification code from cache
+	storedCodeAny, ok := s.cache.Get(authCode + "_code")
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Verification code expired or not found",
+		})
+	}
+
+	storedCode, ok := storedCodeAny.(string)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid stored verification code",
+		})
+	}
+
+	// Verify the code
+	if verificationCode != storedCode {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid verification code",
+		})
+	}
+
+	slog.Info("Email verification code verified successfully", "email", email, "auth_code", authCode)
+
+	// Retrieve the stored email from cache
+	storedEmailAny, ok := s.cache.Get(authCode + "_email")
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Email not found in cache",
+		})
+	}
+
+	storedEmail, ok := storedEmailAny.(string)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid stored email",
+		})
+	}
+	slog.Debug("Stored email", "email", storedEmail)
+
+	// Retrieve the AuthorizationRequest associated with the authCode
+	authCodeObj, err := s.db.GetAuthCode(authCode)
+	if err != nil {
+		slog.Error("Failed to retrieve authorization code from DB", "error", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Internal server error",
+		})
+	}
+	if authCodeObj == nil {
+		slog.Error("Authorization code not found in DB", "auth_code", authCode)
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid authorization code",
+		})
+	}
+
+	// Retrieve the certificate data from cache
+	certDataAny, ok := s.cache.Get(authCode)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Certificate data not found",
+		})
+	}
+
+	certData, ok := certDataAny.(*models.CertificateData)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid certificate data",
+		})
+	}
+
+	// Update the email field in the certificate data
+	certData.Subject.EmailAddress = storedEmail
+
+	// And store it again in the cache
+	s.cache.Set(authCode, certData, 10*time.Minute)
+
+	// Store the verified email in cache for the final consent screen
+	s.cache.Set(authCode+"_verified_email", storedEmail, 10*time.Minute)
+
+	// Render the certificate consent template
+	return s.html.Render(c, "4_certificate_consent", fiber.Map{
+		"authCode":    authCode,
+		"authCodeObj": authCodeObj,
+		"certType":    certData.CertificateType,
+		"subject":     certData.Subject,
+		"email":       storedEmail,
 	})
 }
 
