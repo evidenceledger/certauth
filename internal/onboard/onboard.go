@@ -83,6 +83,18 @@ func (s *Server) Start() error {
 	// Handle requests with "/static/" prefix
 	http.Handle("/static/", http.StripPrefix("/static", fileServer))
 
+	addr := net.JoinHostPort("0.0.0.0", s.internalPort)
+	slog.Info("Onboard server started", "addr", addr, "op_base_url", s.providerURL)
+
+	return http.ListenAndServe(addr, nil)
+}
+
+func (s *Server) configureVerifier() error {
+
+	if s.verifier != nil {
+		return nil
+	}
+
 	ctx := context.Background()
 
 	// Configure how to call the provider via discovery
@@ -140,16 +152,20 @@ func (s *Server) Start() error {
 	s.oauth2Config = oauth2Config
 	s.verifier = verifier
 
-	addr := net.JoinHostPort("0.0.0.0", s.internalPort)
-	slog.Info("Onboard server started", "addr", addr, "op_base_url", s.providerURL)
-
-	return http.ListenAndServe(addr, nil)
+	return nil
 }
 
 // handleHome handles the home page
 func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
+		return
+	}
+
+	err := s.configureVerifier()
+	if err != nil {
+		slog.Error("Failed to configure verifier", "error", err)
+		http.Error(w, "Failed to configure verifier", http.StatusInternalServerError)
 		return
 	}
 
@@ -166,6 +182,14 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 
 // handleLogin initiates the OIDC flow
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
+
+	err := s.configureVerifier()
+	if err != nil {
+		slog.Error("Failed to configure verifier", "error", err)
+		http.Error(w, "Failed to configure verifier", http.StatusInternalServerError)
+		return
+	}
+
 	// Generate state for CSRF protection
 	state := s.generateRandomString(32)
 
@@ -190,7 +214,14 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
-	// Generate state for CSRF protection
+
+	err := s.configureVerifier()
+	if err != nil {
+		slog.Error("Failed to configure verifier", "error", err)
+		http.Error(w, "Failed to configure verifier", http.StatusInternalServerError)
+		return
+	}
+
 	state := s.generateRandomString(32)
 
 	// Generate nonce for replay protection
@@ -311,6 +342,14 @@ func (s *Server) handleCallback(w http.ResponseWriter, r *http.Request) {
 
 // handleLogout handles user logout
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+
+	err := s.configureVerifier()
+	if err != nil {
+		slog.Error("Failed to configure verifier", "error", err)
+		http.Error(w, "Failed to configure verifier", http.StatusInternalServerError)
+		return
+	}
+
 	// Clear session cookie
 	http.SetCookie(w, &http.Cookie{
 		Name:     "rp_session",

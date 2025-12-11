@@ -93,6 +93,11 @@ func (s *Server) pageRequestEmail(c *fiber.Ctx) error {
 	// Get the certificate data that was set by the certificate authentication process
 	certData := authProcess.CertificateData
 
+	// Validate the certificate data
+	if certData == nil {
+		return errl.Errorf("certificate data is nil")
+	}
+
 	// Check if the organization is already registered
 	email, contractForm, _, err := s.db.GetRegistration(certData.OrganizationID)
 	if err != nil {
