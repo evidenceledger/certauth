@@ -480,6 +480,7 @@ func (s *Server) handleContractAccepted(c *fiber.Ctx) error {
 }
 
 const mainPortalURL = "https://poc-middleware-management.dev.cloud-w.envs.redisbe.com/api/managements"
+const DELETE_URL = "https://poc-middleware-management.dev.cloud-w.envs.redisbe.com/api/managements/organization/"
 
 func notifySimple() (map[string]any, error) {
 
@@ -607,9 +608,9 @@ func notifySimple() (map[string]any, error) {
 func (s *Server) notifyMainPortal(certData *models.CertificateData, email string, contractForm *models.ContractForm, fileToSend []byte) ([]map[string]any, error) {
 
 	organizationIdentifier := contractForm.OrganizationNif
-	suffix := generateRandomString()
-	suffix = suffix[:5]
-	organizationIdentifier = organizationIdentifier + "-" + suffix
+	// suffix := generateRandomString()
+	// suffix = suffix[:5]
+	// organizationIdentifier = organizationIdentifier + "-" + suffix
 
 	// Structs for the data to be sent
 	type Role struct {
@@ -675,9 +676,18 @@ func (s *Server) notifyMainPortal(certData *models.CertificateData, email string
 
 	slog.Info("Sending POST to main portal", "url", mainPortalURL)
 
-	// body := bodyBuf.Bytes()
-
-	// fmt.Println(string(body))
+	// Do a DELETE request to delete the organization from the main portal
+	deleteURL := DELETE_URL + organizationIdentifier
+	deleteReq, err := http.NewRequest("DELETE", deleteURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create delete request: %w", err)
+	}
+	deleteClient := &http.Client{}
+	deleteResp, err := deleteClient.Do(deleteReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send delete request: %w", err)
+	}
+	defer deleteResp.Body.Close()
 
 	// Create and send the HTTP request
 	req, err := http.NewRequest("POST", mainPortalURL, bodyBuf)
