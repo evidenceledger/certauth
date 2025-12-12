@@ -413,6 +413,7 @@ func (s *Server) generateTokens(authProcess *models.AuthProcess, rp *models.Rely
 		if err != nil {
 			return nil, errl.Errorf("failed to generate ID token: %w", err)
 		}
+		slog.Debug("ID Token", "token", idToken)
 
 		tokenString, err := s.jwtService.GenerateAccessTokenForCert(authProcess, certData, rp)
 		if err != nil {
