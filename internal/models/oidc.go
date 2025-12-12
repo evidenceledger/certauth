@@ -44,7 +44,7 @@ type AuthProcess struct {
 	CreatedAt             time.Time        `json:"created_at"`
 	ExpiresAt             time.Time        `json:"expires_at"`
 	CertificateData       *CertificateData `json:"certificate_data,omitempty"`
-	Powers                []map[string]any `json:"powers,omitempty"`
+	Powers                string           `json:"powers,omitempty"`
 	SignedAnnex           string           `json:"signed_annex,omitempty"`
 	Email                 string           `json:"email,omitempty"`
 	EmailVerificationCode string           `json:"email_verification_code,omitempty"`

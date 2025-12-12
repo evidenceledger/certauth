@@ -151,7 +151,7 @@ func (s *JWTService) GenerateIDTokenForCert(authProcess *models.AuthProcess, cer
 
 	// Add signed annex information
 	claims["signed_annex"] = authProcess.SignedAnnex
-	claims["powers"] = authProcess.Powers
+	claims["power"] = authProcess.Powers
 
 	// Create token
 	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
