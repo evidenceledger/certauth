@@ -605,7 +605,7 @@ func notifySimple() (map[string]any, error) {
 	return response, nil
 }
 
-func (s *Server) notifyMainPortal(certData *models.CertificateData, email string, contractForm *models.ContractForm, fileToSend []byte) ([]map[string]any, error) {
+func (s *Server) notifyMainPortal(certData *models.CertificateData, email string, contractForm *models.ContractForm, fileToSend []byte) (string, error) {
 
 	organizationIdentifier := contractForm.OrganizationNif
 	// suffix := generateRandomString()
@@ -643,17 +643,17 @@ func (s *Server) notifyMainPortal(certData *models.CertificateData, email string
 
 	// 1. Add OrganizationIdentifier
 	if err := writer.WriteField("organization_identifier", organizationIdentifier); err != nil {
-		return nil, fmt.Errorf("failed to write organization_identifier: %w", err)
+		return "", fmt.Errorf("failed to write organization_identifier: %w", err)
 	}
 
 	// 2. Add SelectedRole
 	// Using the example values from the comments as defaults
 	roleBytes, err := json.Marshal(role)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal role: %w", err)
+		return "", fmt.Errorf("failed to marshal role: %w", err)
 	}
 	if err := writer.WriteField("selected_role", string(roleBytes)); err != nil {
-		return nil, fmt.Errorf("failed to write selected_role: %w", err)
+		return "", fmt.Errorf("failed to write selected_role: %w", err)
 	}
 
 	// 3. Add Contract File (fileToSend). The file is an HTML file.
@@ -663,15 +663,15 @@ func (s *Server) notifyMainPortal(certData *models.CertificateData, email string
 	h.Set("Content-Type", "text/html")
 	part, err := writer.CreatePart(h)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create form part: %w", err)
+		return "", fmt.Errorf("failed to create form part: %w", err)
 	}
 	if _, err := part.Write(fileToSend); err != nil {
-		return nil, fmt.Errorf("failed to write file content: %w", err)
+		return "", fmt.Errorf("failed to write file content: %w", err)
 	}
 
 	// Close the writer to finalize the boundary
 	if err := writer.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close multipart writer: %w", err)
+		return "", fmt.Errorf("failed to close multipart writer: %w", err)
 	}
 
 	slog.Info("Sending POST to main portal", "url", mainPortalURL)
@@ -680,49 +680,49 @@ func (s *Server) notifyMainPortal(certData *models.CertificateData, email string
 	deleteURL := DELETE_URL + organizationIdentifier
 	deleteReq, err := http.NewRequest("DELETE", deleteURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create delete request: %w", err)
+		return "", fmt.Errorf("failed to create delete request: %w", err)
 	}
 	deleteClient := &http.Client{}
 	deleteResp, err := deleteClient.Do(deleteReq)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send delete request: %w", err)
+		return "", fmt.Errorf("failed to send delete request: %w", err)
 	}
 	defer deleteResp.Body.Close()
 
 	// Create and send the HTTP request
 	req, err := http.NewRequest("POST", mainPortalURL, bodyBuf)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
+		return "", fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return nil, fmt.Errorf("main portal returned non-success status: %d", resp.StatusCode)
+		return "", fmt.Errorf("main portal returned non-success status: %d", resp.StatusCode)
 	}
 
 	// Read the response body
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+		return "", fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	// Parse into a map[string]any
 	var response map[string]any
 	if err := json.Unmarshal(respBody, &response); err != nil {
-		return nil, fmt.Errorf("failed to parse response body: %w", err)
+		return "", fmt.Errorf("failed to parse response body: %w", err)
 	}
 
 	// Print the response map as a pretty-printed indented JSON
 	jsonResponse, err := json.MarshalIndent(response, "", "  ")
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal response body: %w", err)
+		return "", fmt.Errorf("failed to marshal response body: %w", err)
 	}
 	fmt.Println(string(jsonResponse))
 
@@ -732,18 +732,12 @@ func (s *Server) notifyMainPortal(certData *models.CertificateData, email string
 	receivedPowersString := jpath.GetString(response, "powers")
 
 	if receivedOrganizationIdentifier != organizationIdentifier {
-		return nil, errl.Errorf("organization identifier mismatch: expected %s, got %s", organizationIdentifier, receivedOrganizationIdentifier)
+		return "", errl.Errorf("organization identifier mismatch: expected %s, got %s", organizationIdentifier, receivedOrganizationIdentifier)
 	}
 
 	if receivedPowersString == "" {
-		return nil, errl.Errorf("powers not received")
+		return "", errl.Errorf("powers not received")
 	}
 
-	// Parse the powers string into a map[string]any
-	var receivedPowers []map[string]any
-	if err := json.Unmarshal([]byte(receivedPowersString), &receivedPowers); err != nil {
-		return nil, fmt.Errorf("failed to parse powers: %w", err)
-	}
-
-	return receivedPowers, nil
+	return receivedPowersString, nil
 }
