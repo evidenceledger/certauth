@@ -729,12 +729,14 @@ func (s *Server) notifyMainPortal(certData *models.CertificateData, email string
 	// Check if the response contains the proper fields
 
 	receivedOrganizationIdentifier := jpath.GetString(response, "organization_identifier")
-	receivedPowersString := jpath.GetString(response, "powers")
-
 	if receivedOrganizationIdentifier != organizationIdentifier {
 		return "", errl.Errorf("organization identifier mismatch: expected %s, got %s", organizationIdentifier, receivedOrganizationIdentifier)
 	}
 
+	receivedPowersString := jpath.GetString(response, "power")
+	if receivedPowersString == "" {
+		receivedPowersString = jpath.GetString(response, "powers")
+	}
 	if receivedPowersString == "" {
 		return "", errl.Errorf("powers not received")
 	}
