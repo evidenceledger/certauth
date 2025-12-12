@@ -3,15 +3,23 @@ package certauth
 import (
 	"crypto/rand"
 	"fmt"
+	"io"
 	"log/slog"
 	"math/big"
 	"regexp"
 	"time"
 
 	"github.com/evidenceledger/certauth/internal/errl"
+	"github.com/evidenceledger/certauth/internal/jpath"
 	"github.com/evidenceledger/certauth/internal/models"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/utils"
+
+	"bytes"
+	"encoding/json"
+	"mime/multipart"
+	"net/http"
+	"net/textproto"
 )
 
 const (
@@ -420,13 +428,18 @@ func (s *Server) handleContractAccepted(c *fiber.Ctx) error {
 	// Update the auth process with the signed annex
 	authProcess.SignedAnnex = formData.Annex
 
+	fileToSend := []byte(contrato)
+
 	// Notify the main portal that the registration is complete
-	if err := s.notifyMainPortal(authProcess.CertificateData, storedEmail, &formData); err != nil {
+	if powers, err := s.notifyMainPortal(authProcess.CertificateData, storedEmail, &formData, fileToSend); err != nil {
 		err = errl.Errorf("notifying main portal: %w", err)
 		slog.Error(err.Error(), "auth_code", authCode)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
+	} else {
+		authProcess.Powers = powers
+		slog.Info("Main portal notified successfully", "powers", powers)
 	}
 
 	// Generate a random unique identifier for the SSO session
@@ -466,6 +479,261 @@ func (s *Server) handleContractAccepted(c *fiber.Ctx) error {
 
 }
 
-func (s *Server) notifyMainPortal(certData *models.CertificateData, email string, contractForm *models.ContractForm) error {
-	return nil
+const mainPortalURL = "https://poc-middleware-management.dev.cloud-w.envs.redisbe.com/api/managements"
+
+func notifySimple() (map[string]any, error) {
+
+	// Generate a random string of 8 characters
+	organizationIdentifier := generateRandomString()
+	organizationIdentifier = organizationIdentifier[:10]
+	organizationIdentifier = "VATES-" + organizationIdentifier
+
+	fileToSend := []byte(contrato)
+
+	// Structs for the data to be sent
+	type Role struct {
+		Principal bool `json:"principal"`
+		Developer bool `json:"developer"`
+		OpExec    bool `json:"op_exec"`
+	}
+
+	// OrganizationIdentifier and SelectedRole will be added as form fields.
+	type requestBody struct {
+		OrganizationIdentifier string `json:"organization_identifier"`
+		SelectedRole           Role   `json:"selected_role"`
+	}
+
+	// Prepare the multipart payload
+	bodyBuf := &bytes.Buffer{}
+	writer := multipart.NewWriter(bodyBuf)
+
+	// 1. Add OrganizationIdentifier
+	if err := writer.WriteField("organization_identifier", organizationIdentifier); err != nil {
+		return nil, fmt.Errorf("failed to write organization_identifier: %w", err)
+	}
+
+	// 2. Add SelectedRole
+	// Using the example values from the comments as defaults
+	role := Role{
+		Principal: true,
+		Developer: true,
+		OpExec:    false,
+	}
+	roleBytes, err := json.Marshal(role)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal role: %w", err)
+	}
+	if err := writer.WriteField("selected_role", string(roleBytes)); err != nil {
+		return nil, fmt.Errorf("failed to write selected_role: %w", err)
+	}
+
+	// 3. Add Contract File (fileToSend). The file is an HTML file.
+	// Using "contract" as the field name and "contract.html" as the filename
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "contract", "contract.html"))
+	h.Set("Content-Type", "text/html")
+	part, err := writer.CreatePart(h)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create form part: %w", err)
+	}
+	if _, err := part.Write(fileToSend); err != nil {
+		return nil, fmt.Errorf("failed to write file content: %w", err)
+	}
+
+	// Close the writer to finalize the boundary
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close multipart writer: %w", err)
+	}
+
+	slog.Info("Sending POST to main portal", "url", mainPortalURL)
+
+	// body := bodyBuf.Bytes()
+
+	// fmt.Println(string(body))
+
+	// Create and send the HTTP request
+	req, err := http.NewRequest("POST", mainPortalURL, bodyBuf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return nil, fmt.Errorf("main portal returned non-success status: %d", resp.StatusCode)
+	}
+
+	// Read the response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Parse into a map[string]any
+	var response map[string]any
+	if err := json.Unmarshal(respBody, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse response body: %w", err)
+	}
+
+	// Print the response map as a pretty-printed indented JSON
+	jsonResponse, err := json.MarshalIndent(response, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal response body: %w", err)
+	}
+	fmt.Println(string(jsonResponse))
+
+	// Check if the response contains a "role" object with contains a "policies" array
+	if role, ok := response["role"]; ok {
+		if policies, ok := role.(map[string]any)["policies"]; ok {
+			if policies, ok := policies.([]any); ok {
+				for _, policy := range policies {
+					if policy, ok := policy.(map[string]any); ok {
+						fmt.Println(policy)
+					}
+				}
+			}
+		}
+	}
+
+	return response, nil
+}
+
+func (s *Server) notifyMainPortal(certData *models.CertificateData, email string, contractForm *models.ContractForm, fileToSend []byte) ([]map[string]any, error) {
+
+	organizationIdentifier := contractForm.OrganizationNif
+	suffix := generateRandomString()
+	suffix = suffix[:5]
+	organizationIdentifier = organizationIdentifier + "-" + suffix
+
+	// Structs for the data to be sent
+	type Role struct {
+		Principal bool `json:"principal"`
+		Developer bool `json:"developer"`
+		OpExec    bool `json:"op_exec"`
+	}
+
+	// OrganizationIdentifier and SelectedRole will be added as form fields.
+	type requestBody struct {
+		OrganizationIdentifier string `json:"organization_identifier"`
+		SelectedRole           Role   `json:"selected_role"`
+	}
+
+	role := Role{
+		Principal: true,
+	}
+
+	if contractForm.Annex == "developer" {
+		role.Developer = true
+	}
+
+	if contractForm.Annex == "operator" {
+		role.OpExec = true
+	}
+
+	// Prepare the multipart payload
+	bodyBuf := &bytes.Buffer{}
+	writer := multipart.NewWriter(bodyBuf)
+
+	// 1. Add OrganizationIdentifier
+	if err := writer.WriteField("organization_identifier", organizationIdentifier); err != nil {
+		return nil, fmt.Errorf("failed to write organization_identifier: %w", err)
+	}
+
+	// 2. Add SelectedRole
+	// Using the example values from the comments as defaults
+	roleBytes, err := json.Marshal(role)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal role: %w", err)
+	}
+	if err := writer.WriteField("selected_role", string(roleBytes)); err != nil {
+		return nil, fmt.Errorf("failed to write selected_role: %w", err)
+	}
+
+	// 3. Add Contract File (fileToSend). The file is an HTML file.
+	// Using "contract" as the field name and "contract.html" as the filename
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "contract", "contract.html"))
+	h.Set("Content-Type", "text/html")
+	part, err := writer.CreatePart(h)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create form part: %w", err)
+	}
+	if _, err := part.Write(fileToSend); err != nil {
+		return nil, fmt.Errorf("failed to write file content: %w", err)
+	}
+
+	// Close the writer to finalize the boundary
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close multipart writer: %w", err)
+	}
+
+	slog.Info("Sending POST to main portal", "url", mainPortalURL)
+
+	// body := bodyBuf.Bytes()
+
+	// fmt.Println(string(body))
+
+	// Create and send the HTTP request
+	req, err := http.NewRequest("POST", mainPortalURL, bodyBuf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return nil, fmt.Errorf("main portal returned non-success status: %d", resp.StatusCode)
+	}
+
+	// Read the response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Parse into a map[string]any
+	var response map[string]any
+	if err := json.Unmarshal(respBody, &response); err != nil {
+		return nil, fmt.Errorf("failed to parse response body: %w", err)
+	}
+
+	// Print the response map as a pretty-printed indented JSON
+	jsonResponse, err := json.MarshalIndent(response, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal response body: %w", err)
+	}
+	fmt.Println(string(jsonResponse))
+
+	// Check if the response contains the proper fields
+
+	receivedOrganizationIdentifier := jpath.GetString(response, "organization_identifier")
+	receivedPowersString := jpath.GetString(response, "powers")
+
+	if receivedOrganizationIdentifier != organizationIdentifier {
+		return nil, errl.Errorf("organization identifier mismatch: expected %s, got %s", organizationIdentifier, receivedOrganizationIdentifier)
+	}
+
+	if receivedPowersString == "" {
+		return nil, errl.Errorf("powers not received")
+	}
+
+	// Parse the powers string into a map[string]any
+	var receivedPowers []map[string]any
+	if err := json.Unmarshal([]byte(receivedPowersString), &receivedPowers); err != nil {
+		return nil, fmt.Errorf("failed to parse powers: %w", err)
+	}
+
+	return receivedPowers, nil
 }

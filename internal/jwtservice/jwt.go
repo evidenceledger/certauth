@@ -105,6 +105,8 @@ func (s *JWTService) GenerateIDTokenForCert(authProcess *models.AuthProcess, cer
 		claims["family_name"] = certData.Subject.Surname
 	}
 
+	claims["user"] = certData.Subject.GivenName + " " + certData.Subject.Surname
+
 	claims["email"] = authProcess.Email
 	claims["email_verified"] = true
 
@@ -135,6 +137,7 @@ func (s *JWTService) GenerateIDTokenForCert(authProcess *models.AuthProcess, cer
 	}
 	if certData.Subject.SerialNumber != "" {
 		claims["serial_number"] = certData.Subject.SerialNumber
+		claims["user_identifier"] = certData.Subject.SerialNumber
 	}
 	if certData.Subject.Country != "" {
 		claims["country"] = certData.Subject.Country
@@ -148,6 +151,7 @@ func (s *JWTService) GenerateIDTokenForCert(authProcess *models.AuthProcess, cer
 
 	// Add signed annex information
 	claims["signed_annex"] = authProcess.SignedAnnex
+	claims["powers"] = authProcess.Powers
 
 	// Create token
 	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
