@@ -181,7 +181,7 @@ func (s *Server) Authorization(c *fiber.Ctx) error {
 		authProcess.CertificateData = ssoSession.CertificateData
 		authProcess.Email = ssoSession.Email
 
-		// And redirect to the caller
+		// And redirect back to the caller
 		redirectURL := fmt.Sprintf("%s?code=%s", authProcess.RedirectURI, authProcess.Code)
 		if authProcess.State != "" {
 			redirectURL += fmt.Sprintf("&state=%s", authProcess.State)
@@ -194,6 +194,7 @@ func (s *Server) Authorization(c *fiber.Ctx) error {
 		// No valid SSO cookie, proceed with normal flow
 
 		// We pass the auth code so we will be able to retrieve the in-memory auth process object later
+		// TODO: include redirection logic based on Relying Party configuration
 		if slices.Contains(authReq.Scopes, "onlyeidas") {
 			slog.Info("Redirection to ONLY Certificate login")
 			return c.Redirect("/cert/login?code="+authProcess.Code, fiber.StatusFound)

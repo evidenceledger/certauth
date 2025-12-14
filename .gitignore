@@ -7,3 +7,6 @@ cover.out
 vendor/
 *.db
 misc/
+
+# Data directory with databases and logs
+data/

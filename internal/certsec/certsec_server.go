@@ -42,13 +42,12 @@ var viewsfs embed.FS
 // supporting eIDAS certificates and Verifiable Credentials.
 // The CerSec server requires a reverse proxy (like Caddy or Nginx) in front, terminating the TLS connection
 // and configured to actually requesting the client certificate.
-func New(db *database.Database, cache *cache.Cache, cfg certconfig.Config) *Server {
+func New(db *database.Database, cache *cache.Cache, cfg certconfig.Config) (*Server, error) {
 
 	// The engine to display the screens HTML screens to the users
 	htmlrender, err := html.NewRendererFiber(cfg.Development, viewsfs, "internal/certsec/views", ".hbs")
 	if err != nil {
-		slog.Error("Failed to initialize template engine", "error", err)
-		panic(err)
+		return nil, errl.Errorf("failed to initialize template engine: %w", err)
 	}
 
 	app := fiber.New(fiber.Config{
@@ -73,8 +72,7 @@ func New(db *database.Database, cache *cache.Cache, cfg certconfig.Config) *Serv
 		Timeout: 30,
 	})
 	if err != nil {
-		slog.Error("Failed to initialize TMF client", "error", err)
-		panic(err)
+		return nil, errl.Errorf("failed to initialize TMF client: %w", err)
 	}
 	s.tmfClient = tmfClient
 
@@ -90,7 +88,7 @@ func New(db *database.Database, cache *cache.Cache, cfg certconfig.Config) *Serv
 	s.app.Get("/admin/:page", s.adminPages)
 	s.app.Post("/admin/:page", s.adminPages)
 
-	return s
+	return s, nil
 }
 
 type RelyingPartyCUDRequest struct {
@@ -103,6 +101,7 @@ type RelyingPartyCUDRequest struct {
 	RedirectURL  string `form:"redirect_url"`
 	OriginURL    string `form:"origin_url"`
 	Scopes       string `form:"scopes"`
+	TokenExpiry  int    `form:"token_expiry"`
 }
 
 // adminPages handles the admin pages
@@ -142,6 +141,7 @@ func (s *Server) relyingpartiesPage(c *fiber.Ctx, subject *x509util.ELSIName) er
 		if err != nil {
 			return s.htmlRender.Render(c, "error", fiber.Map{
 				"message": "Failed to retrieve relying parties: " + err.Error(),
+				"subject": subject,
 			})
 		}
 
@@ -164,8 +164,8 @@ func (s *Server) relyingpartiesPage(c *fiber.Ctx, subject *x509util.ELSIName) er
 			Description: request.Description,
 			ClientID:    request.ClientID,
 			RedirectURL: request.RedirectURL,
-			OriginURL:   request.OriginURL,
 			Scopes:      request.Scopes,
+			TokenExpiry: request.TokenExpiry,
 		}
 
 		switch request.Action {
@@ -173,18 +173,21 @@ func (s *Server) relyingpartiesPage(c *fiber.Ctx, subject *x509util.ELSIName) er
 			if err := s.db.CreateRelyingParty(&rp, request.ClientSecret); err != nil {
 				return s.htmlRender.Render(c, "error", fiber.Map{
 					"message": "Failed to create relying party: " + err.Error(),
+					"subject": subject,
 				})
 			}
 		case "update":
 			if err := s.db.UpdateRelyingParty(&rp, request.ClientSecret); err != nil {
 				return s.htmlRender.Render(c, "error", fiber.Map{
 					"message": "Failed to update relying party: " + err.Error(),
+					"subject": subject,
 				})
 			}
 		case "delete":
 			if err := s.db.DeleteRelyingParty(request.ID); err != nil {
 				return s.htmlRender.Render(c, "error", fiber.Map{
 					"message": "Failed to delete relying party: " + err.Error(),
+					"subject": subject,
 				})
 			}
 		}
@@ -194,6 +197,7 @@ func (s *Server) relyingpartiesPage(c *fiber.Ctx, subject *x509util.ELSIName) er
 	default:
 		return s.htmlRender.Render(c, "error", fiber.Map{
 			"message": "Invalid action: " + c.Method(),
+			"subject": subject,
 		})
 	}
 
@@ -211,6 +215,7 @@ func (s *Server) organizationsPage(c *fiber.Ctx, subject *x509util.ELSIName) err
 		if err != nil {
 			return s.htmlRender.Render(c, "error", fiber.Map{
 				"message": "Failed to retrieve organizations: " + err.Error(),
+				"subject": subject,
 			})
 		}
 
@@ -218,6 +223,7 @@ func (s *Server) organizationsPage(c *fiber.Ctx, subject *x509util.ELSIName) err
 		if err != nil {
 			return s.htmlRender.Render(c, "error", fiber.Map{
 				"message": "Failed to marshal organizations: " + err.Error(),
+				"subject": subject,
 			})
 		}
 
@@ -229,6 +235,7 @@ func (s *Server) organizationsPage(c *fiber.Ctx, subject *x509util.ELSIName) err
 	default:
 		return s.htmlRender.Render(c, "error", fiber.Map{
 			"message": "Invalid action: " + c.Method(),
+			"subject": subject,
 		})
 	}
 
@@ -313,15 +320,15 @@ func (s *Server) handleCertificateAuth(c *fiber.Ctx) error {
 	}
 
 	// Get the certificate from the TLS connection
-	certHeader := c.Get("tls-client-certificate")
-	if certHeader == "" {
+	certFromHeader := c.Get("tls-client-certificate")
+	if certFromHeader == "" {
 		return sendBackError(errl.Errorf("No certificate provided"))
 	}
 
-	slog.Info("Certificate received", "auth_code", authCode, "cert_length", len(certHeader))
+	slog.Info("Certificate received", "auth_code", authCode, "cert_length", len(certFromHeader))
 
 	// Parse the certificate
-	cert, issuer, subject, err := x509util.ParseEIDASCertB64Der(certHeader)
+	cert, issuer, subject, err := x509util.ParseEIDASCertB64Der(certFromHeader)
 	if err != nil {
 		return sendBackError(errl.Errorf("Failed to parse certificate: %w", err))
 	}
@@ -380,7 +387,7 @@ func (s *Server) handleCertificateAuth(c *fiber.Ctx) error {
 		OrganizationID:  subject.OrganizationIdentifier,
 		CertificateType: certType,
 		Certificate:     cert,
-		CertificateDER:  certHeader,
+		CertificateDER:  certFromHeader,
 	}
 
 	// Set the certificate data in the auth request for later retrieval

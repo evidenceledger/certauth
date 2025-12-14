@@ -26,7 +26,6 @@ type RelyingParty struct {
 	ClientID         string    `json:"client_id"`
 	ClientSecretHash string    `json:"-"` // Never expose in JSON
 	RedirectURL      string    `json:"redirect_url"`
-	OriginURL        string    `json:"origin_url"`
 	Scopes           string    `json:"scopes"`
 	TokenExpiry      int       `json:"token_expiry"`
 	CreatedAt        time.Time `json:"created_at"`

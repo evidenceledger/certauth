@@ -1,131 +1,88 @@
 package database
 
 import (
-	"fmt"
 	"log/slog"
 
 	"github.com/evidenceledger/certauth/internal/models"
 )
 
-// initializeTestData adds some test data if the database is empty
-func (d *Database) initializeTestData() error {
+// initializePredefinedRPs adds some predefined Relying Parties to the database
+func (d *Database) initializePredefinedRPs() error {
 
-	// Add the main Private Area as RP
-	portalMainRP := &models.RelyingParty{
-		Name:        "ISBE Main Private Area",
-		Description: "The ISBE Main Private Area application",
+	// ISBE Keycloak in DEV
+	d.UpsertRelyingParty(&models.RelyingParty{
+		Name:        "ISBE Keycloak in DEV",
+		Description: "The ISBE Keycloak in DEV application",
 		ClientID:    "https://idp.dev.cloud-w.envs.redisbe.com",
 		RedirectURL: "https://idp.dev.cloud-w.envs.redisbe.com/auth/realms/dev-isbe/broker/certificado-representante/endpoint",
-		OriginURL:   "https://idp.dev.cloud-w.envs.redisbe.com/",
 		Scopes:      "openid eidas",
 		TokenExpiry: 3600,
-	}
-	d.UpsertRelyingParty(portalMainRP, "isbesecret")
+	}, "isbesecret")
 
-	// Add Private Area as RP
-	portalRP := &models.RelyingParty{
-		Name:        "ISBE Private Area",
-		Description: "The ISBE Private Area application",
-		ClientID:    "https://idp-isbe.digitelts.com",
-		RedirectURL: "https://idp-isbe.digitelts.com/realms/portal/broker/certificates-idp/endpoint",
-		OriginURL:   "https://idp-isbe.digitelts.com/",
+	// ISBE Keycloak in PRE
+	d.UpsertRelyingParty(&models.RelyingParty{
+		Name:        "ISBE Keycloak in PRE",
+		Description: "The ISBE Keycloak in PRE application",
+		ClientID:    "https://idp.pre.cloud-w.envs.redisbe.com",
+		RedirectURL: "https://idp.pre.cloud-w.envs.redisbe.com/auth/realms/pre-isbe/broker/certificado/endpoint",
 		Scopes:      "openid eidas",
 		TokenExpiry: 3600,
-	}
-	d.UpsertRelyingParty(portalRP, "isbesecret")
+	}, "isbesecret")
 
-	// Add Catalog as RP
-	catalogRP := &models.RelyingParty{
-		Name:        "ISBE Catalog",
-		Description: "The ISBE Catalog application",
+	// // Add Private Area as RP
+	// portalRP := &models.RelyingParty{
+	// 	Name:        "ISBE Private Area",
+	// 	Description: "The ISBE Private Area application",
+	// 	ClientID:    "https://idp-isbe.digitelts.com",
+	// 	RedirectURL: "https://idp-isbe.digitelts.com/realms/portal/broker/certificates-idp/endpoint",
+	// 	Scopes:      "openid eidas",
+	// 	TokenExpiry: 3600,
+	// }
+	// d.UpsertRelyingParty(portalRP, "isbesecret")
+
+	// ISBE Catalog in netlify
+	d.UpsertRelyingParty(&models.RelyingParty{
+		Name:        "ISBE Catalog Netlify",
+		Description: "The ISBE Catalog application in Netlify",
 		ClientID:    "https://catalog.isbeonboard.com",
 		RedirectURL: "https://isbecatalog.netlify.app/",
-		OriginURL:   "https://isbecatalog.netlify.app/",
 		Scopes:      "openid eidas",
 		TokenExpiry: 3600,
-	}
-	d.UpsertRelyingParty(catalogRP, "isbesecret")
+	}, "isbesecret")
 
-	// Add ISBE Onboarding RP
-	onboardRP := &models.RelyingParty{
-		Name:        "ISBE Onboarding",
-		Description: "The ISBE Onboarding Application",
+	// ISBE Onboarding page in DEV
+	d.UpsertRelyingParty(&models.RelyingParty{
+		Name:        "ISBE Onboarding DEV",
+		Description: "The ISBE Onboarding Application in DEV",
 		ClientID:    "isbeonboard",
 		RedirectURL: "https://onboard-dev.redisbe.com/callback",
-		OriginURL:   "https://onboard-dev.redisbe.com/",
 		Scopes:      "openid eidas",
 		TokenExpiry: 3600,
-	}
+	}, "isbesecret")
 
-	d.UpsertRelyingParty(onboardRP, "isbesecret")
-
-	// Add development ISBE Onboarding RP
+	// ISBE Onboarding page in mycredential.eu
 	testOnboardRP := &models.RelyingParty{
-		Name:        "ISBE Onboarding",
-		Description: "The ISBE Onboarding Application",
+		Name:        "ISBE Onboarding mycredential.eu",
+		Description: "The ISBE Onboarding Application in mycredential.eu",
 		ClientID:    "testonboard",
 		RedirectURL: "https://onboard.mycredential.eu/callback",
-		OriginURL:   "https://onboard.mycredential.eu",
 		Scopes:      "openid eidas",
 		TokenExpiry: 3600,
 	}
 
 	d.UpsertRelyingParty(testOnboardRP, "isbesecret")
 
-	// Add development ISBE Onboarding RP
+	// ISBE Issuer for test
 	testIssuerRP := &models.RelyingParty{
 		Name:        "ISBE Issuer for test",
 		Description: "The ISBE Credential Issuer Application",
 		ClientID:    "https://issuer.mycredential.eu",
 		RedirectURL: "https://issuer.mycredential.eu/lear/auth/callback",
-		OriginURL:   "https://issuer.mycredential.eu",
 		Scopes:      "openid eidas",
 		TokenExpiry: 3600,
 	}
 
 	d.UpsertRelyingParty(testIssuerRP, "isbesecret")
-
-	// Check if we already have test data
-	var count int
-	err := d.db.QueryRow("SELECT COUNT(*) FROM relying_parties").Scan(&count)
-	if err != nil {
-		return fmt.Errorf("failed to check existing data: %w", err)
-	}
-
-	if count > 0 {
-		slog.Debug("Database already contains data, skipping test data initialization")
-		return nil
-	}
-
-	// Add test relying party
-	testRP := &models.RelyingParty{
-		Name:        "Test Application",
-		Description: "A test application for development",
-		ClientID:    "test-client",
-		RedirectURL: "https://certauth.mycredential.eu/callback",
-		OriginURL:   "http://localhost:3000",
-		Scopes:      "openid eidas",
-		TokenExpiry: 3600,
-	}
-
-	if err := d.CreateRelyingParty(testRP, "test-secret"); err != nil {
-		return fmt.Errorf("failed to create test RP: %w", err)
-	}
-
-	// Add example RP
-	exampleRP := &models.RelyingParty{
-		Name:        "Example RP Application",
-		Description: "Example Relying Party application demonstrating certificate authentication",
-		ClientID:    "example-rp",
-		RedirectURL: "https://onboard.mycredential.eu/callback",
-		OriginURL:   "http://onboard.mycredential.eu",
-		Scopes:      "openid eidas",
-		TokenExpiry: 3600,
-	}
-
-	if err := d.CreateRelyingParty(exampleRP, "example-secret"); err != nil {
-		return fmt.Errorf("failed to create example RP: %w", err)
-	}
 
 	slog.Info("Test data initialized", "rp_count", 3)
 	return nil

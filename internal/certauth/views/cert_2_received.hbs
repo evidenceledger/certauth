@@ -12,9 +12,31 @@
         <div class="ui positive message">
             <div class="header">
                 Hemos recibido tu certificado. Ahora tenemos que confirmar tu correo electrónico
-                para completar el proceso de registro.
+                para continuar con el proceso de registro.
             </div>
         </div>
+
+        {{if not .certData.EIDASCertificate}}
+        <div class="ui yellow icon message">
+            <i class="exclamation triangle icon"></i>
+            <div class="content">
+                <div class="header">Nota</div>
+                Este certificado no es válido según las normas eIDAS. Pero lo vamos a aceptar porque estamos en modo de
+                prueba o demostración.
+            </div>
+        </div>
+        {{ end }}
+
+        {{ if not .subject.OrganizationIdentifier }}
+        <div class="ui yellow icon message">
+            <i class="exclamation triangle icon"></i>
+            <div class="content">
+                <div class="header">Nota</div>
+                Este es un certificado personal que no demuestra que eres el representante legal de una organización.
+                Pero lo vamos a aceptar porque estamos en modo de prueba o demostración.
+            </div>
+        </div>
+        {{ end }}
 
         <div class="ui divider"></div>
 
@@ -76,18 +98,6 @@
 
             </div>
         </div>
-
-        {{ if .subject.OrganizationIdentifier }}
-        {{ else }}
-        <div class="ui yellow icon message">
-            <i class="exclamation triangle icon"></i>
-            <div class="content">
-                <div class="header">Note</div>
-                This is a personal certificate (does not contain organization identifier).
-                The relying party may have specific requirements for organizational certificates.
-            </div>
-        </div>
-        {{ end }}
 
         <div class="ui divider"></div>
 
