@@ -43,8 +43,8 @@ func NewService() *Service {
 	return &Service{
 		smtpHost:     getEnvOrDefault("SMTP_HOST", "localhost"),
 		smtpPort:     getEnvOrDefault("SMTP_PORT", "587"),
-		smtpUsername: os.Getenv("SMTP_USERNAME"),
-		smtpPassword: os.Getenv("SMTP_PASSWORD"),
+		smtpUsername: getEnvOrDefault("SMTP_USERNAME", ""),
+		smtpPassword: getEnvOrDefault("SMTP_PASSWORD", ""),
 		fromEmail:    getEnvOrDefault("FROM_EMAIL", "noreply@certauth.mycredential.eu"),
 		fromName:     getEnvOrDefault("FROM_NAME", "CertAuth"),
 		templates:    tmpl,
