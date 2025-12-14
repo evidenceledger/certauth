@@ -43,11 +43,11 @@ func run() error {
 
 	// The URL and port for the CertAuth server, which is the OP url also
 	flag.StringVar(&certauthPort, "certauth-port", "8010", "Port for the main OP server")
-	flag.StringVar(&certauthURL, "certauth-url", "", "URL for the CertAuth server")
+	flag.StringVar(&certauthURL, "certauth-url", "https://certauth.mycredential.eu", "URL for the CertAuth server")
 
 	// The URL and port for the CertSec server, the one asking for the certificate via TLS client authentication
 	flag.StringVar(&certsecPort, "certsec-port", "8011", "Port for the CertSec server")
-	flag.StringVar(&certsecURL, "certsec-url", "", "URL for the CertSec server")
+	flag.StringVar(&certsecURL, "certsec-url", "https://certsec.mycredential.eu", "URL for the CertSec server")
 
 	// The URL and port for the Onboard server, the example RP
 	flag.StringVar(&onboardPort, "onboard-port", "8012", "Port for the Onboard server")
@@ -104,19 +104,10 @@ func run() error {
 		}
 	}
 
-	if certauthURL == "" {
-		certauthURL = os.Getenv("CERTAUTH_URL")
-		if certauthURL == "" {
-			certauthURL = "https://certauth.mycredential.eu"
-		}
-	}
-
-	if certsecURL == "" {
-		certsecURL = os.Getenv("CERTSEC_URL")
-		if certsecURL == "" {
-			certsecURL = "https://certsec.mycredential.eu"
-		}
-	}
+	certauthURL = getEnvOrDefault("CERTAUTH_URL", certauthURL)
+	certauthPort = getEnvOrDefault("CERTAUTH_PORT", certauthPort)
+	certsecURL = getEnvOrDefault("CERTSEC_URL", certsecURL)
+	certsecPort = getEnvOrDefault("CERTSEC_PORT", certsecPort)
 
 	// The Onboard application/server will be started only if explicitly stated in the environment or flag, or in development mode
 	if os.Getenv("ONBOARD_URL") != "" {
@@ -163,4 +154,12 @@ func run() error {
 	}
 
 	return nil
+}
+
+// getEnvOrDefault gets an environment variable or returns a default value
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
 }

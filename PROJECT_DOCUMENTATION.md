@@ -7,7 +7,7 @@ CertAuth is a minimalist OpenID Provider (OP) focused on one specific purpose: e
 ### Key Characteristics
 - **Stateless Architecture**: Certificate-to-token converter without session management
 - **Two-Server Design**: CertAuth (OIDC) + CertSec (Certificate authentication)
-- **eIDAS Integration**: Validates organizational certificates (QSeal/QSign)
+- **eIDAS Integration**: Validates organizational certificates (QSeal/QSign) and supports EUDSS validation
 - **Minimalist Design**: Focused on maintainability and simplicity
 - **Security Focused**: Implements OIDC security best practices including redirect_uri validation
 
@@ -27,7 +27,12 @@ CertAuth is a minimalist OpenID Provider (OP) focused on one specific purpose: e
 - **Function**: Extract and validate eIDAS certificates from TLS headers
 - **Framework**: Fiber v2.52.0
 
-#### 3. Example RP Server (Port 8092)
+#### 3. TSAService Integration
+- **Purpose**: Timestamp validation and verification
+- **Function**: Validates timestamps against remote TSA and uses EUDSS for certificate chain verification
+- **External Integration**: Connects to configured TSA URL and EUDSS validation service
+
+#### 4. Example RP Server (Port 8092)
 - **Domain**: `localhost:8092`
 - **Purpose**: Demonstration Relying Party application
 - **Function**: Complete OIDC client implementation with session management
@@ -36,14 +41,16 @@ CertAuth is a minimalist OpenID Provider (OP) focused on one specific purpose: e
 ### Technology Stack
 
 ```
-Go 1.24.2
-├── Fiber v2.52.0 (Web Framework)
+Go 1.24.6
+├── Fiber v2.52.9 (Web Framework)
 ├── SQLite (Database)
 ├── bcrypt (Password Hashing)
 ├── x509util (Certificate Processing)
 ├── slog (Logging)
 ├── errl (Error Handling with Location)
-└── Fomantic UI (Frontend Framework)
+├── Fomantic UI (Frontend Framework)
+├── go-oidc (OIDC Core)
+└── go-jose (JSON Web Encryption/Signature)
 ```
 
 ## Certificate Authentication Design
@@ -254,8 +261,12 @@ certauth/
 ├── objective.md                      # Original project requirements
 ├── PROJECT_DOCUMENTATION.md          # This documentation
 ├── x509util/                         # Certificate utilities (existing)
+├── tsaservice/                       # TSA and EUDSS integration service
+│   ├── service.go                    # TSA service implementation
+│   └── asn1.go                       # ASN.1 data structures
+├── eudss/                            # EUDSS test data and resources
 ├── internal/
-│   ├── server/
+│   ├── mainserver/                   # Server initialization
 │   │   └── server.go                 # Main server orchestration
 │   ├── certauth/
 │   │   └── server.go                 # OIDC server implementation
@@ -275,7 +286,7 @@ certauth/
 │   ├── models/
 │   │   ├── oidc.go                   # Data models
 │   │   └── certificate.go            # Certificate data structures
-│   ├── jwt/
+│   ├── jwtservice/
 │   │   └── jwt.go                    # JWT token generation
 │   ├── templates/
 │   │   └── renderer.go               # Template rendering
