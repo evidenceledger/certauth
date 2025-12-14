@@ -3,6 +3,8 @@ package database
 import (
 	"database/sql"
 	"log/slog"
+	"net/url"
+	"strings"
 
 	"github.com/evidenceledger/certauth/internal/errl"
 	"github.com/evidenceledger/certauth/internal/models"
@@ -14,7 +16,7 @@ import (
 func (d *Database) GetRelyingParty(clientID string) (*models.RelyingParty, error) {
 	query := `
 		SELECT id, name, description, client_id, client_secret_hash, 
-		       redirect_url, origin_url, scopes, token_expiry, 
+		       redirect_url, scopes, token_expiry, 
 		       created_at, updated_at
 		FROM relying_parties 
 		WHERE client_id = ?
@@ -23,7 +25,7 @@ func (d *Database) GetRelyingParty(clientID string) (*models.RelyingParty, error
 	var rp models.RelyingParty
 	err := d.db.QueryRow(query, clientID).Scan(
 		&rp.ID, &rp.Name, &rp.Description, &rp.ClientID, &rp.ClientSecretHash,
-		&rp.RedirectURL, &rp.OriginURL, &rp.Scopes, &rp.TokenExpiry,
+		&rp.RedirectURL, &rp.Scopes, &rp.TokenExpiry,
 		&rp.CreatedAt, &rp.UpdatedAt,
 	)
 
@@ -42,7 +44,7 @@ func (d *Database) GetRelyingParty(clientID string) (*models.RelyingParty, error
 func (d *Database) ListRelyingParties() ([]models.RelyingParty, error) {
 	query := `
 		SELECT id, name, description, client_id, redirect_url, 
-		       origin_url, scopes, token_expiry, created_at, updated_at
+		       scopes, token_expiry, created_at, updated_at
 		FROM relying_parties 
 		ORDER BY name
 	`
@@ -58,7 +60,7 @@ func (d *Database) ListRelyingParties() ([]models.RelyingParty, error) {
 		var rp models.RelyingParty
 		err := rows.Scan(
 			&rp.ID, &rp.Name, &rp.Description, &rp.ClientID,
-			&rp.RedirectURL, &rp.OriginURL, &rp.Scopes, &rp.TokenExpiry,
+			&rp.RedirectURL, &rp.Scopes, &rp.TokenExpiry,
 			&rp.CreatedAt, &rp.UpdatedAt,
 		)
 		if err != nil {
@@ -73,7 +75,8 @@ func (d *Database) ListRelyingParties() ([]models.RelyingParty, error) {
 // CreateRelyingParty creates a new relying party
 func (d *Database) CreateRelyingParty(rp *models.RelyingParty, clientSecret string) error {
 
-	if len(clientSecret) < 8 {
+	// client secret maybe empty if PKCE is used or bigger than 8 characters
+	if len(clientSecret) > 0 && len(clientSecret) < 8 {
 		return errl.Errorf("client secret must be at least 8 characters long")
 	}
 
@@ -83,16 +86,37 @@ func (d *Database) CreateRelyingParty(rp *models.RelyingParty, clientSecret stri
 		return errl.Errorf("failed to hash client secret: %w", err)
 	}
 
+	// Check that name, client_id, redirect_url and scopes are not empty
+	if rp.Name == "" || rp.ClientID == "" || rp.RedirectURL == "" || rp.Scopes == "" {
+		return errl.Errorf("name, client_id, redirect_url, and scopes must not be empty")
+	}
+
+	// Check that redirect_url is a valid URL
+	if _, err := url.ParseRequestURI(rp.RedirectURL); err != nil {
+		return errl.Errorf("redirect_url must be a valid URL: %w", err)
+	}
+
+	// Parse the scopes as a slice of strings separated by one or more space characters
+	scopes := strings.Fields(rp.Scopes)
+	if len(scopes) == 0 {
+		return errl.Errorf("scopes must not be empty")
+	}
+
+	// Set default token_expiry if not provided
+	if rp.TokenExpiry <= 0 {
+		rp.TokenExpiry = 3600
+	}
+
 	query := `
 		INSERT INTO relying_parties (
 			name, description, client_id, client_secret_hash, 
-			redirect_url, origin_url, scopes, token_expiry
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			redirect_url, scopes, token_expiry
+		) VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
 
 	_, err = d.db.Exec(query,
 		rp.Name, rp.Description, rp.ClientID, hashedSecret,
-		rp.RedirectURL, rp.OriginURL, rp.Scopes, rp.TokenExpiry,
+		rp.RedirectURL, strings.Join(scopes, " "), rp.TokenExpiry,
 	)
 
 	if err != nil {
@@ -106,7 +130,8 @@ func (d *Database) CreateRelyingParty(rp *models.RelyingParty, clientSecret stri
 // UpsertRelyingParty inserts or updates a relying party
 func (d *Database) UpsertRelyingParty(rp *models.RelyingParty, clientSecret string) error {
 
-	if len(clientSecret) < 8 {
+	// client secret maybe empty if PKCE is used or bigger than 8 characters
+	if len(clientSecret) > 0 && len(clientSecret) < 8 {
 		return errl.Errorf("client secret must be at least 8 characters long")
 	}
 
@@ -116,21 +141,42 @@ func (d *Database) UpsertRelyingParty(rp *models.RelyingParty, clientSecret stri
 		return errl.Errorf("failed to hash client secret: %w", err)
 	}
 
+	// Check that name, client_id, redirect_url and scopes are not empty
+	if rp.Name == "" || rp.ClientID == "" || rp.RedirectURL == "" || rp.Scopes == "" {
+		return errl.Errorf("name, client_id, redirect_url, and scopes must not be empty")
+	}
+
+	// Check that redirect_url is a valid URL
+	if _, err := url.ParseRequestURI(rp.RedirectURL); err != nil {
+		return errl.Errorf("redirect_url must be a valid URL: %w", err)
+	}
+
+	// Parse the scopes as a slice of strings separated by one or more space characters
+	scopes := strings.Fields(rp.Scopes)
+	if len(scopes) == 0 {
+		return errl.Errorf("scopes must not be empty")
+	}
+
+	// Set default token_expiry if not provided
+	if rp.TokenExpiry <= 0 {
+		rp.TokenExpiry = 3600
+	}
+
 	query := `
 		INSERT INTO relying_parties (
 			name, description, client_id, client_secret_hash, 
-			redirect_url, origin_url, scopes, token_expiry
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			redirect_url, scopes, token_expiry
+		) VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (client_id) DO UPDATE
 		SET name = ?, description = ?, client_secret_hash = ?, 
-		    redirect_url = ?, origin_url = ?, scopes = ?, token_expiry = ?
+		    redirect_url = ?, scopes = ?, token_expiry = ?
 	`
 
 	_, err = d.db.Exec(query,
 		rp.Name, rp.Description, rp.ClientID, hashedSecret,
-		rp.RedirectURL, rp.OriginURL, rp.Scopes, rp.TokenExpiry,
+		rp.RedirectURL, rp.Scopes, rp.TokenExpiry,
 		rp.Name, rp.Description, hashedSecret,
-		rp.RedirectURL, rp.OriginURL, rp.Scopes, rp.TokenExpiry,
+		rp.RedirectURL, rp.Scopes, rp.TokenExpiry,
 	)
 
 	if err != nil {
@@ -146,7 +192,34 @@ func (d *Database) UpdateRelyingParty(rp *models.RelyingParty, clientSecret stri
 	var query string
 	var args []any
 
+	// Check that name, client_id, redirect_url and scopes are not empty
+	if rp.Name == "" || rp.ClientID == "" || rp.RedirectURL == "" || rp.Scopes == "" {
+		return errl.Errorf("name, client_id, redirect_url, and scopes must not be empty")
+	}
+
+	// Check that redirect_url is a valid URL
+	if _, err := url.ParseRequestURI(rp.RedirectURL); err != nil {
+		return errl.Errorf("redirect_url must be a valid URL: %w", err)
+	}
+
+	// Parse the scopes as a slice of strings separated by one or more space characters
+	scopes := strings.Fields(rp.Scopes)
+	if len(scopes) == 0 {
+		return errl.Errorf("scopes must not be empty")
+	}
+
+	// Set default token_expiry if not provided
+	if rp.TokenExpiry <= 0 {
+		rp.TokenExpiry = 3600
+	}
+
 	if clientSecret != "" {
+
+		// client secret maybe empty if PKCE is used or bigger than 8 characters
+		if len(clientSecret) < 8 {
+			return errl.Errorf("client secret must be at least 8 characters long")
+		}
+
 		// Hash the new client secret
 		hashedSecret, err := bcrypt.GenerateFromPassword([]byte(clientSecret), bcrypt.DefaultCost)
 		if err != nil {
@@ -155,23 +228,23 @@ func (d *Database) UpdateRelyingParty(rp *models.RelyingParty, clientSecret stri
 
 		query = `
 			UPDATE relying_parties 
-			SET name = ?, description = ?, redirect_url = ?, origin_url = ?, 
+			SET name = ?, description = ?, redirect_url = ?, 
 			    scopes = ?, token_expiry = ?, client_secret_hash = ?, updated_at = CURRENT_TIMESTAMP
 			WHERE id = ?
 		`
 		args = []any{
-			rp.Name, rp.Description, rp.RedirectURL, rp.OriginURL,
+			rp.Name, rp.Description, rp.RedirectURL,
 			rp.Scopes, rp.TokenExpiry, hashedSecret, rp.ID,
 		}
 	} else {
 		query = `
 			UPDATE relying_parties 
-			SET name = ?, description = ?, redirect_url = ?, origin_url = ?, 
+			SET name = ?, description = ?, redirect_url = ?, 
 			    scopes = ?, token_expiry = ?, updated_at = CURRENT_TIMESTAMP
 			WHERE id = ?
 		`
 		args = []any{
-			rp.Name, rp.Description, rp.RedirectURL, rp.OriginURL,
+			rp.Name, rp.Description, rp.RedirectURL,
 			rp.Scopes, rp.TokenExpiry, rp.ID,
 		}
 	}

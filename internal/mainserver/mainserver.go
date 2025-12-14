@@ -2,7 +2,6 @@ package mainserver
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -13,6 +12,7 @@ import (
 	"github.com/evidenceledger/certauth/internal/certconfig"
 	"github.com/evidenceledger/certauth/internal/certsec"
 	"github.com/evidenceledger/certauth/internal/database"
+	"github.com/evidenceledger/certauth/internal/errl"
 	onboard "github.com/evidenceledger/certauth/internal/onboard"
 )
 
@@ -42,13 +42,17 @@ type Server struct {
 
 // New creates a new server instance.
 // It initializes the database, cache, CertAuth, CertSec and Onboard servers.
-func New(adminPassword string, cfg Config) *Server {
+func New(adminPassword string, cfg Config) (*Server, error) {
 
 	// Create a global in-memory cache with expiration time of 10 minutes
 	cache := cache.New(10 * time.Minute)
 
 	// Initialize database
-	db := database.New()
+	db, err := database.New("")
+	if err != nil {
+		slog.Error("Failed to initialize database", "error", err)
+		return nil, errl.Errorf("failed to initialize database: %w", err)
+	}
 
 	// Create the authentication and authorization servers.
 	// They share the same database and cache.
@@ -61,8 +65,14 @@ func New(adminPassword string, cfg Config) *Server {
 		CertSecPort:  cfg.CertSecPort,
 	}
 
-	certauthServer := certauth.New(db, cache, adminPassword, certCfg)
-	certsecServer := certsec.New(db, cache, certCfg)
+	certauthServer, err := certauth.New(db, cache, adminPassword, certCfg)
+	if err != nil {
+		return nil, errl.Errorf("failed to create certauth server: %w", err)
+	}
+	certsecServer, err := certsec.New(db, cache, certCfg)
+	if err != nil {
+		return nil, errl.Errorf("failed to create certsec server: %w", err)
+	}
 
 	// If in development mode, create the Onboard application server.
 	// It uses the CertAuth server as the OP.
@@ -85,20 +95,15 @@ func New(adminPassword string, cfg Config) *Server {
 		db:             db,
 		adminPW:        adminPassword,
 		cfg:            cfg,
-	}
+	}, nil
 
 }
 
-// Start starts both servers: CertAuth and CertSec. Also it starts the Onboarding server
+// Start starts both servers: CertAuth and CertSec. It also starts the Onboarding test server if enabled
 func (s *Server) Start(ctx context.Context) error {
 
 	if s.db == nil {
-		return errors.New("server not initialized")
-	}
-
-	// Initialize database
-	if err := s.db.Initialize(); err != nil {
-		return fmt.Errorf("failed to initialize database: %w", err)
+		return errl.Errorf("server not initialized")
 	}
 
 	var wg sync.WaitGroup

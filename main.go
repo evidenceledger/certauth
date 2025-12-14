@@ -9,7 +9,9 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/evidenceledger/certauth/internal/errl"
 	"github.com/evidenceledger/certauth/internal/mainserver"
+	"github.com/evidenceledger/certauth/internal/sqlogger"
 )
 
 var (
@@ -24,7 +26,15 @@ var (
 	onboardPort   string
 )
 
+var logLevel slog.Level = slog.LevelInfo
+
 func main() {
+	if err := run(); err != nil {
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	// If we are in development environment or not
 	flag.BoolVar(&development, "dev", false, "Development mode")
 
@@ -51,11 +61,29 @@ func main() {
 		development = true
 	}
 
-	// Initialize logging
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}))
-	slog.SetDefault(logger)
+	// Initialize the custom SQLogHandler
+	logOptions := &sqlogger.Options{
+		Level:  &logLevel,
+		LogDir: "data/logs",
+	}
+
+	// Check if the logs should be colored:
+	// - If the process is running in a container (pid=1) then do not color the logs
+	// - If the environment variable CERTAUTH_LOGS_NOCOLOR is set to "true" then do not color the logs
+	ourpid := os.Getpid()
+	if ourpid == 1 || os.Getenv("CERTAUTH_LOGS_NOCOLOR") == "true" {
+		logOptions.NoColor = true
+	}
+
+	// Initialize the logging system
+	sqlog, err := sqlogger.NewSQLogHandler(logOptions)
+	if err != nil {
+		return errl.Errorf("failed to initialize SQLogHandler: %v", err)
+	}
+	defer sqlog.Close()
+
+	// And set the default logging system for all components
+	slog.SetDefault(slog.New(sqlog))
 
 	// Say if we are in development or not
 	if development {
@@ -71,8 +99,7 @@ func main() {
 			if development {
 				adminPassword = "pepe"
 			} else {
-				slog.Error("Admin password required. Set CERTAUTH_ADMIN_PASSWORD environment variable")
-				os.Exit(1)
+				return errl.Errorf("admin password required")
 			}
 		}
 	}
@@ -111,7 +138,10 @@ func main() {
 	}
 
 	// Create the main server. This will initialize the individual HTTP services and the database.
-	srv := mainserver.New(adminPassword, cfg)
+	srv, err := mainserver.New(adminPassword, cfg)
+	if err != nil {
+		return errl.Errorf("failed to create server: %v", err)
+	}
 
 	// Setup graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -129,7 +159,8 @@ func main() {
 
 	// Start server
 	if err := srv.Start(ctx); err != nil {
-		slog.Error("Server failed", "error", err)
-		os.Exit(1)
+		return errl.Errorf("server failed: %v", err)
 	}
+
+	return nil
 }

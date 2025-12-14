@@ -12,6 +12,7 @@ import (
 	"github.com/evidenceledger/certauth/internal/cache"
 	"github.com/evidenceledger/certauth/internal/certconfig"
 	"github.com/evidenceledger/certauth/internal/database"
+	"github.com/evidenceledger/certauth/internal/errl"
 	"github.com/evidenceledger/certauth/internal/html"
 	"github.com/evidenceledger/certauth/internal/jwtservice"
 	"github.com/evidenceledger/certauth/tsaservice"
@@ -43,13 +44,12 @@ const templateDebug = true
 var viewsfs embed.FS
 
 // New creates a new CertAuth server
-func New(db *database.Database, cache *cache.Cache, adminPassword string, cfg certconfig.Config) *Server {
+func New(db *database.Database, cache *cache.Cache, adminPassword string, cfg certconfig.Config) (*Server, error) {
 
 	// The engine to display the screens HTML screens to the users
 	htmlrender, err := html.NewRendererFiber(templateDebug, viewsfs, "internal/certauth/views", ".hbs")
 	if err != nil {
-		slog.Error("Failed to initialize template engine", "error", err)
-		panic(err)
+		return nil, errl.Errorf("failed to initialize template engine: %w", err)
 	}
 
 	httpServer := fiber.New(fiber.Config{
@@ -80,14 +80,12 @@ func New(db *database.Database, cache *cache.Cache, adminPassword string, cfg ce
 	// Initialize JWT service
 	jwtService, err := jwtservice.New(cfg.CertAuthURL)
 	if err != nil {
-		slog.Error("Failed to initialize JWT service", "error", err)
-		panic(err)
+		return nil, errl.Errorf("failed to initialize JWT service: %w", err)
 	}
 
 	tsaService, err := tsaservice.NewTSAService("", "", "", "")
 	if err != nil {
-		slog.Error("Failed to initialize TSA service", "error", err)
-		panic(err)
+		return nil, errl.Errorf("failed to initialize TSA service: %w", err)
 	}
 
 	// Put everything together in a server
@@ -119,7 +117,7 @@ func New(db *database.Database, cache *cache.Cache, adminPassword string, cfg ce
 	// Register the admin endpoints (protected)
 	s.registerAdminHandlers(adminPassword)
 
-	return s
+	return s, nil
 }
 
 // Start starts the server

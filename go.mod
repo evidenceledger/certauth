@@ -60,6 +60,7 @@ require (
 require (
 	github.com/coreos/go-oidc/v3 v3.15.0
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
+	github.com/fatih/color v1.18.0
 	github.com/goccy/go-json v0.10.5
 	github.com/gofiber/template/html/v2 v2.1.3
 	github.com/google/uuid v1.6.0 // indirect

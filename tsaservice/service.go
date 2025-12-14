@@ -17,8 +17,13 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"log/slog"
 	"math/big"
 	"net/http"
+	"time"
+
+	"github.com/evidenceledger/certauth/internal/errl"
+	"github.com/evidenceledger/certauth/internal/jpath"
 )
 
 const (
@@ -114,34 +119,71 @@ type EUDSSVerifyCertificateRequest struct {
 	TokenExtractionStrategy string `json:"tokenExtractionStrategy"`
 }
 
-func (s *TSAService) VerifyEUDSS(data []byte) ([]byte, error) {
+// VerifyCertificate verifies a certificate using the EUDSS service.
+func VerifyCertificate(data []byte) ([]byte, error) {
 	req := EUDSSVerifyCertificateRequest{
 		Certificate: struct {
 			EncodedCertificate string `json:"encodedCertificate"`
 		}{
 			EncodedCertificate: string(data),
 		},
-		TokenExtractionStrategy: "EXTRACT_ALL",
+		TokenExtractionStrategy: "NONE",
 	}
 
 	jsonReq, err := json.Marshal(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal EUDSS request: %w", err)
+		return nil, errl.Errorf("failed to marshal EUDSS request: %w", err)
 	}
 
-	resp, err := http.Post(s.eudssURL, "application/json", bytes.NewBuffer(jsonReq))
+	// We use a timeout of 30 seconds
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	resp, err := client.Post(defaultEUDSSURL, "application/json", bytes.NewBuffer(jsonReq))
 	if err != nil {
-		return nil, fmt.Errorf("failed to send EUDSS request: %w", err)
+		return nil, errl.Errorf("failed to send EUDSS request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("EUDSS request failed with status code %d", resp.StatusCode)
+		return nil, errl.Errorf("EUDSS request failed with status code %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read EUDSS response: %w", err)
+		return nil, errl.Errorf("failed to read EUDSS response: %w", err)
+	}
+
+	// Parse response as a map[string]any
+	var respMap map[string]any
+	if err := json.Unmarshal(body, &respMap); err != nil {
+		return nil, errl.Errorf("failed to unmarshal EUDSS response: %w", err)
+	}
+
+	// Get the simpleCertificateReport object
+	simpleCertificateReport := jpath.GetMap(respMap, "simpleCertificateReport")
+	if simpleCertificateReport == nil {
+		return nil, errl.Errorf("simpleCertificateReport not found in EUDSS response")
+	}
+
+	// Get the ChainItem array
+	chainItemArray := jpath.GetList(simpleCertificateReport, "ChainItem")
+	if chainItemArray == nil {
+		return nil, errl.Errorf("ChainItem not found in EUDSS response")
+	}
+
+	// All objects of the list must have a field "Indication": "PASSED"
+	for _, chainItem := range chainItemArray {
+		indication := jpath.GetString(chainItem, "Indication")
+		if indication != "PASSED" {
+			// Get the subject object
+			subject := jpath.GetMap(chainItem, "subject")
+			// Log the subject
+			out, _ := json.Marshal(subject)
+			slog.Error("Validation error for certificate", "subject", string(out))
+			return nil, errl.Errorf("validation error for certificate %s", string(out))
+		}
 	}
 
 	return body, nil
@@ -156,7 +198,7 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 	var resp TimeStampResp
 	_, err := asn1.Unmarshal(tsrBytes, &resp)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal TimeStampResp: %w", err)
+		return errl.Errorf("failed to unmarshal TimeStampResp: %w", err)
 	}
 
 	if resp.Status.Status != 0 {
@@ -164,34 +206,34 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 		if len(resp.Status.StatusString) > 0 {
 			msg = resp.Status.StatusString[0]
 		}
-		return fmt.Errorf("timestamp request failed: status=%d message=%s", resp.Status.Status, msg)
+		return errl.Errorf("timestamp request failed: status=%d message=%s", resp.Status.Status, msg)
 	}
 
 	if len(resp.TimeStampToken.Bytes) == 0 {
-		return errors.New("no TimeStampToken present")
+		return errl.Errorf("no TimeStampToken present")
 	}
 
 	// 2. Parse ContentInfo (TimeStampToken)
 	var ci ContentInfo
 	_, err = asn1.Unmarshal(resp.TimeStampToken.FullBytes, &ci)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal ContentInfo: %w", err)
+		return errl.Errorf("failed to unmarshal ContentInfo: %w", err)
 	}
 
 	if !ci.ContentType.Equal(oidSignedData) {
-		return fmt.Errorf("unexpected content type: %v", ci.ContentType)
+		return errl.Errorf("unexpected content type: %v", ci.ContentType)
 	}
 
 	// 3. Parse SignedData
 	var sd SignedData
 	_, err = asn1.Unmarshal(ci.Content.Bytes, &sd)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal SignedData: %w", err)
+		return errl.Errorf("failed to unmarshal SignedData: %w", err)
 	}
 
 	// 4. Parse TSTInfo (Encapsulated Content)
 	if !sd.EncapContentInfo.EContentType.Equal(oidContentTypeTST) {
-		return fmt.Errorf("encapsulated content is not TSTInfo: %v", sd.EncapContentInfo.EContentType)
+		return errl.Errorf("encapsulated content is not TSTInfo: %v", sd.EncapContentInfo.EContentType)
 	}
 
 	var tstInfoBytes []byte
@@ -204,30 +246,30 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 	var tst TSTInfo
 	_, err = asn1.Unmarshal(tstInfoBytes, &tst)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal TSTInfo: %w", err)
+		return errl.Errorf("failed to unmarshal TSTInfo: %w", err)
 	}
 
 	// 5. Verify MessageImprint
 	if err := verifyMessageImprint(tst.MessageImprint, originalData); err != nil {
-		return fmt.Errorf("message imprint verification failed: %w", err)
+		return errl.Errorf("message imprint verification failed: %w", err)
 	}
 
 	// 6. Verify Chain and Signature
 	if len(sd.SignerInfos) == 0 {
-		return errors.New("no signer info found")
+		return errl.Errorf("no signer info found")
 	}
 	signer := sd.SignerInfos[0]
 
 	// Parse certificates from SignedData
 	certs, err := parseCertificates(sd.Certificates)
 	if err != nil {
-		return fmt.Errorf("failed to parse certificates from SignedData: %w", err)
+		return errl.Errorf("failed to parse certificates from SignedData: %w", err)
 	}
 
 	// Find the signing certificate
 	signingCert, err := findSigningCert(signer, certs)
 	if err != nil {
-		return fmt.Errorf("failed to find signing certificate: %w", err)
+		return errl.Errorf("failed to find signing certificate: %w", err)
 	}
 
 	// Parse Root CA
@@ -239,7 +281,7 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 		rootCert, err = x509.ParseCertificate(s.caCert)
 	}
 	if err != nil {
-		return fmt.Errorf("failed to parse stored CA cert: %w", err)
+		return errl.Errorf("failed to parse stored CA cert: %w", err)
 	}
 
 	// Verify Chain
@@ -262,7 +304,7 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 	}
 
 	if _, err := signingCert.Verify(opts); err != nil {
-		return fmt.Errorf("certificate chain verification failed: %w", err)
+		return errl.Errorf("certificate chain verification failed: %w", err)
 	}
 
 	// 7. Prepare data for Signature Verification
@@ -278,7 +320,7 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 			}
 		}
 		if digestAttr == nil {
-			return errors.New("authenticated attributes present but no message-digest attribute found")
+			return errl.Errorf("authenticated attributes present but no message-digest attribute found")
 		}
 
 		var digestFromAttr []byte
@@ -291,11 +333,11 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 
 		digestOfTST, err := computeHash(tstInfoBytes, signer.DigestAlgorithm)
 		if err != nil {
-			return err
+			return errl.Errorf("failed to compute hash: %w", err)
 		}
 
 		if !bytes.Equal(digestFromAttr, digestOfTST) {
-			return fmt.Errorf("message-digest attribute verification failed: Expected %x, got %x", digestOfTST, digestFromAttr)
+			return errl.Errorf("message-digest attribute verification failed: Expected %x, got %x", digestOfTST, digestFromAttr)
 		}
 
 		// 2. Prepare data for Signature Verification (DER of SET of attributes)
@@ -304,14 +346,14 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 			A []Attribute `asn1:"set"`
 		}{A: signer.AuthenticatedAttrs})
 		if err != nil {
-			return fmt.Errorf("failed to marshal authenticated attributes: %w", err)
+			return errl.Errorf("failed to marshal authenticated attributes: %w", err)
 		}
 
 		// Strip outer SEQUENCE tag to get the SET content
 		var rawSeq asn1.RawValue
 		_, err = asn1.Unmarshal(encodedAttrs, &rawSeq)
 		if err != nil {
-			return err
+			return errl.Errorf("failed to unmarshal authenticated attributes: %w", err)
 		}
 		signedData = rawSeq.Bytes
 
@@ -322,7 +364,7 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 	// 8. Verify Signature
 	hashedSignedData, err := computeHash(signedData, signer.DigestAlgorithm)
 	if err != nil {
-		return err
+		return errl.Errorf("failed to compute hash: %w", err)
 	}
 
 	switch pub := signingCert.PublicKey.(type) {
@@ -338,7 +380,7 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 
 		err = rsa.VerifyPKCS1v15(pub, hashType, hashedSignedData, signer.EncryptedDigest)
 		if err != nil {
-			return fmt.Errorf("RSA signature verification failed: %w", err)
+			return errl.Errorf("RSA signature verification failed: %w", err)
 		}
 
 	case *ecdsa.PublicKey:
@@ -348,15 +390,15 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 		}
 		var esig ecdsaSignature
 		if _, err := asn1.Unmarshal(signer.EncryptedDigest, &esig); err != nil {
-			return fmt.Errorf("failed to unmarshal ECDSA signature: %w", err)
+			return errl.Errorf("failed to unmarshal ECDSA signature: %w", err)
 		}
 
 		if !ecdsa.Verify(pub, hashedSignedData, esig.R, esig.S) {
-			return errors.New("ECDSA signature verification failed")
+			return errl.Errorf("ECDSA signature verification failed")
 		}
 
 	default:
-		return fmt.Errorf("unsupported public key type: %T", signingCert.PublicKey)
+		return errl.Errorf("unsupported public key type: %T", signingCert.PublicKey)
 	}
 
 	return nil
@@ -374,12 +416,12 @@ func parseCertificates(raw asn1.RawValue) ([]*x509.Certificate, error) {
 		var err error
 		rest, err = asn1.Unmarshal(rest, &v)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal certificate element: %w", err)
+			return nil, errl.Errorf("failed to unmarshal certificate element: %w", err)
 		}
 
 		c, err := x509.ParseCertificate(v.FullBytes)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse certificate: %w", err)
+			return nil, errl.Errorf("failed to parse certificate: %w", err)
 		}
 		certs = append(certs, c)
 	}
