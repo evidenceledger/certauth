@@ -9,6 +9,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/ansrivas/fiberprometheus/v2"
 	"github.com/evidenceledger/certauth/internal/cache"
 	"github.com/evidenceledger/certauth/internal/certconfig"
 	"github.com/evidenceledger/certauth/internal/database"
@@ -60,6 +61,10 @@ func New(db *database.Database, cache *cache.Cache, adminPassword string, cfg ce
 		WriteTimeout:            30 * time.Second,
 	})
 
+	prometheus := fiberprometheus.New("certauth")
+	prometheus.RegisterAt(httpServer, "/metrics")
+	httpServer.Use(prometheus.Middleware)
+
 	// Recovers from panics anywhere in the stack chain and handles the control to the centralized ErrorHandler
 	httpServer.Use(recover.New())
 
@@ -83,7 +88,7 @@ func New(db *database.Database, cache *cache.Cache, adminPassword string, cfg ce
 		return nil, errl.Errorf("failed to initialize JWT service: %w", err)
 	}
 
-	tsaService, err := tsaservice.NewTSAService("", "", "", "")
+	tsaService, err := tsaservice.NewTSAService(cfg.TSAConfig)
 	if err != nil {
 		return nil, errl.Errorf("failed to initialize TSA service: %w", err)
 	}

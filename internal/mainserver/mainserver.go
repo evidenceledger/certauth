@@ -14,6 +14,7 @@ import (
 	"github.com/evidenceledger/certauth/internal/database"
 	"github.com/evidenceledger/certauth/internal/errl"
 	onboard "github.com/evidenceledger/certauth/internal/onboard"
+	"github.com/evidenceledger/certauth/tsaservice"
 )
 
 // Config is the configuration for the server.
@@ -27,6 +28,7 @@ type Config struct {
 	OnboardPort  string
 	OnboardURL   string
 	TMFServerURL string
+	TSAConfig    *tsaservice.TSAConfig
 }
 
 // Server manages the CertAuth, CertSec and Onboard servers
@@ -63,6 +65,7 @@ func New(adminPassword string, cfg Config) (*Server, error) {
 		CertAuthPort: cfg.CertAuthPort,
 		CertSecURL:   cfg.CertSecURL,
 		CertSecPort:  cfg.CertSecPort,
+		TSAConfig:    cfg.TSAConfig,
 	}
 
 	certauthServer, err := certauth.New(db, cache, adminPassword, certCfg)

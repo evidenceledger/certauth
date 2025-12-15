@@ -1,9 +1,8 @@
 package email
 
 import (
-	"bytes"
+	"embed"
 	"fmt"
-	"html/template"
 	"log/slog"
 	"net/smtp"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/evidenceledger/certauth/internal/errl"
+	"github.com/evidenceledger/certauth/internal/html"
 )
 
 // Service represents an email service
@@ -21,7 +21,7 @@ type Service struct {
 	smtpPassword string
 	fromEmail    string
 	fromName     string
-	templates    *template.Template
+	htmlrender   *html.RendererStd
 }
 
 // EmailData represents the data passed to email templates
@@ -31,13 +31,19 @@ type EmailData struct {
 	AppName          string
 }
 
+const templateDebug = true
+
+//go:embed views/*
+var viewsfs embed.FS
+
 // NewService creates a new email service
-func NewService() *Service {
+func NewService() (*Service, error) {
 	// Parse email templates
-	tmpl, err := template.New("email").Parse(verificationEmailTemplate)
+
+	// The engine to display the screens HTML screens to the users
+	htmlrender, err := html.NewRendererStd(templateDebug, viewsfs, "internal/certauth/views", ".hbs")
 	if err != nil {
-		slog.Error("Failed to parse email templates", "error", err)
-		panic(err)
+		return nil, errl.Errorf("failed to initialize template engine: %w", err)
 	}
 
 	return &Service{
@@ -47,8 +53,8 @@ func NewService() *Service {
 		smtpPassword: getEnvOrDefault("SMTP_PASSWORD", ""),
 		fromEmail:    getEnvOrDefault("FROM_EMAIL", "noreply@certauth.mycredential.eu"),
 		fromName:     getEnvOrDefault("FROM_NAME", "CertAuth"),
-		templates:    tmpl,
-	}
+		htmlrender:   htmlrender,
+	}, nil
 }
 
 // SendVerificationEmail sends a verification email with a code
@@ -66,8 +72,8 @@ func (s *Service) SendVerificationEmail(toEmail string, verificationCode string)
 	}
 
 	// Generate email body using template
-	var body bytes.Buffer
-	if err := s.templates.Execute(&body, data); err != nil {
+	body, err := s.htmlrender.RenderToBuffer("email_confirmation", data)
+	if err != nil {
 		return errl.Errorf("failed to execute email template: %w", err)
 	}
 
@@ -149,124 +155,3 @@ func getEnvOrDefault(key, defaultValue string) string {
 	}
 	return defaultValue
 }
-
-// verificationEmailTemplate is the HTML template for verification emails
-const verificationEmailTemplate = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Email Verification - {{.AppName}}</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f8f9fa;
-        }
-        .container {
-            background-color: white;
-            border-radius: 8px;
-            padding: 30px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .header h1 {
-            color: #2c3e50;
-            margin: 0;
-            font-size: 24px;
-        }
-        .header p {
-            color: #7f8c8d;
-            margin: 10px 0 0 0;
-        }
-        .verification-code {
-            background-color: #f8f9fa;
-            border: 2px solid #dee2e6;
-            border-radius: 8px;
-            padding: 20px;
-            text-align: center;
-            margin: 20px 0;
-        }
-        .verification-code h2 {
-            color: #495057;
-            margin: 0;
-            font-size: 32px;
-            letter-spacing: 4px;
-            font-family: 'Courier New', monospace;
-        }
-        .info {
-            background-color: #e3f2fd;
-            border-left: 4px solid #2196f3;
-            padding: 15px;
-            margin: 20px 0;
-        }
-        .info h3 {
-            margin: 0 0 10px 0;
-            color: #1976d2;
-        }
-        .info ul {
-            margin: 0;
-            padding-left: 20px;
-        }
-        .info li {
-            margin: 5px 0;
-        }
-        .footer {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid #dee2e6;
-            text-align: center;
-            color: #6c757d;
-            font-size: 12px;
-        }
-        .warning {
-            background-color: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 4px;
-            padding: 15px;
-            margin: 20px 0;
-            color: #856404;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>Email Verification Required</h1>
-            <p>{{.AppName}} - Certificate Authentication Service</p>
-        </div>
-
-        <p>You have requested to authenticate using your eIDAS certificate. To complete the authentication process, please enter the following verification code:</p>
-
-        <div class="verification-code">
-            <h2>{{.VerificationCode}}</h2>
-        </div>
-
-        <div class="info">
-            <h3>Important Information:</h3>
-            <ul>
-                <li>This code is valid until {{.ExpiresAt.Format "15:04"}} ({{.ExpiresAt.Format "02/01/2006"}})</li>
-                <li>Do not share this code with anyone</li>
-                <li>If you did not request this verification, please ignore this email</li>
-                <li>This verification ensures you control the email address associated with your certificate</li>
-            </ul>
-        </div>
-
-        <div class="warning">
-            <strong>Security Notice:</strong> This verification code is required to ensure that you control the email address associated with your certificate. This helps prevent unauthorized access to your account.
-        </div>
-
-        <div class="footer">
-            <p>This is an automated message from {{.AppName}}. Please do not reply to this email.</p>
-            <p>If you have any questions, please contact your system administrator.</p>
-        </div>
-    </div>
-</body>
-</html>`

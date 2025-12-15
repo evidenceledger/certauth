@@ -52,48 +52,50 @@ type MessageImprint struct {
 
 // type bigInt = int64 // Removed in favor of math/big
 
-type TSAService struct {
-	tsaURL      string
-	tsaUser     string
-	tsaPassword string
-	caCert      []byte
-	eudssURL    string
+type TSAConfig struct {
+	TSAURL      string
+	TSAUser     string
+	TSAPassword string
+	CACertURL   string
+	EUDSSURL    string
 }
 
-func NewTSAService(caCertURL string, tsaURL string, tsaUser string, tsaPassword string) (*TSAService, error) {
-	if caCertURL == "" {
-		caCertURL = defaultCaCertURL
+type TSAService struct {
+	tsaConfig TSAConfig
+	CACert    []byte
+}
+
+func NewTSAService(cfg *TSAConfig) (*TSAService, error) {
+	if cfg.CACertURL == "" {
+		cfg.CACertURL = defaultCaCertURL
 	}
 
-	if tsaURL == "" {
-		tsaURL = defaultTsaURL
+	if cfg.TSAURL == "" {
+		cfg.TSAURL = defaultTsaURL
 	}
 
-	if tsaUser == "" {
-		tsaUser = defaultTsaUser
+	if cfg.TSAUser == "" {
+		cfg.TSAUser = defaultTsaUser
 	}
 
-	if tsaPassword == "" {
-		tsaPassword = defaultTsaPassword
+	if cfg.TSAPassword == "" {
+		cfg.TSAPassword = defaultTsaPassword
 	}
 
-	caCert, err := retrieveCaCert(caCertURL)
+	caCert, err := retrieveCaCert(cfg.CACertURL)
 	if err != nil {
 		return nil, err
 	}
 
 	return &TSAService{
-		tsaURL:      tsaURL,
-		tsaUser:     tsaUser,
-		tsaPassword: tsaPassword,
-		caCert:      caCert,
-		eudssURL:    defaultEUDSSURL,
+		tsaConfig: *cfg,
+		CACert:    caCert,
 	}, nil
 }
 
 func (s *TSAService) Timestamp(data []byte) ([]byte, error) {
 
-	if len(s.caCert) == 0 {
+	if len(s.CACert) == 0 {
 		return nil, fmt.Errorf("CA cert is empty")
 	}
 
@@ -274,11 +276,11 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 
 	// Parse Root CA
 	var rootCert *x509.Certificate
-	block, _ := pem.Decode(s.caCert)
+	block, _ := pem.Decode(s.CACert)
 	if block != nil {
 		rootCert, err = x509.ParseCertificate(block.Bytes)
 	} else {
-		rootCert, err = x509.ParseCertificate(s.caCert)
+		rootCert, err = x509.ParseCertificate(s.CACert)
 	}
 	if err != nil {
 		return errl.Errorf("failed to parse stored CA cert: %w", err)

@@ -183,3 +183,18 @@ func (h *RendererStd) Render(w http.ResponseWriter, templateName string, data ma
 	return nil
 
 }
+
+func (h *RendererStd) RenderToBuffer(templateName string, data any) (*bytes.Buffer, error) {
+
+	out := &bytes.Buffer{}
+
+	if err := h.engine.Render(out, templateName, data); err != nil {
+		slog.Error("Error rendering template",
+			slog.String("error", err.Error()),
+		)
+		return nil, errl.Errorf("Error rendering template: %w", err)
+	}
+
+	return out, nil
+
+}

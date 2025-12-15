@@ -6,7 +6,10 @@ import (
 )
 
 func TestEmailService_ValidateEmail(t *testing.T) {
-	service := NewService()
+	service, err := NewService()
+	if err != nil {
+		t.Fatalf("failed to create email service: %v", err)
+	}
 
 	tests := []struct {
 		name    string
@@ -33,17 +36,23 @@ func TestEmailService_ValidateEmail(t *testing.T) {
 }
 
 func TestEmailService_SendVerificationEmail(t *testing.T) {
-	service := NewService()
+	service, err := NewService()
+	if err != nil {
+		t.Fatalf("failed to create email service: %v", err)
+	}
 
 	// Test sending verification email (should log in development mode)
-	err := service.SendVerificationEmail("test@example.com", "123456")
+	err = service.SendVerificationEmail("test@example.com", "123456")
 	if err != nil {
 		t.Errorf("SendVerificationEmail() error = %v", err)
 	}
 }
 
 func TestEmailTemplate_Data(t *testing.T) {
-	service := NewService()
+	service, err := NewService()
+	if err != nil {
+		t.Fatalf("failed to create email service: %v", err)
+	}
 
 	// Test that the template can be executed with data
 	data := EmailData{
