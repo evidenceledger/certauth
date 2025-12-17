@@ -66,10 +66,10 @@ func New(dbname string) (*Database, error) {
 		return nil, errl.Errorf("failed to run migrations: %w", err)
 	}
 
-	// Initialize with test data if empty
-	if err := d.initializePredefinedRPs(); err != nil {
-		return nil, errl.Errorf("failed to initialize test data: %w", err)
-	}
+	// // Initialize with test data if empty
+	// if err := d.initializePredefinedRPs(); err != nil {
+	// 	return nil, errl.Errorf("failed to initialize test data: %w", err)
+	// }
 
 	return d, nil
 }

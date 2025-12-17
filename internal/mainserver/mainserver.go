@@ -12,7 +12,20 @@ import (
 	"github.com/evidenceledger/certauth/internal/certsec"
 	"github.com/evidenceledger/certauth/internal/database"
 	"github.com/evidenceledger/certauth/internal/errl"
+	"github.com/evidenceledger/certauth/internal/models"
 	onboard "github.com/evidenceledger/certauth/internal/onboard"
+)
+
+// We define several profiles, to facilitate configuration if an environment matches one of the profiles.
+// To run the server in a specific profile, use the -profile flag or the PROFILE environment variable,
+// with the value of the profile you want to use.
+// No other environment variables are required when using a profile, except for the TSA and email server credentials.
+const (
+	ALTIA_LOCAL = "local"
+	ALTIA_DEV   = "altia-dev"
+	ISBE_DEV    = "isbe-dev"
+	ISBE_PRE    = "isbe-pre"
+	ISBE_PRO    = "isbe-pro"
 )
 
 // Config is the configuration for the server.
@@ -37,7 +50,7 @@ type Server struct {
 
 // New creates a new server instance.
 // It initializes the database, cache, CertAuth, CertSec and Onboard servers.
-func New(adminPassword string, cfg Config) (*Server, error) {
+func New(adminPassword string, cfg Config, profile string) (*Server, error) {
 
 	// Create a global in-memory cache with expiration time of 10 minutes
 	cache := cache.New(10 * time.Minute)
@@ -145,4 +158,104 @@ func (s *Server) Start(ctx context.Context) error {
 		s.db.Close()
 		return nil
 	}
+}
+
+// initializePredefinedRPs adds some predefined Relying Parties to the database
+func initializePredefinedRPs(profile string, db *database.Database) error {
+
+	switch profile {
+	case ALTIA_LOCAL:
+
+		// ISBE Onboarding page in mycredential.eu
+		db.UpsertRelyingParty(&models.RelyingParty{
+			Name:        "ISBE Onboarding mycredential.eu",
+			Description: "The ISBE Onboarding Application in mycredential.eu",
+			ClientID:    "testonboard",
+			RedirectURL: "https://onboard.mycredential.eu/callback",
+			Scopes:      "openid eidas",
+			TokenExpiry: 3600,
+		}, "isbesecret")
+
+		// ISBE Issuer for test
+		db.UpsertRelyingParty(&models.RelyingParty{
+			Name:        "ISBE Issuer for test",
+			Description: "The ISBE Credential Issuer Application",
+			ClientID:    "https://issuer.mycredential.eu",
+			RedirectURL: "https://issuer.mycredential.eu/lear/auth/callback",
+			Scopes:      "openid eidas",
+			TokenExpiry: 3600,
+		}, "isbesecret")
+
+	case ALTIA_DEV:
+
+		// ISBE Catalog in netlify
+		db.UpsertRelyingParty(&models.RelyingParty{
+			Name:        "ISBE Catalog Netlify",
+			Description: "The ISBE Catalog application in Netlify",
+			ClientID:    "https://catalog.isbeonboard.com",
+			RedirectURL: "https://isbecatalog.netlify.app/",
+			Scopes:      "openid eidas",
+			TokenExpiry: 3600,
+		}, "isbesecret")
+
+		// ISBE Onboarding page in DEV
+		db.UpsertRelyingParty(&models.RelyingParty{
+			Name:        "ISBE Onboarding DEV",
+			Description: "The ISBE Onboarding Application in DEV",
+			ClientID:    "isbeonboard",
+			RedirectURL: "https://onboard-dev.redisbe.com/callback",
+			Scopes:      "openid eidas",
+			TokenExpiry: 3600,
+		}, "isbesecret")
+
+		// ISBE Keycloak in DEV
+		db.UpsertRelyingParty(&models.RelyingParty{
+			Name:        "ISBE Keycloak in DEV",
+			Description: "The ISBE Keycloak in DEV application",
+			ClientID:    "https://idp.dev.cloud-w.envs.redisbe.com",
+			RedirectURL: "https://idp.dev.cloud-w.envs.redisbe.com/auth/realms/dev-isbe/broker/certificado-representante/endpoint",
+			Scopes:      "openid eidas",
+			TokenExpiry: 3600,
+		}, "isbesecret")
+
+	case ISBE_DEV:
+
+		// ISBE Keycloak in DEV
+		db.UpsertRelyingParty(&models.RelyingParty{
+			Name:        "ISBE Keycloak in DEV",
+			Description: "The ISBE Keycloak in DEV application",
+			ClientID:    "https://idp.dev.cloud-w.envs.redisbe.com",
+			RedirectURL: "https://idp.dev.cloud-w.envs.redisbe.com/auth/realms/dev-isbe/broker/certificado-representante/endpoint",
+			Scopes:      "openid eidas",
+			TokenExpiry: 3600,
+		}, "isbesecret")
+
+	case ISBE_PRE:
+
+		// ISBE Keycloak in PRE
+		db.UpsertRelyingParty(&models.RelyingParty{
+			Name:        "ISBE Keycloak in PRE",
+			Description: "The ISBE Keycloak in PRE application",
+			ClientID:    "https://idp.pre.cloud-w.envs.redisbe.com",
+			RedirectURL: "https://idp.pre.cloud-w.envs.redisbe.com/auth/realms/pre-isbe/broker/certificado/endpoint",
+			Scopes:      "openid eidas",
+			TokenExpiry: 3600,
+		}, "isbesecret")
+
+	case ISBE_PRO:
+
+		// ISBE Keycloak in PRO
+		db.UpsertRelyingParty(&models.RelyingParty{
+			Name:        "ISBE Keycloak in PRO",
+			Description: "The ISBE Keycloak in PRO application",
+			ClientID:    "https://idp.pro.cloud-w.envs.redisbe.com",
+			RedirectURL: "https://idp.pro.cloud-w.envs.redisbe.com/auth/realms/pro-isbe/broker/certificado/endpoint",
+			Scopes:      "openid eidas",
+			TokenExpiry: 3600,
+		}, "isbesecret")
+
+	}
+
+	slog.Info("Test data initialized", "rp_count", 3)
+	return nil
 }
