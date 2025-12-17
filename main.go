@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -20,6 +22,7 @@ import (
 
 var (
 	development bool
+	profile     string
 
 	adminPassword string
 	certauthPort  string
@@ -41,6 +44,7 @@ var logLevel slog.Level = slog.LevelInfo
 
 func main() {
 	if err := run(); err != nil {
+		slog.Error(err.Error())
 		os.Exit(1)
 	}
 }
@@ -51,6 +55,7 @@ func run() error {
 
 	// If we are in development environment or not
 	flag.BoolVar(&development, "dev", false, "Development mode")
+	flag.StringVar(&profile, "profile", "local", "Profile (one of 'local, 'altia-dev, 'isbe-dev, 'isbe-pre, 'isbe-pro')")
 
 	// The password for admin screens
 	flag.StringVar(&adminPassword, "admin-password", "", "Admin password for the server")
@@ -130,31 +135,17 @@ func run() error {
 		onboardURL = "https://onboard.mycredential.eu"
 	}
 
-	// Get the config for the secrets.
-	// If the file does not exist, is empty or not parseable, we will use the environment variables.
-	secretConfig := ParseYamlConfig("secrets/config.yaml")
-
 	// Get the config for the TSA (Timestamping Authority)
 	tsaURL := getStringEnvOrDefault("TSA_URL", defaultTsaURL)
 	tsaCaCertURL := getStringEnvOrDefault("TSA_CA_CERT_URL", defaultCaCertURL)
-
-	// The TSA credentials are secret
-	tsaUser := getStringEnvOrDefault("TSA_USER", secretConfig.TSACreds.User)
-	tsaPassword := getStringEnvOrDefault("TSA_PASSWORD", secretConfig.TSACreds.Password)
-	// There is no default for the TSA user and password
-	if tsaUser == "" || tsaPassword == "" {
-		return errl.Errorf("TSA user and password required")
-	}
 
 	// Get the DSS (Digital Signature Services) URL
 	dssURL := getStringEnvOrDefault("DSS_URL", defaultEUDSSURL)
 
 	tsaCfg := &tsaservice.TSAConfig{
-		TSAURL:      tsaURL,
-		TSAUser:     tsaUser,
-		TSAPassword: tsaPassword,
-		CACertURL:   tsaCaCertURL,
-		EUDSSURL:    dssURL,
+		TSAURL:    tsaURL,
+		CACertURL: tsaCaCertURL,
+		EUDSSURL:  dssURL,
 	}
 
 	// Get the config for the email service
@@ -162,18 +153,7 @@ func run() error {
 	emailSMTP := getStringEnvOrDefault("EMAIL_SMTP", "smtp.serviciodecorreo.es")
 	emailSMTPPort := getStringEnvOrDefault("EMAIL_SMTP_PORT", "465")
 
-	// The email credentials are secret
-	emailUser := getStringEnvOrDefault("EMAIL_USER", secretConfig.EmailCreds.User)
-	emailPassword := getStringEnvOrDefault("EMAIL_PASSWORD", secretConfig.EmailCreds.Password)
-	// There is no default for the email user and password
-	if emailUser == "" || emailPassword == "" {
-		return errl.Errorf("email user and password required")
-	}
-
 	emailCfg := &email.EmailConfig{
-		User:     emailUser,
-		Password: emailPassword,
-		Email:    emailUser,
 		IMAP:     emailIMAP,
 		SMTP:     emailSMTP,
 		SMTPPort: emailSMTPPort,
@@ -202,6 +182,58 @@ func run() error {
 		OnboardPort:    onboardPort,
 		CertAuthConfig: certauthConfig,
 	}
+
+	// If a profile was specified, use it
+	if profile = getStringEnvOrDefault("PROFILE", profile); profile != "" {
+		profile = strings.ToLower(profile)
+		switch profile {
+		case ALTIA_LOCAL:
+			cfg = ALTIA_LOCAL_CFG
+		case ALTIA_DEV:
+			cfg = ALTIA_DEV_CFG
+		case ISBE_DEV:
+			cfg = ISBE_DEV_CFG
+		case ISBE_PRE:
+			cfg = ISBE_PRE_CFG
+		case ISBE_PRO:
+			cfg = ISBE_PRO_CFG
+		default:
+			return errl.Errorf("unknown profile: %s", profile)
+		}
+	}
+
+	// The secrets are either in a file not in the Git repo or in the environment variables.
+	// If the file does not exist, is empty or not parseable, we will use the environment variables.
+	secretConfig := ParseYamlConfig("secrets/config.yaml")
+
+	// The TSA credentials are secret and compulsory
+	tsaUser := getStringEnvOrDefault("TSA_USER", secretConfig.TSACreds.User)
+	tsaPassword := getStringEnvOrDefault("TSA_PASSWORD", secretConfig.TSACreds.Password)
+	// There is no default for the TSA user and password
+	if tsaUser == "" || tsaPassword == "" {
+		return errl.Errorf("TSA user and password required")
+	}
+
+	// The email credentials are secret and compulsory
+	emailUser := getStringEnvOrDefault("SMTP_USERNAME", secretConfig.EmailCreds.User)
+	emailPassword := getStringEnvOrDefault("SMTP_PASSWORD", secretConfig.EmailCreds.Password)
+	// There is no default for the email user and password
+	if emailUser == "" || emailPassword == "" {
+		return errl.Errorf("email user and password required")
+	}
+
+	// Update the config with the secrets
+	cfg.CertAuthConfig.TSAConfig.TSAUser = tsaUser
+	cfg.CertAuthConfig.TSAConfig.TSAPassword = tsaPassword
+	cfg.CertAuthConfig.EmailConfig.User = emailUser
+	cfg.CertAuthConfig.EmailConfig.Email = emailUser
+	cfg.CertAuthConfig.EmailConfig.Password = emailPassword
+
+	// Pretty-pring the full config
+	fmt.Println("Full config:")
+	out, _ := json.MarshalIndent(cfg, "", "  ")
+	fmt.Println(string(out))
+	fmt.Println("Full config end")
 
 	// Create the main server. This will initialize the individual HTTP services and the database.
 	srv, err := mainserver.New(adminPassword, cfg)

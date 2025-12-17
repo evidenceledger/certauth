@@ -63,8 +63,8 @@ func New(adminPassword string, cfg Config) (*Server, error) {
 		Development:             cfg.Development,
 		CertAuthURL:             cfg.CertAuthConfig.CertAuthURL,
 		CertificateBackEndpoint: certauth.CertificateBackEndpoint,
-		CertSecURL:              cfg.CertAuthConfig.CertAuthURL,
-		CertSecPort:             cfg.CertAuthConfig.CertAuthPort,
+		CertSecURL:              cfg.CertAuthConfig.CertSecURL,
+		CertSecPort:             cfg.CertAuthConfig.CertSecPort,
 	}
 	certsecServer, err := certsec.New(db, cache, newCertSecConfig)
 	if err != nil {

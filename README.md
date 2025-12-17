@@ -14,24 +14,15 @@ The deployment of this project is very simple using Docker. With other infrastru
 
 The project includes a Dockerfile which can be used to generate a Docker image. When creating a container instance, the folowing environment variables have to be provided.
 
-For the endpoints composing the onboarding system: 
-
-- `CERTAUTH_DEVELOPMENT`: Optional. Set to `true` to enable development mode. This will disable some security features and enable some development features. if you omit it or set it to `false`, the server will be in production mode.
-- `CERTAUTH_URL`: The URL for the CertAuth server.
-- `CERTAUTH_PORT`: Optional. The port for the CertAuth server. If you omit it the default is `8010`.
-- `CERTSEC_URL`: The URL for the CertSec server.
-- `CERTSEC_PORT`: Optional. The port for the CertSec server. If you omit it the default is `8011`.
-- `ONBOARD_URL`: The URL for the Onboard server.
-- `ONBOARD_PORT`: Optional. The port for the Onboard server. If you omit it the default is `8012`.
-
-For sending emails to the users:
-
-- `SMTP_HOST`: The host for the SMTP server.
-- `SMTP_PORT`: The port for the SMTP server.
-- `SMTP_USERNAME`: The username for the SMTP server.
+- `PROFILE`: Optional. The profile to use. If you omit it, the default is `local`. The available profiles are `isbe-dev`, `isbe-pre`, `isbe-pro`.
+- `SMTP_USERNAME`: The username for the SMTP server used to send emails to the end-users.
 - `SMTP_PASSWORD`: The password for the SMTP server.
-- `FROM_EMAIL`: The email address to use as the sender.
-- `FROM_NAME`: The name to use as the sender.
+- `TSA_USER`: The username for the TSA (Timestamping Authority) server, used to timestamp the act of user acceptance of the terms of service.
+- `TSA_PASSWORD`: The password for the TSA server.
+
+The `PROFILE` environment variable is used to select the profile to use for a deployment in ISBE. The available profiles are `isbe-dev`, `isbe-pre` and `isbe-pro`. Selecting a profile will configure the application with the appropriate values for the target environment.
+
+The other four environment variables are required for all profiles, and are not included in the profiles, given its sensitive nature. You should ask your systems administyrator for the appropriate values for your environment.
 
 ## Observability
 
