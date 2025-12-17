@@ -6,7 +6,19 @@ import (
 )
 
 func TestEmailService_ValidateEmail(t *testing.T) {
-	service := NewService()
+
+	cfg := &EmailConfig{
+		User:     "register@redisbe.com",
+		Password: "RegisterRedIsbe@2025",
+		Email:    "register@redisbe.com",
+		SMTP:     "smtp.serviciodecorreo.es",
+		IMAP:     "imap.serviciodecorreo.es",
+	}
+
+	service, err := NewService(cfg)
+	if err != nil {
+		t.Fatalf("failed to create email service: %v", err)
+	}
 
 	tests := []struct {
 		name    string
@@ -33,17 +45,78 @@ func TestEmailService_ValidateEmail(t *testing.T) {
 }
 
 func TestEmailService_SendVerificationEmail(t *testing.T) {
-	service := NewService()
+	cfg := &EmailConfig{
+		User:     "register@redisbe.com",
+		Password: "RegisterRedIsbe@2025",
+		Email:    "register@redisbe.com",
+		SMTP:     "smtp.serviciodecorreo.es",
+		SMTPPort: "465",
+		IMAP:     "imap.serviciodecorreo.es",
+	}
+
+	service, err := NewService(cfg)
+	if err != nil {
+		t.Fatalf("failed to create email service: %v", err)
+	}
 
 	// Test sending verification email (should log in development mode)
-	err := service.SendVerificationEmail("test@example.com", "123456")
+	err = service.SendVerificationEmail("jesus@alastria.io", "123456")
 	if err != nil {
 		t.Errorf("SendVerificationEmail() error = %v", err)
 	}
 }
 
+func TestEmailService_DebugEmail(t *testing.T) {
+
+	// Connect to the server, authenticate, set the sender and recipient,
+	// and send the email all in one step.
+	to := "jesus@alastria.io"
+	subject := "discount Gophers!"
+	body := "This is the email body."
+
+	cfg := &EmailConfig{
+		User:     "register@redisbe.com",
+		Password: "RegisterRedIsbe@2025",
+		Email:    "register@redisbe.com",
+		SMTP:     "smtp.serviciodecorreo.es",
+		SMTPPort: "465",
+		IMAP:     "imap.serviciodecorreo.es",
+	}
+
+	service, err := NewService(cfg)
+	if err != nil {
+		t.Fatalf("failed to create email service: %v", err)
+	}
+
+	// Use the internal sendEmail method (via passing a test? No, it's private).
+	// The user wants to debug "Simple email send functionality".
+	// The simplest way now is to use SendVerificationEmail which uses the fixed logic,
+	// OR replicate the manual connection logic here correctly.
+	// I will use SendVerificationEmail as it validates the whole flow, including the fix.
+	// But wait, the user specifically had a custom body in their test.
+	// I can't call private methods from valid test package (if it is package email_test).
+	// But it is `package email` at line 1. So I CAN call private methods.
+
+	err = service.sendEmail(to, subject, body)
+	if err != nil {
+		t.Errorf("SendMail error = %v", err)
+	}
+
+}
+
 func TestEmailTemplate_Data(t *testing.T) {
-	service := NewService()
+	cfg := &EmailConfig{
+		User:     "register@redisbe.com",
+		Password: "RegisterRedIsbe@2025",
+		Email:    "register@redisbe.com",
+		SMTP:     "smtp.serviciodecorreo.es",
+		IMAP:     "imap.serviciodecorreo.es",
+	}
+
+	service, err := NewService(cfg)
+	if err != nil {
+		t.Fatalf("failed to create email service: %v", err)
+	}
 
 	// Test that the template can be executed with data
 	data := EmailData{

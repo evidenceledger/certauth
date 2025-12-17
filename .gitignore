@@ -10,3 +10,4 @@ misc/
 
 # Data directory with databases and logs
 data/
+secrets/

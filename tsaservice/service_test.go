@@ -11,7 +11,14 @@ func TestTimestampAndVerify(t *testing.T) {
 	// We need environment variables or just default to the hardcoded ones for this test task?
 	// The service.go has defaults.
 
-	svc, err := NewTSAService("", "", "", "")
+	cfg := TSAConfig{
+		TSAURL:      "",
+		TSAUser:     "",
+		TSAPassword: "",
+		CACertURL:   "",
+	}
+
+	svc, err := NewTSAService(&cfg)
 	if err != nil {
 		t.Fatalf("Failed to create service: %v", err)
 	}
@@ -31,7 +38,7 @@ func TestTimestampAndVerify(t *testing.T) {
 		os.WriteFile("debug.tsr", tsr, 0644)
 	}
 
-	err = svc.Verify(tsr, data)
+	_, err = svc.Verify(tsr, data)
 	if err != nil {
 		t.Fatalf("Verify failed: %v", err)
 	}

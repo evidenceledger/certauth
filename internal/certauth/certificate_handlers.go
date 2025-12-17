@@ -24,7 +24,7 @@ import (
 
 const (
 	certLoginEndpoint                    = "/cert/login"
-	certificateBackEndpoint              = "/certificate-back"
+	CertificateBackEndpoint              = "/certificate-back"
 	sendEmailVerificationEndpoint        = "/request-email-verification"
 	verifyEmailCodeEndpoint              = "/verify-email-code"
 	presentContractForAcceptanceEndpoint = "/present-contract-for-acceptance"
@@ -38,7 +38,7 @@ func (s *Server) registerCertificateHandlers() {
 
 	// Redirected from CertSec after the user has provided a certificate.
 	// Presents a screen with the certificate data and requests the email from the user.
-	s.httpServer.Get(certificateBackEndpoint, s.pageRequestEmail)
+	s.httpServer.Get(CertificateBackEndpoint, s.pageRequestEmail)
 
 	// Receives the email address and sends an email to the user to verify if the email is correct.
 	// Presents a screen to allow the user to enter the verification code sent to its email.
@@ -69,7 +69,7 @@ func (s *Server) pageCertLogin(c *fiber.Ctx) error {
 	// Present the screen informing the user about the next step
 	return s.htmlRender.Render(c, "cert_1_select", fiber.Map{
 		"authCode":   authProcess.Code,
-		"certsecURL": s.cfg.CertSecURL,
+		"certsecURL": s.certSecURL,
 	})
 
 }
@@ -109,7 +109,7 @@ func (s *Server) pageRequestEmail(c *fiber.Ctx) error {
 		return errl.Errorf("certificate data is nil")
 	}
 
-	_, err = VerifyCertificate(certData.CertificateDER)
+	_, err = VerifyCertificate(certData.CertificateDER, s.euDSSURL)
 	if err == nil {
 		certData.EIDASCertificate = true
 	}
@@ -162,10 +162,8 @@ type EUDSSVerifyCertificateRequest struct {
 	TokenExtractionStrategy string `json:"tokenExtractionStrategy"`
 }
 
-const defaultEUDSSURL = "https://ec.europa.eu/digital-building-blocks/DSS/webapp-demo/services/rest/certificate-validation/validateCertificate"
-
 // VerifyCertificate verifies a certificate using the EUDSS service.
-func VerifyCertificate(data string) ([]byte, error) {
+func VerifyCertificate(data string, url string) ([]byte, error) {
 	req := EUDSSVerifyCertificateRequest{
 		Certificate: struct {
 			EncodedCertificate string `json:"encodedCertificate"`
@@ -185,7 +183,7 @@ func VerifyCertificate(data string) ([]byte, error) {
 		Timeout: 30 * time.Second,
 	}
 
-	resp, err := client.Post(defaultEUDSSURL, "application/json", bytes.NewBuffer(jsonReq))
+	resp, err := client.Post(url, "application/json", bytes.NewBuffer(jsonReq))
 	if err != nil {
 		return nil, errl.Errorf("failed to send EUDSS request: %w", err)
 	}
@@ -249,16 +247,16 @@ func (s *Server) sendEmailVerification(c *fiber.Ctx) error {
 	}
 
 	if email == "" || authCode == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Missing email or authorization code",
-		})
+		err := errl.Errorf("Missing email or authorization code")
+		slog.Error(err.Error())
+		return s.htmlRender.Render(c, "error", fiber.Map{"message": err})
 	}
 
 	// Basic email format validation
 	if !isValidEmail(email) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid email format",
-		})
+		err := errl.Errorf("Invalid email format")
+		slog.Error(err.Error())
+		return s.htmlRender.Render(c, "error", fiber.Map{"message": err})
 	}
 
 	slog.Info("Email verification requested", "email", email, "auth_code", authCode)
@@ -267,9 +265,7 @@ func (s *Server) sendEmailVerification(c *fiber.Ctx) error {
 	if certData == nil {
 		err := errl.Errorf("certificate data not found in authorization request")
 		slog.Error(err.Error(), "auth_code", authCode)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+		return s.htmlRender.Render(c, "error", fiber.Map{"message": err})
 	}
 
 	// Generate a random 6-digit verification code
@@ -280,6 +276,14 @@ func (s *Server) sendEmailVerification(c *fiber.Ctx) error {
 	authProcess.EmailVerificationCode = emailVerificationCode
 
 	slog.Info("Verification code generated", "code", emailVerificationCode, "auth_code", authCode)
+
+	// Send the actual email
+	err = s.emailService.SendVerificationEmail(email, emailVerificationCode)
+	if err != nil {
+		err := errl.Errorf("sendVerificationEmail: %w", err)
+		slog.Error(err.Error(), "auth_code", authCode)
+		return s.htmlRender.Render(c, "error", fiber.Map{"message": err})
+	}
 
 	// Render the confirm_email template
 	return s.htmlRender.Render(c, "cert_3_confirm_email", fiber.Map{
@@ -518,16 +522,16 @@ func (s *Server) handleContractAccepted(c *fiber.Ctx) error {
 
 	fileToSend := []byte(contrato)
 
-	// Notify the main portal that the registration is complete
-	if powers, err := s.notifyMainPortal(authProcess.CertificateData, storedEmail, &formData, fileToSend); err != nil {
-		err = errl.Errorf("notifying main portal: %w", err)
+	// Notify the contract management system that the registration is complete
+	if powers, err := s.notifyManagement(authProcess.CertificateData, storedEmail, &formData, fileToSend); err != nil {
+		err = errl.Errorf("notifying management: %w", err)
 		slog.Error(err.Error(), "auth_code", authCode)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
 	} else {
 		authProcess.Powers = powers
-		slog.Info("Main portal notified successfully", "powers", powers)
+		slog.Info("Management notified successfully", "powers", powers)
 	}
 
 	// Generate a random unique identifier for the SSO session
@@ -567,138 +571,9 @@ func (s *Server) handleContractAccepted(c *fiber.Ctx) error {
 
 }
 
-const mainPortalURL = "https://poc-middleware-management.dev.cloud-w.envs.redisbe.com/api/managements"
-const DELETE_URL = "https://poc-middleware-management.dev.cloud-w.envs.redisbe.com/api/managements/organization/"
-
-func notifySimple() (map[string]any, error) {
-
-	// Generate a random string of 8 characters
-	organizationIdentifier := generateRandomString()
-	organizationIdentifier = organizationIdentifier[:10]
-	organizationIdentifier = "VATES-" + organizationIdentifier
-
-	fileToSend := []byte(contrato)
-
-	// Structs for the data to be sent
-	type Role struct {
-		Principal bool `json:"principal"`
-		Developer bool `json:"developer"`
-		OpExec    bool `json:"op_exec"`
-	}
-
-	// OrganizationIdentifier and SelectedRole will be added as form fields.
-	type requestBody struct {
-		OrganizationIdentifier string `json:"organization_identifier"`
-		SelectedRole           Role   `json:"selected_role"`
-	}
-
-	// Prepare the multipart payload
-	bodyBuf := &bytes.Buffer{}
-	writer := multipart.NewWriter(bodyBuf)
-
-	// 1. Add OrganizationIdentifier
-	if err := writer.WriteField("organization_identifier", organizationIdentifier); err != nil {
-		return nil, fmt.Errorf("failed to write organization_identifier: %w", err)
-	}
-
-	// 2. Add SelectedRole
-	// Using the example values from the comments as defaults
-	role := Role{
-		Principal: true,
-		Developer: true,
-		OpExec:    false,
-	}
-	roleBytes, err := json.Marshal(role)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal role: %w", err)
-	}
-	if err := writer.WriteField("selected_role", string(roleBytes)); err != nil {
-		return nil, fmt.Errorf("failed to write selected_role: %w", err)
-	}
-
-	// 3. Add Contract File (fileToSend). The file is an HTML file.
-	// Using "contract" as the field name and "contract.html" as the filename
-	h := make(textproto.MIMEHeader)
-	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "contract", "contract.html"))
-	h.Set("Content-Type", "text/html")
-	part, err := writer.CreatePart(h)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create form part: %w", err)
-	}
-	if _, err := part.Write(fileToSend); err != nil {
-		return nil, fmt.Errorf("failed to write file content: %w", err)
-	}
-
-	// Close the writer to finalize the boundary
-	if err := writer.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close multipart writer: %w", err)
-	}
-
-	slog.Info("Sending POST to main portal", "url", mainPortalURL)
-
-	// body := bodyBuf.Bytes()
-
-	// fmt.Println(string(body))
-
-	// Create and send the HTTP request
-	req, err := http.NewRequest("POST", mainPortalURL, bodyBuf)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return nil, fmt.Errorf("main portal returned non-success status: %d", resp.StatusCode)
-	}
-
-	// Read the response body
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	// Parse into a map[string]any
-	var response map[string]any
-	if err := json.Unmarshal(respBody, &response); err != nil {
-		return nil, fmt.Errorf("failed to parse response body: %w", err)
-	}
-
-	// Print the response map as a pretty-printed indented JSON
-	jsonResponse, err := json.MarshalIndent(response, "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal response body: %w", err)
-	}
-	fmt.Println(string(jsonResponse))
-
-	// Check if the response contains a "role" object with contains a "policies" array
-	if role, ok := response["role"]; ok {
-		if policies, ok := role.(map[string]any)["policies"]; ok {
-			if policies, ok := policies.([]any); ok {
-				for _, policy := range policies {
-					if policy, ok := policy.(map[string]any); ok {
-						fmt.Println(policy)
-					}
-				}
-			}
-		}
-	}
-
-	return response, nil
-}
-
-func (s *Server) notifyMainPortal(certData *models.CertificateData, email string, contractForm *models.ContractForm, fileToSend []byte) (string, error) {
+func (s *Server) notifyManagement(certData *models.CertificateData, email string, contractForm *models.ContractForm, fileToSend []byte) (string, error) {
 
 	organizationIdentifier := contractForm.OrganizationNif
-	// suffix := generateRandomString()
-	// suffix = suffix[:5]
-	// organizationIdentifier = organizationIdentifier + "-" + suffix
 
 	// Structs for the data to be sent
 	type Role struct {
@@ -762,10 +637,10 @@ func (s *Server) notifyMainPortal(certData *models.CertificateData, email string
 		return "", fmt.Errorf("failed to close multipart writer: %w", err)
 	}
 
-	slog.Info("Sending POST to main portal", "url", mainPortalURL)
+	slog.Info("Sending POST to main portal", "url", s.managementURL)
 
 	// Do a DELETE request to delete the organization from the main portal
-	deleteURL := DELETE_URL + organizationIdentifier
+	deleteURL := s.managementURL + "/organization/" + organizationIdentifier
 	deleteReq, err := http.NewRequest("DELETE", deleteURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create delete request: %w", err)
@@ -778,7 +653,7 @@ func (s *Server) notifyMainPortal(certData *models.CertificateData, email string
 	defer deleteResp.Body.Close()
 
 	// Create and send the HTTP request
-	req, err := http.NewRequest("POST", mainPortalURL, bodyBuf)
+	req, err := http.NewRequest("POST", s.managementURL, bodyBuf)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
