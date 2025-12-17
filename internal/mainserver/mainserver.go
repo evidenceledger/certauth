@@ -62,6 +62,11 @@ func New(adminPassword string, cfg Config, profile string) (*Server, error) {
 		return nil, errl.Errorf("failed to initialize database: %w", err)
 	}
 
+	// Initialize predefined Relying Parties
+	if err := initializePredefinedRPs(profile, db); err != nil {
+		return nil, errl.Errorf("failed to initialize predefined Relying Parties: %w", err)
+	}
+
 	// Create the authentication and authorization servers.
 	// They share the same database and cache.
 
