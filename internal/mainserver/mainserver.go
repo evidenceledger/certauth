@@ -94,13 +94,7 @@ func New(adminPassword string, cfg Config, profile string) (*Server, error) {
 
 	var onboardServer *onboard.Server
 	if cfg.OnboardURL != "" {
-		clientid := "isbeonboard"
-		clientsecret := "isbesecret"
-		if cfg.Development {
-			clientid = "testonboard"
-			clientsecret = "isbesecret"
-		}
-		onboardServer = onboard.New(cfg.OnboardPort, cfg.OnboardURL, cfg.CertAuthConfig.CertAuthURL, clientid, clientsecret)
+		onboardServer = onboard.New(cfg.OnboardPort, cfg.OnboardURL, cfg.CertAuthConfig.CertAuthURL, "isbeonboard", "isbesecret")
 	}
 
 	return &Server{
@@ -175,7 +169,7 @@ func initializePredefinedRPs(profile string, db *database.Database) error {
 		db.UpsertRelyingParty(&models.RelyingParty{
 			Name:        "ISBE Onboarding mycredential.eu",
 			Description: "The ISBE Onboarding Application in mycredential.eu",
-			ClientID:    "testonboard",
+			ClientID:    "isbeonboard",
 			RedirectURL: "https://onboard.mycredential.eu/callback",
 			Scopes:      "openid eidas",
 			TokenExpiry: 3600,
