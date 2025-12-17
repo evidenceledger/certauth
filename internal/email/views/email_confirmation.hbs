@@ -1,11 +1,11 @@
-{{define emailConfirmation}}
+{{define "sendemail"}}
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Email Verification - {{.AppName}}</title>
+    <title>Verificación de correo electrónico - {{.AppName}}</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -101,35 +101,37 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>Email Verification Required</h1>
-            <p>{{.AppName}} - Certificate Authentication Service</p>
+            <h1>Verificación de correo electrónico</h1>
+            <p>{{.AppName}} - Servicio de registro en ISBE</p>
         </div>
 
-        <p>You have requested to authenticate using your eIDAS certificate. To complete the authentication process,
-            please enter the following verification code:</p>
+        <p>Te estás registrando en ISBE utilizando tu certificado eIDAS. Para completar el proceso de autenticación,
+            introduce el siguiente código de verificación:</p>
 
         <div class="verification-code">
             <h2>{{.VerificationCode}}</h2>
         </div>
 
         <div class="info">
-            <h3>Important Information:</h3>
+            <h3>Información importante:</h3>
             <ul>
-                <li>This code is valid until {{.ExpiresAt.Format "15:04"}} ({{.ExpiresAt.Format "02/01/2006"}})</li>
-                <li>Do not share this code with anyone</li>
-                <li>If you did not request this verification, please ignore this email</li>
-                <li>This verification ensures you control the email address associated with your certificate</li>
+                <li>Este código es válido hasta {{.ExpiresAt.Format "15:04"}} ({{.ExpiresAt.Format "02/01/2006"}})</li>
+                <li>No compartas este código con nadie</li>
+                <li>Si no solicitaste esta verificación, ignora este correo electrónico</li>
+                <li>Esta verificación garantiza que controlas la dirección de correo electrónico asociada con tu
+                    certificado</li>
             </ul>
         </div>
 
         <div class="warning">
-            <strong>Security Notice:</strong> This verification code is required to ensure that you control the email
-            address associated with your certificate. This helps prevent unauthorized access to your account.
+            <strong>Notificación de seguridad:</strong> Este código de verificación es necesario para garantizar que
+            controlas la dirección de correo electrónico asociada con tu certificado. Necesitamos el correo en caso de
+            que tengamos que contactarte.
         </div>
 
         <div class="footer">
-            <p>This is an automated message from {{.AppName}}. Please do not reply to this email.</p>
-            <p>If you have any questions, please contact your system administrator.</p>
+            <p>Este es un mensaje automático de {{.AppName}}. No responda a este correo electrónico.</p>
+            <p>Si tienes alguna pregunta, por favor, contacta con email:register@redisbe.com.</p>
         </div>
     </div>
 </body>

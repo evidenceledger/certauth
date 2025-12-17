@@ -38,7 +38,7 @@ func TestTimestampAndVerify(t *testing.T) {
 		os.WriteFile("debug.tsr", tsr, 0644)
 	}
 
-	err = svc.Verify(tsr, data)
+	_, err = svc.Verify(tsr, data)
 	if err != nil {
 		t.Fatalf("Verify failed: %v", err)
 	}

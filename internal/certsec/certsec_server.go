@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"slices"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -14,7 +15,6 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
 	"github.com/evidenceledger/certauth/internal/cache"
-	"github.com/evidenceledger/certauth/internal/certconfig"
 	"github.com/evidenceledger/certauth/internal/database"
 	"github.com/evidenceledger/certauth/internal/errl"
 	"github.com/evidenceledger/certauth/internal/html"
@@ -23,14 +23,56 @@ import (
 	"github.com/evidenceledger/certauth/internal/util/x509util"
 )
 
+const stdCertHeader = "tls-client-certificate"
+const kubeCertHeader = "X-Amzn-Mtls-Clientcert"
+
+const templateDirectory = "internal/certsec/views"
+const templateExtension = ".hbs"
+const templateStaticResources = "internal/certsec/views/assets"
+
+// Config is the configuration for the CertSecserver.
+type Config struct {
+	// Development mode
+	Development bool
+
+	// The URL and internal port of the CertSec server
+	CertSecURL  string
+	CertSecPort string
+
+	// The URL of the CertAuth server, used to redirect the user back to the CertAuth server
+	CertAuthURL             string
+	CertificateBackEndpoint string
+}
+
 // Server represents the CertSec certificate authentication server
 type Server struct {
-	app        *fiber.App
-	db         *database.Database
-	cache      *cache.Cache
-	cfg        certconfig.Config
+	// Development mode
+	Development bool
+
+	// The URL of the CertAuth server, used to redirect the user back to the CertAuth server
+	CertSecURL  string
+	CertSecPort string
+
+	// The URL of the CertAuth server, used to redirect the user back to the CertAuth server
+	CertAuthURL string
+
+	// The endpoint of the CertAuth server, used to redirect the user back to the CertAuth server
+	CertificateBackEndpoint string
+
+	// The HTTP server (using Fiber)
+	app *fiber.App
+
+	// The database
+	db *database.Database
+
+	// The cache
+	cache *cache.Cache
+
+	// The template renderer
 	htmlRender *html.RendererFiber
-	tmfClient  *tmfservice.TMFClient
+
+	// The TMF client
+	tmfClient *tmfservice.TMFClient
 }
 
 //go:embed views/*
@@ -42,29 +84,12 @@ var viewsfs embed.FS
 // supporting eIDAS certificates and Verifiable Credentials.
 // The CerSec server requires a reverse proxy (like Caddy or Nginx) in front, terminating the TLS connection
 // and configured to actually requesting the client certificate.
-func New(db *database.Database, cache *cache.Cache, cfg certconfig.Config) (*Server, error) {
+func New(db *database.Database, cache *cache.Cache, cfg *Config) (*Server, error) {
 
 	// The engine to display the screens HTML screens to the users
-	htmlrender, err := html.NewRendererFiber(cfg.Development, viewsfs, "internal/certsec/views", ".hbs")
+	htmlrender, err := html.NewRendererFiber(cfg.Development, viewsfs, templateDirectory, templateExtension)
 	if err != nil {
 		return nil, errl.Errorf("failed to initialize template engine: %w", err)
-	}
-
-	app := fiber.New(fiber.Config{
-		AppName: "CertSec Certificate Authentication",
-	})
-
-	app.Use(recover.New())
-	app.Use(logger.New())
-
-	app.Static("/static", "./internal/certsec/views/assets")
-
-	s := &Server{
-		app:        app,
-		db:         db,
-		cache:      cache,
-		cfg:        cfg,
-		htmlRender: htmlrender,
 	}
 
 	tmfClient, err := tmfservice.NewClient(&tmfservice.TMFClientConfig{
@@ -74,7 +99,28 @@ func New(db *database.Database, cache *cache.Cache, cfg certconfig.Config) (*Ser
 	if err != nil {
 		return nil, errl.Errorf("failed to initialize TMF client: %w", err)
 	}
-	s.tmfClient = tmfClient
+
+	app := fiber.New(fiber.Config{
+		AppName: "CertSec Certificate Authentication",
+	})
+
+	app.Use(recover.New())
+	app.Use(logger.New())
+
+	app.Static("/static", templateStaticResources)
+
+	s := &Server{
+		app:                     app,
+		db:                      db,
+		cache:                   cache,
+		Development:             cfg.Development,
+		CertAuthURL:             cfg.CertAuthURL,
+		CertificateBackEndpoint: cfg.CertificateBackEndpoint,
+		CertSecURL:              cfg.CertSecURL,
+		CertSecPort:             cfg.CertSecPort,
+		htmlRender:              htmlrender,
+		tmfClient:               tmfClient,
+	}
 
 	s.app.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "healthy"})
@@ -107,7 +153,7 @@ type RelyingPartyCUDRequest struct {
 // adminPages handles the admin pages
 func (s *Server) adminPages(c *fiber.Ctx) error {
 
-	subject, err := s.checkAuthentication(c)
+	subject, err := s.checkAdminAuthentication(c)
 	if err != nil {
 		return s.htmlRender.Render(c, "error", fiber.Map{
 			"message": err.Error(),
@@ -241,30 +287,46 @@ func (s *Server) organizationsPage(c *fiber.Ctx, subject *x509util.ELSIName) err
 
 }
 
-func (s *Server) checkAuthentication(c *fiber.Ctx) (*x509util.ELSIName, error) {
-	// Get the certificate from the TLS connection
-	certHeader := c.Get("tls-client-certificate")
-	if certHeader == "" {
-		return nil, errl.Errorf("No certificate provided")
+var adminIssuerOrganizationIdentifiers = []string{
+	"VATES-G87936159", // Alastria
+	"VATES-11111111K", // Fake ISBE Foundation
+}
+
+var adminSubjectSerialNumbers = []string{
+	"IDCES-21442837Y",
+}
+
+// isAdmin checks if the certificate is issued by any organization which is an authorized issuer.
+// It additionally checks for a specific user.
+func isAdmin(issuer *x509util.ELSIName, subject *x509util.ELSIName) bool {
+	return slices.Contains(adminIssuerOrganizationIdentifiers, issuer.OrganizationIdentifier) || slices.Contains(adminSubjectSerialNumbers, subject.SerialNumber)
+}
+
+func (s *Server) checkAdminAuthentication(c *fiber.Ctx) (*x509util.ELSIName, error) {
+	// Check both the std and kube cert headers to see if we received a certificate
+	certFromHeader := c.Get(stdCertHeader)
+	if certFromHeader == "" {
+		certFromHeader = c.Get(kubeCertHeader)
+	}
+	if certFromHeader == "" {
+		return nil, errl.Errorf("No certificate provided, neither in %s nor in %s", stdCertHeader, kubeCertHeader)
 	}
 
 	// Parse the certificate
-	cert, issuer, subject, err := x509util.ParseEIDASCertB64Der(certHeader)
+	cert, issuer, subject, err := x509util.ParseEIDASCertB64Der(certFromHeader)
 	if err != nil {
 		return nil, errl.Errorf("Failed to parse certificate: %w", err)
-	}
-
-	// Check for the serial number
-	if subject.SerialNumber != "IDCES-21442837Y" && issuer.OrganizationIdentifier != "VATES-G87936159" && issuer.OrganizationIdentifier != "VATES-11111111K" {
-		fmt.Println(subject.SerialNumber)
-		fmt.Println(issuer.OrganizationIdentifier)
-		return nil, errl.Errorf("Certificate serial number is invalid")
 	}
 
 	// For testing we accept personal certificates, but we do not accept that both
 	// the organizationIdentifier and the serialNumber are empty.
 	if subject.OrganizationIdentifier == "" && subject.SerialNumber == "" {
 		return nil, errl.Errorf("Both organizationIdentifier and serialNumber are empty")
+	}
+
+	// Check for admin
+	if !isAdmin(issuer, subject) {
+		return nil, errl.Errorf("Certificate serial number '%s' or issuer.organizationIdentifier '%s' is invalid", subject.SerialNumber, issuer.OrganizationIdentifier)
 	}
 
 	// Check certificate expiration
@@ -315,14 +377,18 @@ func (s *Server) handleCertificateAuth(c *fiber.Ctx) error {
 	sendBackError := func(err error) error {
 		// Redirect back to certauth with an error
 		authProcess.ErrorInProcess = err
-		redirectURL := s.cfg.CertAuthURL + "/certificate-back?code=" + authCode + "&error=true"
+		redirectURL := s.CertAuthURL + s.CertificateBackEndpoint + "?code=" + authCode + "&error=true"
 		return c.Status(fiber.StatusFound).Redirect(redirectURL)
 	}
 
 	// Get the certificate from the TLS connection
-	certFromHeader := c.Get("tls-client-certificate")
+	// Check both the std and kube cert headers to see if we received a certificate
+	certFromHeader := c.Get(stdCertHeader)
 	if certFromHeader == "" {
-		return sendBackError(errl.Errorf("No certificate provided"))
+		certFromHeader = c.Get(kubeCertHeader)
+	}
+	if certFromHeader == "" {
+		return sendBackError(errl.Errorf("No certificate provided either in %s or in %s", stdCertHeader, kubeCertHeader))
 	}
 
 	slog.Info("Certificate received", "auth_code", authCode, "cert_length", len(certFromHeader))
@@ -394,7 +460,7 @@ func (s *Server) handleCertificateAuth(c *fiber.Ctx) error {
 	authProcess.CertificateData = certData
 
 	// Redirect back to certauth
-	redirectURL := s.cfg.CertAuthURL + "/certificate-back?code=" + authCode
+	redirectURL := s.CertAuthURL + "/certificate-back?code=" + authCode
 	return c.Status(fiber.StatusFound).Redirect(redirectURL)
 
 }
@@ -402,7 +468,7 @@ func (s *Server) handleCertificateAuth(c *fiber.Ctx) error {
 // Start starts the server
 func (s *Server) Start(ctx context.Context) error {
 
-	addr := net.JoinHostPort("0.0.0.0", s.cfg.CertSecPort)
+	addr := net.JoinHostPort("0.0.0.0", s.CertSecPort)
 
 	// Start server in goroutine
 	errChan := make(chan error, 1)
@@ -411,7 +477,7 @@ func (s *Server) Start(ctx context.Context) error {
 			errChan <- fmt.Errorf("failed to start server: %w", err)
 		}
 	}()
-	slog.Info("CertSec server started", "addr", s.cfg.CertSecPort)
+	slog.Info("CertSec server started", "addr", s.CertSecPort)
 
 	// Wait for context cancellation or error
 	select {

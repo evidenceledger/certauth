@@ -42,7 +42,7 @@ func (s *Server) PageWalletLogin(c *fiber.Ctx) error {
 		return s.htmlRender.Render(c, "error", fiber.Map{"message": err})
 	}
 
-	verifierURL := s.cfg.CertAuthURL
+	verifierURL := s.certAuthURL
 	// This is the response url for the wallet
 	response_uri := verifierURL + "/wallet/authenticationresponse"
 

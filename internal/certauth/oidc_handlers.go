@@ -52,11 +52,11 @@ func (s *Server) registerOIDCHandlers() {
 // APIDiscovery handles the discovery endpoint, where the Relying Party can retrieve information about the server
 func (s *Server) APIDiscovery(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
-		"issuer":                 s.cfg.CertAuthURL,
-		"authorization_endpoint": s.cfg.CertAuthURL + authorization_endpoint,
-		"token_endpoint":         s.cfg.CertAuthURL + token_endpoint,
+		"issuer":                 s.certAuthURL,
+		"authorization_endpoint": s.certAuthURL + authorization_endpoint,
+		"token_endpoint":         s.certAuthURL + token_endpoint,
 		// "userinfo_endpoint":                     s.cfg.CertAuthURL + userinfo_endpoint,
-		"jwks_uri":                              s.cfg.CertAuthURL + jwks_uri,
+		"jwks_uri":                              s.certAuthURL + jwks_uri,
 		"response_types_supported":              []string{"code"},
 		"subject_types_supported":               []string{"public"},
 		"id_token_signing_alg_values_supported": []string{"ES256"},
@@ -132,9 +132,14 @@ func (s *Server) Authorization(c *fiber.Ctx) error {
 
 	// Check if we received the SSO cookie that we generated in a possible recent authentication
 	ssoCookie := c.Cookies("__Http-sso_certauth")
-	ssoClaims, err := s.jwtService.ParseSSOCookieToken(ssoCookie)
-	if err != nil {
-		slog.Warn("Invalid SSO cookie received, proceeding with normal flow", "error", errl.Error(err))
+	var ssoClaims jwtV5.MapClaims
+	if ssoCookie != "" {
+		ssoClaims, err = s.jwtService.ParseSSOCookieToken(ssoCookie)
+		if err != nil {
+			slog.Warn("Invalid SSO cookie received, proceeding with normal flow", "error", errl.Error(err))
+		}
+	} else {
+		slog.Debug("No SSO cookie received, proceeding with normal flow")
 	}
 
 	var ssoSession *models.SSOSession
@@ -494,7 +499,7 @@ func (s *Server) generateSSOCookie(ssoSessionID string, certData *models.Certifi
 		// Standard claims
 		"iss":   s.jwtService.Issuer(),                 // Issuer
 		"sub":   sub,                                   // Subject (org ID or personal identifier)
-		"aud":   s.cfg.CertAuthURL,                     // Audience
+		"aud":   s.certAuthURL,                         // Audience
 		"exp":   time.Now().Add(24 * time.Hour).Unix(), // Expiration
 		"iat":   time.Now().Unix(),                     // Issued at
 		"email": certData.Subject.EmailAddress,         // Email
@@ -519,7 +524,7 @@ func (s *Server) generateSSOCookie(ssoSessionID string, certData *models.Certifi
 	cookie.SessionOnly = true
 
 	// Set the domain to the main domain so it's accessible by subdomains
-	u, err := url.Parse(s.cfg.CertAuthURL)
+	u, err := url.Parse(s.certAuthURL)
 	if err != nil {
 		slog.Error("failed to parse cert auth url", "error", err)
 	} else {

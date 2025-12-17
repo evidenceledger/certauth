@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/evidenceledger/certauth/internal/errl"
 	"github.com/evidenceledger/certauth/internal/models"
@@ -30,6 +28,13 @@ func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certifi
 	if err != nil {
 		return errl.Errorf("failed to timestamp data: %w", err)
 	}
+
+	genTime, err := tsaService.Verify(timestamp, tstDataToTimestamp)
+	if err != nil {
+		return errl.Errorf("failed to verify timestamp: %w", err)
+	}
+
+	slog.Info("Timestamp verified", "genTime", genTime)
 
 	// organization_identifier TEXT UNIQUE NOT NULL,
 	// organization TEXT,
@@ -58,8 +63,6 @@ func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certifi
 		) VALUES (?, ?, ?, ?, jsonb(?), ?, ?, ?, ?, ?)
 	`
 
-	now := time.Now()
-
 	_, err = d.db.Exec(query,
 		certificateData.OrganizationID,
 		certificateData.Subject.Organization,
@@ -69,8 +72,8 @@ func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certifi
 		certificateData.CertificateDER,
 		formData.Annex,
 		timestamp,
-		now,
-		now,
+		genTime,
+		genTime,
 	)
 
 	if err != nil {
@@ -78,7 +81,6 @@ func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certifi
 	}
 
 	slog.Info("Created registration", "email", email, "org_id", certificateData.OrganizationID)
-	fmt.Printf("Timestamp: %x\n", timestamp)
 	return nil
 }
 

@@ -195,12 +195,12 @@ func VerifyCertificate(data []byte) ([]byte, error) {
 // It performs standard chain verification:
 // 1. Checks if the response is signed by a cert that chains up to s.caCert.
 // 2. Verifies the signature using that signing cert.
-func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
+func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) (*time.Time, error) {
 	// 1. Parse TimeStampResp
 	var resp TimeStampResp
 	_, err := asn1.Unmarshal(tsrBytes, &resp)
 	if err != nil {
-		return errl.Errorf("failed to unmarshal TimeStampResp: %w", err)
+		return nil, errl.Errorf("failed to unmarshal TimeStampResp: %w", err)
 	}
 
 	if resp.Status.Status != 0 {
@@ -208,34 +208,34 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 		if len(resp.Status.StatusString) > 0 {
 			msg = resp.Status.StatusString[0]
 		}
-		return errl.Errorf("timestamp request failed: status=%d message=%s", resp.Status.Status, msg)
+		return nil, errl.Errorf("timestamp request failed: status=%d message=%s", resp.Status.Status, msg)
 	}
 
 	if len(resp.TimeStampToken.Bytes) == 0 {
-		return errl.Errorf("no TimeStampToken present")
+		return nil, errl.Errorf("no TimeStampToken present")
 	}
 
 	// 2. Parse ContentInfo (TimeStampToken)
 	var ci ContentInfo
 	_, err = asn1.Unmarshal(resp.TimeStampToken.FullBytes, &ci)
 	if err != nil {
-		return errl.Errorf("failed to unmarshal ContentInfo: %w", err)
+		return nil, errl.Errorf("failed to unmarshal ContentInfo: %w", err)
 	}
 
 	if !ci.ContentType.Equal(oidSignedData) {
-		return errl.Errorf("unexpected content type: %v", ci.ContentType)
+		return nil, errl.Errorf("unexpected content type: %v", ci.ContentType)
 	}
 
 	// 3. Parse SignedData
 	var sd SignedData
 	_, err = asn1.Unmarshal(ci.Content.Bytes, &sd)
 	if err != nil {
-		return errl.Errorf("failed to unmarshal SignedData: %w", err)
+		return nil, errl.Errorf("failed to unmarshal SignedData: %w", err)
 	}
 
 	// 4. Parse TSTInfo (Encapsulated Content)
 	if !sd.EncapContentInfo.EContentType.Equal(oidContentTypeTST) {
-		return errl.Errorf("encapsulated content is not TSTInfo: %v", sd.EncapContentInfo.EContentType)
+		return nil, errl.Errorf("encapsulated content is not TSTInfo: %v", sd.EncapContentInfo.EContentType)
 	}
 
 	var tstInfoBytes []byte
@@ -248,30 +248,30 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 	var tst TSTInfo
 	_, err = asn1.Unmarshal(tstInfoBytes, &tst)
 	if err != nil {
-		return errl.Errorf("failed to unmarshal TSTInfo: %w", err)
+		return nil, errl.Errorf("failed to unmarshal TSTInfo: %w", err)
 	}
 
 	// 5. Verify MessageImprint
 	if err := verifyMessageImprint(tst.MessageImprint, originalData); err != nil {
-		return errl.Errorf("message imprint verification failed: %w", err)
+		return nil, errl.Errorf("message imprint verification failed: %w", err)
 	}
 
 	// 6. Verify Chain and Signature
 	if len(sd.SignerInfos) == 0 {
-		return errl.Errorf("no signer info found")
+		return nil, errl.Errorf("no signer info found")
 	}
 	signer := sd.SignerInfos[0]
 
 	// Parse certificates from SignedData
 	certs, err := parseCertificates(sd.Certificates)
 	if err != nil {
-		return errl.Errorf("failed to parse certificates from SignedData: %w", err)
+		return nil, errl.Errorf("failed to parse certificates from SignedData: %w", err)
 	}
 
 	// Find the signing certificate
 	signingCert, err := findSigningCert(signer, certs)
 	if err != nil {
-		return errl.Errorf("failed to find signing certificate: %w", err)
+		return nil, errl.Errorf("failed to find signing certificate: %w", err)
 	}
 
 	// Parse Root CA
@@ -283,7 +283,7 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 		rootCert, err = x509.ParseCertificate(s.CACert)
 	}
 	if err != nil {
-		return errl.Errorf("failed to parse stored CA cert: %w", err)
+		return nil, errl.Errorf("failed to parse stored CA cert: %w", err)
 	}
 
 	// Verify Chain
@@ -306,7 +306,7 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 	}
 
 	if _, err := signingCert.Verify(opts); err != nil {
-		return errl.Errorf("certificate chain verification failed: %w", err)
+		return nil, errl.Errorf("certificate chain verification failed: %w", err)
 	}
 
 	// 7. Prepare data for Signature Verification
@@ -322,7 +322,7 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 			}
 		}
 		if digestAttr == nil {
-			return errl.Errorf("authenticated attributes present but no message-digest attribute found")
+			return nil, errl.Errorf("authenticated attributes present but no message-digest attribute found")
 		}
 
 		var digestFromAttr []byte
@@ -335,11 +335,11 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 
 		digestOfTST, err := computeHash(tstInfoBytes, signer.DigestAlgorithm)
 		if err != nil {
-			return errl.Errorf("failed to compute hash: %w", err)
+			return nil, errl.Errorf("failed to compute hash: %w", err)
 		}
 
 		if !bytes.Equal(digestFromAttr, digestOfTST) {
-			return errl.Errorf("message-digest attribute verification failed: Expected %x, got %x", digestOfTST, digestFromAttr)
+			return nil, errl.Errorf("message-digest attribute verification failed: Expected %x, got %x", digestOfTST, digestFromAttr)
 		}
 
 		// 2. Prepare data for Signature Verification (DER of SET of attributes)
@@ -348,14 +348,14 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 			A []Attribute `asn1:"set"`
 		}{A: signer.AuthenticatedAttrs})
 		if err != nil {
-			return errl.Errorf("failed to marshal authenticated attributes: %w", err)
+			return nil, errl.Errorf("failed to marshal authenticated attributes: %w", err)
 		}
 
 		// Strip outer SEQUENCE tag to get the SET content
 		var rawSeq asn1.RawValue
 		_, err = asn1.Unmarshal(encodedAttrs, &rawSeq)
 		if err != nil {
-			return errl.Errorf("failed to unmarshal authenticated attributes: %w", err)
+			return nil, errl.Errorf("failed to unmarshal authenticated attributes: %w", err)
 		}
 		signedData = rawSeq.Bytes
 
@@ -366,7 +366,7 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 	// 8. Verify Signature
 	hashedSignedData, err := computeHash(signedData, signer.DigestAlgorithm)
 	if err != nil {
-		return errl.Errorf("failed to compute hash: %w", err)
+		return nil, errl.Errorf("failed to compute hash: %w", err)
 	}
 
 	switch pub := signingCert.PublicKey.(type) {
@@ -376,13 +376,13 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 		if err != nil {
 			hashType, err = getHashType(signer.DigestAlgorithm)
 			if err != nil {
-				return err
+				return nil, errl.Errorf("failed to get hash type: %w", err)
 			}
 		}
 
 		err = rsa.VerifyPKCS1v15(pub, hashType, hashedSignedData, signer.EncryptedDigest)
 		if err != nil {
-			return errl.Errorf("RSA signature verification failed: %w", err)
+			return nil, errl.Errorf("RSA signature verification failed: %w", err)
 		}
 
 	case *ecdsa.PublicKey:
@@ -392,18 +392,18 @@ func (s *TSAService) Verify(tsrBytes []byte, originalData []byte) error {
 		}
 		var esig ecdsaSignature
 		if _, err := asn1.Unmarshal(signer.EncryptedDigest, &esig); err != nil {
-			return errl.Errorf("failed to unmarshal ECDSA signature: %w", err)
+			return nil, errl.Errorf("failed to unmarshal ECDSA signature: %w", err)
 		}
 
 		if !ecdsa.Verify(pub, hashedSignedData, esig.R, esig.S) {
-			return errl.Errorf("ECDSA signature verification failed")
+			return nil, errl.Errorf("ECDSA signature verification failed")
 		}
 
 	default:
-		return errl.Errorf("unsupported public key type: %T", signingCert.PublicKey)
+		return nil, errl.Errorf("unsupported public key type: %T", signingCert.PublicKey)
 	}
 
-	return nil
+	return &tst.GenTime, nil
 }
 
 func parseCertificates(raw asn1.RawValue) ([]*x509.Certificate, error) {

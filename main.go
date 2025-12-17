@@ -9,10 +9,13 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/evidenceledger/certauth/internal/certauth"
+	"github.com/evidenceledger/certauth/internal/email"
 	"github.com/evidenceledger/certauth/internal/errl"
 	"github.com/evidenceledger/certauth/internal/mainserver"
 	"github.com/evidenceledger/certauth/internal/sqlogger"
 	"github.com/evidenceledger/certauth/tsaservice"
+	"github.com/goccy/go-yaml"
 )
 
 var (
@@ -28,11 +31,10 @@ var (
 )
 
 const (
-	defaultCaCertURL   = "http://pki.digitelts.es/DIGITELTSCAROOT01.pem"
-	defaultTsaURL      = "https://timestamp-service.pre-api.digitelts.com/tsa"
-	defaultTsaUser     = "tsu-01-redisbe"
-	defaultTsaPassword = "mj2TBYOCPe9LRC05"
-	defaultEUDSSURL    = "https://ec.europa.eu/digital-building-blocks/DSS/webapp-demo/services/rest/certificate-validation/validateCertificate"
+	defaultCaCertURL     = "http://pki.digitelts.es/DIGITELTSCAROOT01.pem"
+	defaultTsaURL        = "https://timestamp-service.pre-api.digitelts.com/tsa"
+	defaultEUDSSURL      = "https://ec.europa.eu/digital-building-blocks/DSS/webapp-demo/services/rest/certificate-validation/validateCertificate"
+	defaultManagementURL = "https://poc-middleware-management.dev.cloud-w.envs.redisbe.com/api/managements"
 )
 
 var logLevel slog.Level = slog.LevelInfo
@@ -112,8 +114,11 @@ func run() error {
 		return errl.Errorf("admin password required")
 	}
 
+	// Get the URL and port for the CertAuth server, which is the OP url also
 	certauthURL = getStringEnvOrDefault("CERTAUTH_URL", certauthURL)
 	certauthPort = getStringEnvOrDefault("CERTAUTH_PORT", certauthPort)
+
+	// Get the URL and port for the CertSec server
 	certsecURL = getStringEnvOrDefault("CERTSEC_URL", certsecURL)
 	certsecPort = getStringEnvOrDefault("CERTSEC_PORT", certsecPort)
 
@@ -125,31 +130,77 @@ func run() error {
 		onboardURL = "https://onboard.mycredential.eu"
 	}
 
-	// get the config for the TSA
+	// Get the config for the secrets.
+	// If the file does not exist, is empty or not parseable, we will use the environment variables.
+	secretConfig := ParseYamlConfig("secrets/config.yaml")
 
+	// Get the config for the TSA (Timestamping Authority)
 	tsaURL := getStringEnvOrDefault("TSA_URL", defaultTsaURL)
-	tsaUser := getStringEnvOrDefault("TSA_USER", defaultTsaUser)
-	tsaPassword := getStringEnvOrDefault("TSA_PASSWORD", defaultTsaPassword)
 	tsaCaCertURL := getStringEnvOrDefault("TSA_CA_CERT_URL", defaultCaCertURL)
+
+	// The TSA credentials are secret
+	tsaUser := getStringEnvOrDefault("TSA_USER", secretConfig.TSACreds.User)
+	tsaPassword := getStringEnvOrDefault("TSA_PASSWORD", secretConfig.TSACreds.Password)
+	// There is no default for the TSA user and password
+	if tsaUser == "" || tsaPassword == "" {
+		return errl.Errorf("TSA user and password required")
+	}
+
+	// Get the DSS (Digital Signature Services) URL
+	dssURL := getStringEnvOrDefault("DSS_URL", defaultEUDSSURL)
 
 	tsaCfg := &tsaservice.TSAConfig{
 		TSAURL:      tsaURL,
 		TSAUser:     tsaUser,
 		TSAPassword: tsaPassword,
 		CACertURL:   tsaCaCertURL,
-		EUDSSURL:    defaultEUDSSURL,
+		EUDSSURL:    dssURL,
 	}
 
-	// Create the configuration
+	// Get the config for the email service
+	emailIMAP := getStringEnvOrDefault("EMAIL_IMAP", "imap.serviciodecorreo.es")
+	emailSMTP := getStringEnvOrDefault("EMAIL_SMTP", "smtp.serviciodecorreo.es")
+	emailSMTPPort := getStringEnvOrDefault("EMAIL_SMTP_PORT", "465")
+
+	// The email credentials are secret
+	emailUser := getStringEnvOrDefault("EMAIL_USER", secretConfig.EmailCreds.User)
+	emailPassword := getStringEnvOrDefault("EMAIL_PASSWORD", secretConfig.EmailCreds.Password)
+	// There is no default for the email user and password
+	if emailUser == "" || emailPassword == "" {
+		return errl.Errorf("email user and password required")
+	}
+
+	emailCfg := &email.EmailConfig{
+		User:     emailUser,
+		Password: emailPassword,
+		Email:    emailUser,
+		IMAP:     emailIMAP,
+		SMTP:     emailSMTP,
+		SMTPPort: emailSMTPPort,
+	}
+
+	// Get the URL for the management service
+	managementURL := getStringEnvOrDefault("MANAGEMENT_URL", defaultManagementURL)
+
+	// Configuration for the CertAuth server
+	certauthConfig := &certauth.Config{
+		Development:   development,
+		CertAuthURL:   certauthURL,
+		CertAuthPort:  certauthPort,
+		CertSecURL:    certsecURL,
+		CertSecPort:   certsecPort,
+		TSAConfig:     tsaCfg,
+		EmailConfig:   emailCfg,
+		ManagementURL: managementURL,
+		EUDSSURL:      dssURL,
+	}
+
+	// Configuration for the main server, including the CertAuth server config and Onboard server config
 	cfg := mainserver.Config{
-		Development:  development,
-		CertAuthPort: certauthPort,
-		CertAuthURL:  certauthURL,
-		CertSecPort:  certsecPort,
-		CertSecURL:   certsecURL,
-		OnboardPort:  onboardPort,
-		OnboardURL:   onboardURL,
-		TSAConfig:    tsaCfg,
+		Development:    development,
+		OnboardURL:     onboardURL,
+		OnboardPort:    onboardPort,
+		CertAuthConfig: certauthConfig,
 	}
 
 	// Create the main server. This will initialize the individual HTTP services and the database.
@@ -203,4 +254,35 @@ func getBoolEnvOrDefault(key string, defaultValue bool) bool {
 		}
 	}
 	return defaultValue
+}
+
+type SecretConfig struct {
+	AgeRecipient string     `yaml:"age_recipient"`
+	TSACreds     TSACreds   `yaml:"tsa"`
+	EmailCreds   EmailCreds `yaml:"email"`
+}
+
+type TSACreds struct {
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
+}
+
+type EmailCreds struct {
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
+}
+
+// ParseYamlConfig reads a YAML configuration from the given filename.
+func ParseYamlConfig(filename string) SecretConfig {
+	var out SecretConfig
+	src, err := os.ReadFile(filename)
+	if err != nil {
+		// We just return the empty struct if the file is not found
+		return out
+	}
+	if err = yaml.Unmarshal(src, &out); err != nil {
+		// We just return the empty struct if the file can not be parsed
+		return out
+	}
+	return out
 }

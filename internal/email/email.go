@@ -1,17 +1,26 @@
 package email
 
 import (
+	"crypto/tls"
 	"embed"
 	"fmt"
 	"log/slog"
 	"net/smtp"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/evidenceledger/certauth/internal/errl"
 	"github.com/evidenceledger/certauth/internal/html"
 )
+
+type EmailConfig struct {
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
+	Email    string `yaml:"email"`
+	IMAP     string `yaml:"imap"`
+	SMTP     string `yaml:"smtp"`
+	SMTPPort string `yaml:"smtp_port"`
+}
 
 // Service represents an email service
 type Service struct {
@@ -37,22 +46,22 @@ const templateDebug = true
 var viewsfs embed.FS
 
 // NewService creates a new email service
-func NewService() (*Service, error) {
+func NewService(cfg *EmailConfig) (*Service, error) {
 	// Parse email templates
 
 	// The engine to display the screens HTML screens to the users
-	htmlrender, err := html.NewRendererStd(templateDebug, viewsfs, "internal/certauth/views", ".hbs")
+	htmlrender, err := html.NewRendererStd(templateDebug, viewsfs, "internal/email/views", ".hbs")
 	if err != nil {
 		return nil, errl.Errorf("failed to initialize template engine: %w", err)
 	}
 
 	return &Service{
-		smtpHost:     getEnvOrDefault("SMTP_HOST", "localhost"),
-		smtpPort:     getEnvOrDefault("SMTP_PORT", "587"),
-		smtpUsername: getEnvOrDefault("SMTP_USERNAME", ""),
-		smtpPassword: getEnvOrDefault("SMTP_PASSWORD", ""),
-		fromEmail:    getEnvOrDefault("FROM_EMAIL", "noreply@certauth.mycredential.eu"),
-		fromName:     getEnvOrDefault("FROM_NAME", "CertAuth"),
+		smtpHost:     cfg.SMTP,
+		smtpPort:     cfg.SMTPPort,
+		smtpUsername: cfg.User,
+		smtpPassword: cfg.Password,
+		fromEmail:    cfg.Email,
+		fromName:     cfg.User,
 		htmlrender:   htmlrender,
 	}, nil
 }
@@ -68,54 +77,90 @@ func (s *Service) SendVerificationEmail(toEmail string, verificationCode string)
 	data := EmailData{
 		VerificationCode: verificationCode,
 		ExpiresAt:        time.Now().Add(10 * time.Minute),
-		AppName:          "CertAuth",
+		AppName:          "Red ISBE",
 	}
 
 	// Generate email body using template
-	body, err := s.htmlrender.RenderToBuffer("email_confirmation", data)
+	body, err := s.htmlrender.RenderToBuffer("sendemail", data)
 	if err != nil {
 		return errl.Errorf("failed to execute email template: %w", err)
 	}
 
 	// Send the email
-	subject := "Email Verification Required - CertAuth"
+	subject := "Verificación de correo electrónico - Red ISBE"
 	return s.sendEmail(toEmail, subject, body.String())
 }
 
 // sendEmail sends an email using SMTP
 func (s *Service) sendEmail(toEmail string, subject string, body string) error {
-	// For development/testing, if no SMTP credentials are provided, just log the email
-	if s.smtpUsername == "" || s.smtpPassword == "" {
-		slog.Info("Email would be sent (development mode)",
-			"to", toEmail,
-			"subject", subject,
-			"body_length", len(body))
-		return nil
-	}
 
-	// Create message
-	message := fmt.Sprintf("From: %s <%s>\r\n", s.fromName, s.fromEmail)
-	message += fmt.Sprintf("To: %s\r\n", toEmail)
-	message += fmt.Sprintf("Subject: %s\r\n", subject)
-	message += "MIME-Version: 1.0\r\n"
-	message += "Content-Type: text/html; charset=UTF-8\r\n"
-	message += "\r\n"
-	message += body
+	// Connect to the server, authenticate, set the sender and recipient,
+	// and send the email all in one step.
+	to := []string{toEmail}
+	msg := []byte("From: " + s.fromName + " <" + s.fromEmail + ">\r\n" +
+		"To: " + toEmail + "\r\n" +
+		"Subject: " + subject + "\r\n" +
+		"MIME-Version: 1.0\r\n" +
+		"Content-Type: text/html; charset=UTF-8\r\n" +
+		"\r\n" +
+		body)
 
-	// Connect to SMTP server
-	auth := smtp.PlainAuth("", s.smtpUsername, s.smtpPassword, s.smtpHost)
 	addr := fmt.Sprintf("%s:%s", s.smtpHost, s.smtpPort)
 
-	var err error
-	if s.smtpPort == "587" {
-		err = smtp.SendMail(addr, auth, s.fromEmail, []string{toEmail}, []byte(message))
-	} else {
-		// For port 465, use TLS
-		err = smtp.SendMail(addr, auth, s.fromEmail, []string{toEmail}, []byte(message))
-	}
+	// If port is 465, use implicit TLS
+	if s.smtpPort == "465" {
+		tlsConfig := &tls.Config{
+			ServerName: s.smtpHost,
+		}
 
-	if err != nil {
-		return errl.Errorf("failed to send email: %w", err)
+		conn, err := tls.Dial("tcp", addr, tlsConfig)
+		if err != nil {
+			return errl.Errorf("failed to dial tls: %w", err)
+		}
+
+		c, err := smtp.NewClient(conn, s.smtpHost)
+		if err != nil {
+			conn.Close()
+			return errl.Errorf("failed to create smtp client: %w", err)
+		}
+		defer c.Quit()
+
+		auth := smtp.PlainAuth("", s.smtpUsername, s.smtpPassword, s.smtpHost)
+		if err = c.Auth(auth); err != nil {
+			return errl.Errorf("failed to authenticate: %w", err)
+		}
+
+		if err = c.Mail(s.fromEmail); err != nil {
+			return errl.Errorf("failed to set sender: %w", err)
+		}
+
+		for _, recipient := range to {
+			if err = c.Rcpt(recipient); err != nil {
+				return errl.Errorf("failed to set recipient: %w", err)
+			}
+		}
+
+		w, err := c.Data()
+		if err != nil {
+			return errl.Errorf("failed to create data writer: %w", err)
+		}
+
+		_, err = w.Write(msg)
+		if err != nil {
+			return errl.Errorf("failed to write message: %w", err)
+		}
+
+		err = w.Close()
+		if err != nil {
+			return errl.Errorf("failed to close data writer: %w", err)
+		}
+	} else {
+		// Use standard smtp.SendMail (handles STARTTLS automatically)
+		auth := smtp.PlainAuth("", s.smtpUsername, s.smtpPassword, s.smtpHost)
+		err := smtp.SendMail(addr, auth, s.fromEmail, to, msg)
+		if err != nil {
+			return errl.Errorf("failed to send email: %w", err)
+		}
 	}
 
 	slog.Info("Verification email sent", "to", toEmail)
@@ -146,12 +191,4 @@ func (s *Service) ValidateEmail(email string) error {
 	}
 
 	return nil
-}
-
-// getEnvOrDefault gets an environment variable or returns a default value
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
 }

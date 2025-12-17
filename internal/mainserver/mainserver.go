@@ -9,26 +9,20 @@ import (
 
 	"github.com/evidenceledger/certauth/internal/cache"
 	"github.com/evidenceledger/certauth/internal/certauth"
-	"github.com/evidenceledger/certauth/internal/certconfig"
 	"github.com/evidenceledger/certauth/internal/certsec"
 	"github.com/evidenceledger/certauth/internal/database"
 	"github.com/evidenceledger/certauth/internal/errl"
 	onboard "github.com/evidenceledger/certauth/internal/onboard"
-	"github.com/evidenceledger/certauth/tsaservice"
 )
 
 // Config is the configuration for the server.
 // It contains the configuration for CertAuth, CertSec and Onboard servers.
 type Config struct {
-	Development  bool
-	CertAuthPort string
-	CertAuthURL  string
-	CertSecPort  string
-	CertSecURL   string
-	OnboardPort  string
-	OnboardURL   string
-	TMFServerURL string
-	TSAConfig    *tsaservice.TSAConfig
+	Development    bool
+	OnboardURL     string
+	OnboardPort    string
+	TMFServerURL   string
+	CertAuthConfig *certauth.Config
 }
 
 // Server manages the CertAuth, CertSec and Onboard servers
@@ -37,7 +31,6 @@ type Server struct {
 	certauthServer *certauth.Server
 	certsecServer  *certsec.Server
 	onboardServer  *onboard.Server
-	tmfServer      string
 	db             *database.Database
 	adminPW        string
 }
@@ -59,20 +52,21 @@ func New(adminPassword string, cfg Config) (*Server, error) {
 	// Create the authentication and authorization servers.
 	// They share the same database and cache.
 
-	certCfg := certconfig.Config{
-		Development:  cfg.Development,
-		CertAuthURL:  cfg.CertAuthURL,
-		CertAuthPort: cfg.CertAuthPort,
-		CertSecURL:   cfg.CertSecURL,
-		CertSecPort:  cfg.CertSecPort,
-		TSAConfig:    cfg.TSAConfig,
-	}
-
-	certauthServer, err := certauth.New(db, cache, adminPassword, certCfg)
+	certauthServer, err := certauth.New(db, cache, adminPassword, cfg.CertAuthConfig)
 	if err != nil {
 		return nil, errl.Errorf("failed to create certauth server: %w", err)
 	}
-	certsecServer, err := certsec.New(db, cache, certCfg)
+
+	// CertSec server requests the certificate from the user browser and passes it to the CerAuth server.
+	// It also implements admin functionalities, using a client certificate as authentication mechanism.
+	newCertSecConfig := &certsec.Config{
+		Development:             cfg.Development,
+		CertAuthURL:             cfg.CertAuthConfig.CertAuthURL,
+		CertificateBackEndpoint: certauth.CertificateBackEndpoint,
+		CertSecURL:              cfg.CertAuthConfig.CertAuthURL,
+		CertSecPort:             cfg.CertAuthConfig.CertAuthPort,
+	}
+	certsecServer, err := certsec.New(db, cache, newCertSecConfig)
 	if err != nil {
 		return nil, errl.Errorf("failed to create certsec server: %w", err)
 	}
@@ -88,7 +82,7 @@ func New(adminPassword string, cfg Config) (*Server, error) {
 			clientid = "testonboard"
 			clientsecret = "isbesecret"
 		}
-		onboardServer = onboard.New(cfg.OnboardPort, cfg.OnboardURL, cfg.CertAuthURL, clientid, clientsecret)
+		onboardServer = onboard.New(cfg.OnboardPort, cfg.OnboardURL, cfg.CertAuthConfig.CertAuthURL, clientid, clientsecret)
 	}
 
 	return &Server{
