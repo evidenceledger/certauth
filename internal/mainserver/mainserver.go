@@ -229,6 +229,26 @@ func initializePredefinedRPs(profile string, db *database.Database) error {
 			TokenExpiry: 3600,
 		}, "isbesecret")
 
+		// ISBE Catalog in DEV
+		db.UpsertRelyingParty(&models.RelyingParty{
+			Name:        "ISBE Catalog DEV",
+			Description: "The ISBE Catalog application in DEV",
+			ClientID:    "https://catalog.isbeonboard.com",
+			RedirectURL: "https://catalog.dev.cloud-w.envs.redisbe.com/",
+			Scopes:      "openid eidas",
+			TokenExpiry: 3600,
+		}, "isbesecret")
+
+		// ISBE Onboarding page in DEV
+		db.UpsertRelyingParty(&models.RelyingParty{
+			Name:        "ISBE Onboarding DEV",
+			Description: "The ISBE Onboarding Application in DEV",
+			ClientID:    "isbeonboard",
+			RedirectURL: "https://onboard-dev.redisbe.com/callback",
+			Scopes:      "openid eidas",
+			TokenExpiry: 3600,
+		}, "isbesecret")
+
 	case ISBE_PRE:
 
 		// ISBE Keycloak in PRE
@@ -236,7 +256,27 @@ func initializePredefinedRPs(profile string, db *database.Database) error {
 			Name:        "ISBE Keycloak in PRE",
 			Description: "The ISBE Keycloak in PRE application",
 			ClientID:    "https://idp.pre.cloud-w.envs.redisbe.com",
-			RedirectURL: "https://idp.pre.cloud-w.envs.redisbe.com/auth/realms/pre-isbe/broker/certificado/endpoint",
+			RedirectURL: "https://idp.pre.cloud-w.envs.redisbe.com/auth/realms/pre-isbe/broker/certificado-representante/endpoint",
+			Scopes:      "openid eidas",
+			TokenExpiry: 3600,
+		}, "isbesecret")
+
+		// ISBE Catalog in PRE
+		db.UpsertRelyingParty(&models.RelyingParty{
+			Name:        "ISBE Catalog PRE",
+			Description: "The ISBE Catalog application in PRE",
+			ClientID:    "https://catalog.isbeonboard.com",
+			RedirectURL: "https://catalog.pre.cloud-w.envs.redisbe.com/",
+			Scopes:      "openid eidas",
+			TokenExpiry: 3600,
+		}, "isbesecret")
+
+		// ISBE Onboarding page in PRE
+		db.UpsertRelyingParty(&models.RelyingParty{
+			Name:        "ISBE Onboarding PRE",
+			Description: "The ISBE Onboarding Application in PRE",
+			ClientID:    "isbeonboard",
+			RedirectURL: "https://onboard-pre.evidenceledger.eu/callback",
 			Scopes:      "openid eidas",
 			TokenExpiry: 3600,
 		}, "isbesecret")
@@ -249,6 +289,26 @@ func initializePredefinedRPs(profile string, db *database.Database) error {
 			Description: "The ISBE Keycloak in PRO application",
 			ClientID:    "https://idp.pro.cloud-w.envs.redisbe.com",
 			RedirectURL: "https://idp.pro.cloud-w.envs.redisbe.com/auth/realms/pro-isbe/broker/certificado/endpoint",
+			Scopes:      "openid eidas",
+			TokenExpiry: 3600,
+		}, "isbesecret")
+
+		// ISBE Catalog in PRO
+		db.UpsertRelyingParty(&models.RelyingParty{
+			Name:        "ISBE Catalog PRO",
+			Description: "The ISBE Catalog application in PRO",
+			ClientID:    "https://catalog.isbeonboard.com",
+			RedirectURL: "https://catalog.pro.cloud-w.envs.redisbe.com/",
+			Scopes:      "openid eidas",
+			TokenExpiry: 3600,
+		}, "isbesecret")
+
+		// ISBE Onboarding page in PRO
+		db.UpsertRelyingParty(&models.RelyingParty{
+			Name:        "ISBE Onboarding PRO",
+			Description: "The ISBE Onboarding Application in PRO",
+			ClientID:    "isbeonboard",
+			RedirectURL: "https://onboard-pro.redisbe.com/callback",
 			Scopes:      "openid eidas",
 			TokenExpiry: 3600,
 		}, "isbesecret")

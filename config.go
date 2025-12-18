@@ -91,14 +91,14 @@ var ISBE_DEV_CFG = mainserver.Config{
 
 var ISBE_PRE_CFG = mainserver.Config{
 	Development:  true,
-	OnboardURL:   "https://onboard.pre.cloud-w.envs.redisbe.com",
+	OnboardURL:   "https://onboard-pre.evidenceledger.eu",
 	OnboardPort:  "8012",
-	TMFServerURL: "https://tmf.pre.cloud-w.envs.redisbe.com/tmf-api",
+	TMFServerURL: "https://tmf-pre.evidenceledger.eu",
 	CertAuthConfig: &certauth.Config{
 		Development:   true,
-		CertAuthURL:   "https://certauth.pre.cloud-w.envs.redisbe.com",
+		CertAuthURL:   "https://certauth-pre.evidenceledger.eu",
 		CertAuthPort:  "8010",
-		CertSecURL:    "https://certsec.pre.cloud-w.envs.redisbe.com",
+		CertSecURL:    "https://certsec-pre.evidenceledger.eu",
 		CertSecPort:   "8011",
 		TSAConfig:     tsaConfig,
 		EmailConfig:   emailConfig,
