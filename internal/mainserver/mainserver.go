@@ -288,7 +288,7 @@ func initializePredefinedRPs(profile string, db *database.Database) error {
 			Name:        "ISBE Keycloak in PRO",
 			Description: "The ISBE Keycloak in PRO application",
 			ClientID:    "https://idp.pro.cloud-w.envs.redisbe.com",
-			RedirectURL: "https://idp.pro.cloud-w.envs.redisbe.com/auth/realms/pro-isbe/broker/certificado/endpoint",
+			RedirectURL: "https://idp.pro.cloud-w.envs.redisbe.com/auth/realms/pro-isbe/broker/certificado-representante/endpoint",
 			Scopes:      "openid eidas",
 			TokenExpiry: 3600,
 		}, "isbesecret")
@@ -308,7 +308,7 @@ func initializePredefinedRPs(profile string, db *database.Database) error {
 			Name:        "ISBE Onboarding PRO",
 			Description: "The ISBE Onboarding Application in PRO",
 			ClientID:    "isbeonboard",
-			RedirectURL: "https://onboard-pro.redisbe.com/callback",
+			RedirectURL: "https://onboard-pro.evidenceledger.eu/callback",
 			Scopes:      "openid eidas",
 			TokenExpiry: 3600,
 		}, "isbesecret")
