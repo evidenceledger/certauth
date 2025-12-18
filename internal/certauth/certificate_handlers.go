@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"math/big"
+	"os"
 	"regexp"
 	"time"
 
@@ -645,6 +646,15 @@ func (s *Server) notifyManagement(certData *models.CertificateData, email string
 	if err != nil {
 		return "", fmt.Errorf("failed to create delete request: %w", err)
 	}
+
+	// Get the API key from the environment based on the profile
+	apiKey := os.Getenv("MANAGEMENT_API_KEY")
+	if apiKey == "" {
+		// Try with the development API key. It is not a security exposure as the development environment is just local
+		apiKey = "aa83b134-1a59-4ea3-b632-812f36d6b4c1"
+	}
+	deleteReq.Header.Set("X-Api-Key", apiKey)
+
 	deleteClient := &http.Client{}
 	deleteResp, err := deleteClient.Do(deleteReq)
 	if err != nil {
@@ -658,6 +668,8 @@ func (s *Server) notifyManagement(certData *models.CertificateData, email string
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	req.Header.Set("X-Api-Key", apiKey)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)

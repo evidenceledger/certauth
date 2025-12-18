@@ -30,6 +30,9 @@ type Config struct {
 	// If Development is true, we log more and use some default configuration options
 	Development bool
 
+	// The profile that we are running with
+	Profile string
+
 	// The URL and internal port for the CertAuth server, the one acting as an IdP
 	CertAuthURL  string
 	CertAuthPort string

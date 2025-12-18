@@ -202,6 +202,9 @@ func run() error {
 		}
 	}
 
+	// Set the profile in the CertAuth config
+	cfg.CertAuthConfig.Profile = profile
+
 	// The secrets are either in a file not in the Git repo or in the environment variables.
 	// If the file does not exist, is empty or not parseable, we will use the environment variables.
 	secretConfig := ParseYamlConfig("secrets/config.yaml")

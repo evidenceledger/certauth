@@ -53,6 +53,7 @@ type Server struct {
 func New(adminPassword string, cfg Config, profile string) (*Server, error) {
 
 	// Create a global in-memory cache with expiration time of 10 minutes
+	// TODO: make this configurable
 	cache := cache.New(10 * time.Minute)
 
 	// Initialize database
