@@ -34,6 +34,7 @@ type Server struct {
 	oauth2Config  oauth2.Config
 	verifier      *oidc.IDTokenVerifier
 	html          *html.RendererStd
+	privateArea   string
 }
 
 const templateDebug = true
@@ -47,7 +48,7 @@ var viewsfs embed.FS
 // providerURL is the URL of the OpenID Provider (OP).
 // clientID is our RP client ID as registered in the OP.
 // clientSecret is our RP client secret as registered in the OP.
-func New(internalPort, ourURL, providerURL, clientID, clientSecret string) *Server {
+func New(internalPort, ourURL, providerURL, clientID, clientSecret, privateArea string) *Server {
 
 	// Initialize the template engine
 	htmlrender, err := html.NewRendererStd(templateDebug, viewsfs, "internal/onboard/views", ".hbs")
@@ -65,6 +66,7 @@ func New(internalPort, ourURL, providerURL, clientID, clientSecret string) *Serv
 		clientID:     clientID,
 		clientSecret: clientSecret,
 		html:         htmlrender,
+		privateArea:  privateArea,
 	}
 }
 
@@ -337,7 +339,8 @@ func (s *Server) handleCallback(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// Redirect to home page
-	http.Redirect(w, r, "/", http.StatusFound)
+	// http.Redirect(w, r, "/", http.StatusFound)
+	http.Redirect(w, r, s.privateArea, http.StatusFound)
 }
 
 // handleLogout handles user logout
@@ -362,7 +365,8 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// Redirect to home page
-	http.Redirect(w, r, "/", http.StatusFound)
+	// http.Redirect(w, r, "/", http.StatusFound)
+	http.Redirect(w, r, s.privateArea, http.StatusFound)
 }
 
 // Helper methods

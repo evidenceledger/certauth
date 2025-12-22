@@ -34,6 +34,7 @@ type Config struct {
 	Development    bool
 	OnboardURL     string
 	OnboardPort    string
+	PrivateArea    string
 	TMFServerURL   string
 	CertAuthConfig *certauth.Config
 }
@@ -95,7 +96,7 @@ func New(adminPassword string, cfg Config, profile string) (*Server, error) {
 
 	var onboardServer *onboard.Server
 	if cfg.OnboardURL != "" {
-		onboardServer = onboard.New(cfg.OnboardPort, cfg.OnboardURL, cfg.CertAuthConfig.CertAuthURL, "isbeonboard", "isbesecret")
+		onboardServer = onboard.New(cfg.OnboardPort, cfg.OnboardURL, cfg.CertAuthConfig.CertAuthURL, "isbeonboard", "isbesecret", cfg.PrivateArea)
 	}
 
 	return &Server{

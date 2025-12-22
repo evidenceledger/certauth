@@ -39,6 +39,7 @@ var ALTIA_LOCAL_CFG = mainserver.Config{
 	Development:  true,
 	OnboardURL:   "https://onboard.mycredential.eu",
 	OnboardPort:  "8012",
+	PrivateArea:  "/",
 	TMFServerURL: "https://tmf.evidenceledger.eu/",
 	CertAuthConfig: &certauth.Config{
 		Development:   true,
@@ -57,6 +58,7 @@ var ALTIA_DEV_CFG = mainserver.Config{
 	Development:  true,
 	OnboardURL:   "https://onboard-dev.redisbe.com",
 	OnboardPort:  "8012",
+	PrivateArea:  "/",
 	TMFServerURL: "https://tmf.evidenceledger.eu/",
 	CertAuthConfig: &certauth.Config{
 		Development:   true,
@@ -75,6 +77,7 @@ var ISBE_DEV_CFG = mainserver.Config{
 	Development:  true,
 	OnboardURL:   "https://onboard.dev.cloud-w.envs.redisbe.com",
 	OnboardPort:  "8012",
+	PrivateArea:  "https://poc-front.dev.cloud-w.envs.redisbe.com/",
 	TMFServerURL: "https://tmf.dev.cloud-w.envs.redisbe.com/tmf-api",
 	CertAuthConfig: &certauth.Config{
 		Development:   true,
@@ -93,6 +96,7 @@ var ISBE_PRE_CFG = mainserver.Config{
 	Development:  true,
 	OnboardURL:   "https://onboard-pre.evidenceledger.eu",
 	OnboardPort:  "8012",
+	PrivateArea:  "https://poc-front.pre.cloud-w.envs.redisbe.com/",
 	TMFServerURL: "https://tmf-pre.evidenceledger.eu",
 	CertAuthConfig: &certauth.Config{
 		Development:   true,
@@ -111,6 +115,7 @@ var ISBE_PRO_CFG = mainserver.Config{
 	Development:  false,
 	OnboardURL:   "https://onboard-pro.evidenceledger.eu",
 	OnboardPort:  "8012",
+	PrivateArea:  "https://poc-front.pro.cloud-w.envs.redisbe.com/",
 	TMFServerURL: "https://tmf-pro.evidenceledger.eu",
 	CertAuthConfig: &certauth.Config{
 		Development:   false,
