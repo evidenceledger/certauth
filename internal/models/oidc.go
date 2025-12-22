@@ -60,6 +60,7 @@ type AuthProcess struct {
 type SSOSession struct {
 	SessionID       string           `json:"session_id"`
 	CertificateData *CertificateData `json:"certificate_data,omitempty"`
+	Powers          string           `json:"powers,omitempty"`
 	Email           string           `json:"email,omitempty"`
 }
 

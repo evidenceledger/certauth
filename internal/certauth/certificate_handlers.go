@@ -124,6 +124,11 @@ func (s *Server) pageRequestEmail(c *fiber.Ctx) error {
 	if email != "" {
 
 		// The organization is already registered, bypass certificate and email validation
+		//But first we have to retrieve the powers of the user
+		powers, err := s.retrieveManagementPowers(certData)
+		if err != nil {
+			return errl.Errorf("error retrieving powers: %w", err)
+		}
 
 		// Bypass certificate selection and return directly to caller
 		slog.Debug("bypass certificate selection", "code", authProcess.Code, "redirect_uri", authProcess.RedirectURI)
@@ -131,6 +136,7 @@ func (s *Server) pageRequestEmail(c *fiber.Ctx) error {
 		// Store email of the user in the authProcess struct
 		authProcess.Email = email
 		authProcess.SignedAnnex = contractForm.Annex
+		authProcess.Powers = powers
 
 		redirectURL := fmt.Sprintf("%s?code=%s", authProcess.RedirectURI, authProcess.Code)
 		if authProcess.State != "" {
@@ -543,6 +549,7 @@ func (s *Server) handleContractAccepted(c *fiber.Ctx) error {
 		SessionID:       ssoSessionID,
 		Email:           storedEmail,
 		CertificateData: authProcess.CertificateData,
+		Powers:          authProcess.Powers,
 	}
 
 	// Store the SSO session in the cache (valid for 24 hours)
@@ -668,6 +675,73 @@ func (s *Server) notifyManagement(certData *models.CertificateData, email string
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	req.Header.Set("X-Api-Key", apiKey)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return "", fmt.Errorf("main portal returned non-success status: %d", resp.StatusCode)
+	}
+
+	// Read the response body
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Parse into a map[string]any
+	var response map[string]any
+	if err := json.Unmarshal(respBody, &response); err != nil {
+		return "", fmt.Errorf("failed to parse response body: %w", err)
+	}
+
+	// Print the response map as a pretty-printed indented JSON
+	jsonResponse, err := json.MarshalIndent(response, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal response body: %w", err)
+	}
+	fmt.Println(string(jsonResponse))
+
+	// Check if the response contains the proper fields
+
+	receivedOrganizationIdentifier := jpath.GetString(response, "organization_identifier")
+	if receivedOrganizationIdentifier != organizationIdentifier {
+		return "", errl.Errorf("organization identifier mismatch: expected %s, got %s", organizationIdentifier, receivedOrganizationIdentifier)
+	}
+
+	receivedPowersString := jpath.GetString(response, "power")
+	if receivedPowersString == "" {
+		receivedPowersString = jpath.GetString(response, "powers")
+	}
+	if receivedPowersString == "" {
+		return "", errl.Errorf("powers not received")
+	}
+
+	return receivedPowersString, nil
+}
+
+func (s *Server) retrieveManagementPowers(certData *models.CertificateData) (string, error) {
+
+	organizationIdentifier := certData.OrganizationID
+
+	// Get the API key from the environment based on the profile
+	apiKey := os.Getenv("MANAGEMENT_API_KEY")
+	if apiKey == "" {
+		// Try with the development API key. It is not a security exposure as the development environment is just local
+		apiKey = "aa83b134-1a59-4ea3-b632-812f36d6b4c1"
+	}
+
+	// Create and send the HTTP request
+	req, err := http.NewRequest("GET", s.managementURL+"/organization/"+organizationIdentifier, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
 
 	req.Header.Set("X-Api-Key", apiKey)
 

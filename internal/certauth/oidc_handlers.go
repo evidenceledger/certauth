@@ -182,9 +182,10 @@ func (s *Server) Authorization(c *fiber.Ctx) error {
 		// Bypass certificate selection and return directly to caller
 		slog.Debug("bypassing certificate selection", "code", authProcess.Code, "redirect_uri", authProcess.RedirectURI)
 
-		// Store certificate data and email of the user in the authProcess struct
+		// Store certificate data, email of the user and powers in the authProcess struct
 		authProcess.CertificateData = ssoSession.CertificateData
 		authProcess.Email = ssoSession.Email
+		authProcess.Powers = ssoSession.Powers
 
 		// And redirect back to the caller
 		redirectURL := fmt.Sprintf("%s?code=%s", authProcess.RedirectURI, authProcess.Code)
