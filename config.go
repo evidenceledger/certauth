@@ -58,7 +58,7 @@ var ALTIA_DEV_CFG = mainserver.Config{
 	Development:  true,
 	OnboardURL:   "https://onboard-dev.redisbe.com",
 	OnboardPort:  "8012",
-	PrivateArea:  "/",
+	PrivateArea:  "https://poc-front.dev.cloud-w.envs.redisbe.com/",
 	TMFServerURL: "https://tmf.evidenceledger.eu/",
 	CertAuthConfig: &certauth.Config{
 		Development:   true,
