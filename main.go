@@ -40,7 +40,7 @@ const (
 	defaultManagementURL = "https://poc-middleware-management.dev.cloud-w.envs.redisbe.com/api/managements"
 )
 
-var logLevel slog.Level = slog.LevelInfo
+var logLevel slog.Level = slog.LevelDebug
 
 func main() {
 	if err := run(); err != nil {

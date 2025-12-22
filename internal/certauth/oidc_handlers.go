@@ -126,7 +126,7 @@ func (s *Server) Authorization(c *fiber.Ctx) error {
 	// Check if certificate authentication is requested with scope 'eidas', 'onlyeidas' or 'learcred'
 	if !slices.Contains(authReq.Scopes, "eidas") && !slices.Contains(authReq.Scopes, "onlyeidas") && !slices.Contains(authReq.Scopes, "learcred") {
 		errorCode := "invalid_scope"
-		errorDesc := "the server requires scope eidas, onlyeidas or learcred"
+		errorDesc := "the server requires scope eidas, learcred or eidasonly"
 		return s.handleAuthorizationError(c, authReq.RedirectURI, authReq.State, errorCode, errorDesc)
 	}
 
@@ -200,7 +200,7 @@ func (s *Server) Authorization(c *fiber.Ctx) error {
 
 		// We pass the auth code so we will be able to retrieve the in-memory auth process object later
 		// TODO: include redirection logic based on Relying Party configuration
-		if slices.Contains(authReq.Scopes, "onlyeidas") {
+		if slices.Contains(authReq.Scopes, "onlyeidas") || slices.Contains(authReq.Scopes, "eidas") {
 			slog.Info("Redirection to ONLY Certificate login")
 			return c.Redirect("/cert/login?code="+authProcess.Code, fiber.StatusFound)
 		}
