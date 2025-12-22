@@ -782,13 +782,21 @@ func (s *Server) retrieveManagementPowers(certData *models.CertificateData) (str
 		return "", errl.Errorf("organization identifier mismatch: expected %s, got %s", organizationIdentifier, receivedOrganizationIdentifier)
 	}
 
-	receivedPowersString := jpath.GetString(response, "power")
-	if receivedPowersString == "" {
-		receivedPowersString = jpath.GetString(response, "powers")
-	}
-	if receivedPowersString == "" {
-		return "", errl.Errorf("powers not received")
+	receivedRole := jpath.GetMap(response, "role")
+	if receivedRole == nil {
+		return "", errl.Errorf("role not received")
 	}
 
-	return receivedPowersString, nil
+	receivedPolicies := jpath.GetList(receivedRole, "policies")
+	if len(receivedPolicies) == 0 {
+		return "", errl.Errorf("policies not received")
+	}
+
+	// Marshall to a string
+	receivedPoliciesString, err := json.Marshal(receivedPolicies)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal policies: %w", err)
+	}
+
+	return string(receivedPoliciesString), nil
 }
