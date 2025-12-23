@@ -1,41 +1,69 @@
 package main
 
 import (
+	"flag"
+	"log/slog"
+	"os"
+	"strings"
+
 	"github.com/evidenceledger/certauth/internal/certauth"
 	"github.com/evidenceledger/certauth/internal/email"
+	"github.com/evidenceledger/certauth/internal/errl"
 	"github.com/evidenceledger/certauth/internal/mainserver"
 	"github.com/evidenceledger/certauth/tsaservice"
+	"github.com/goccy/go-yaml"
 )
 
-// We define several profiles, to facilitate configuration if an environment matches one of the profiles.
-// To run the server in a specific profile, use the -profile flag or the PROFILE environment variable,
-// with the value of the profile you want to use.
-// No other environment variables are required when using a profile, except for the TSA and email server credentials.
+// Profiles for different environments
 const (
-	ALTIA_LOCAL = "local"
-	ALTIA_DEV   = "altia-dev"
-	ISBE_DEV    = "isbe-dev"
-	ISBE_PRE    = "isbe-pre"
-	ISBE_PRO    = "isbe-pro"
+	LOCAL     = "local"
+	ALTIA_DEV = "altia-dev"
+	ISBE_DEV  = "isbe-dev"
+	ISBE_PRE  = "isbe-pre"
+	ISBE_PRO  = "isbe-pro"
 )
 
-// The TSA is the same for all environments.
-// We do not specify here the credentials, as they must be specified in the environment variables
-var tsaConfig = &tsaservice.TSAConfig{
-	TSAURL:    "https://timestamp-service.pre-api.digitelts.com/tsa",
-	CACertURL: "http://pki.digitelts.es/DIGITELTSCAROOT01.pem",
-	EUDSSURL:  "https://ec.europa.eu/digital-building-blocks/DSS/webapp-demo/services/rest/certificate-validation/validateCertificate",
+// Default Configuration Constants
+const (
+	defaultCaCertURL     = "http://pki.digitelts.es/DIGITELTSCAROOT01.pem"
+	defaultTsaURL        = "https://timestamp-service.pre-api.digitelts.com/tsa"
+	defaultEUDSSURL      = "https://ec.europa.eu/digital-building-blocks/DSS/webapp-demo/services/rest/certificate-validation/validateCertificate"
+	defaultManagementURL = "https://poc-middleware-management.dev.cloud-w.envs.redisbe.com/api/managements"
+)
+
+// --- Secret Configuration Structures ---
+
+type SecretConfig struct {
+	AgeRecipient string     `yaml:"age_recipient"`
+	TSACreds     TSACreds   `yaml:"tsa"`
+	EmailCreds   EmailCreds `yaml:"email"`
 }
 
-// The email server configuration is the same for all environments.
-// We do not specify here the credentials, as they must be specified in the environment variables
-var emailConfig = &email.EmailConfig{
+type TSACreds struct {
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
+}
+
+type EmailCreds struct {
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
+}
+
+// --- Predefined Configurations ---
+
+var defaultTsaConfig = &tsaservice.TSAConfig{
+	TSAURL:    defaultTsaURL,
+	CACertURL: defaultCaCertURL,
+	EUDSSURL:  defaultEUDSSURL,
+}
+
+var defaultEmailConfig = &email.EmailConfig{
 	IMAP:     "imap.serviciodecorreo.es",
 	SMTP:     "smtp.serviciodecorreo.es",
 	SMTPPort: "465",
 }
 
-var ALTIA_LOCAL_CFG = mainserver.Config{
+var LOCAL_CFG = mainserver.Config{
 	Development:  true,
 	OnboardURL:   "https://onboard.mycredential.eu",
 	OnboardPort:  "8012",
@@ -47,10 +75,10 @@ var ALTIA_LOCAL_CFG = mainserver.Config{
 		CertAuthPort:  "8010",
 		CertSecURL:    "https://certsec.mycredential.eu",
 		CertSecPort:   "8011",
-		TSAConfig:     tsaConfig,
-		EmailConfig:   emailConfig,
-		ManagementURL: "https://poc-middleware-management.dev.cloud-w.envs.redisbe.com/api/managements",
-		EUDSSURL:      "https://ec.europa.eu/digital-building-blocks/DSS/webapp-demo/services/rest/certificate-validation/validateCertificate",
+		TSAConfig:     defaultTsaConfig,
+		EmailConfig:   defaultEmailConfig,
+		ManagementURL: defaultManagementURL,
+		EUDSSURL:      defaultEUDSSURL,
 	},
 }
 
@@ -66,10 +94,10 @@ var ALTIA_DEV_CFG = mainserver.Config{
 		CertAuthPort:  "8010",
 		CertSecURL:    "https://certsec.evidenceledger.eu",
 		CertSecPort:   "8011",
-		TSAConfig:     tsaConfig,
-		EmailConfig:   emailConfig,
+		TSAConfig:     defaultTsaConfig,
+		EmailConfig:   defaultEmailConfig,
 		ManagementURL: "https://poc-middleware-management.dev.cloud-w.envs.redisbe.com/api/managements",
-		EUDSSURL:      "https://ec.europa.eu/digital-building-blocks/DSS/webapp-demo/services/rest/certificate-validation/validateCertificate",
+		EUDSSURL:      defaultEUDSSURL,
 	},
 }
 
@@ -85,10 +113,10 @@ var ISBE_DEV_CFG = mainserver.Config{
 		CertAuthPort:  "8010",
 		CertSecURL:    "https://certsec.dev.cloud-w.envs.redisbe.com",
 		CertSecPort:   "8011",
-		TSAConfig:     tsaConfig,
-		EmailConfig:   emailConfig,
+		TSAConfig:     defaultTsaConfig,
+		EmailConfig:   defaultEmailConfig,
 		ManagementURL: "https://poc-middleware-management.dev.cloud-w.envs.redisbe.com/api/managements",
-		EUDSSURL:      "https://ec.europa.eu/digital-building-blocks/DSS/webapp-demo/services/rest/certificate-validation/validateCertificate",
+		EUDSSURL:      defaultEUDSSURL,
 	},
 }
 
@@ -104,10 +132,10 @@ var ISBE_PRE_CFG = mainserver.Config{
 		CertAuthPort:  "8010",
 		CertSecURL:    "https://certsec-pre.evidenceledger.eu",
 		CertSecPort:   "8011",
-		TSAConfig:     tsaConfig,
-		EmailConfig:   emailConfig,
+		TSAConfig:     defaultTsaConfig,
+		EmailConfig:   defaultEmailConfig,
 		ManagementURL: "https://poc-middleware-management.pre.cloud-w.envs.redisbe.com/api/managements",
-		EUDSSURL:      "https://ec.europa.eu/digital-building-blocks/DSS/webapp-demo/services/rest/certificate-validation/validateCertificate",
+		EUDSSURL:      defaultEUDSSURL,
 	},
 }
 
@@ -123,17 +151,159 @@ var ISBE_PRO_CFG = mainserver.Config{
 		CertAuthPort:  "8010",
 		CertSecURL:    "https://certsec-pro.evidenceledger.eu",
 		CertSecPort:   "8011",
-		TSAConfig:     tsaConfig,
-		EmailConfig:   emailConfig,
+		TSAConfig:     defaultTsaConfig,
+		EmailConfig:   defaultEmailConfig,
 		ManagementURL: "https://poc-middleware-management.pro.cloud-w.envs.redisbe.com/api/managements",
-		EUDSSURL:      "https://ec.europa.eu/digital-building-blocks/DSS/webapp-demo/services/rest/certificate-validation/validateCertificate",
+		EUDSSURL:      defaultEUDSSURL,
 	},
 }
 
-var profiles = map[string]mainserver.Config{
-	ALTIA_LOCAL: ALTIA_LOCAL_CFG,
-	ALTIA_DEV:   ALTIA_DEV_CFG,
-	ISBE_DEV:    ISBE_DEV_CFG,
-	ISBE_PRE:    ISBE_PRE_CFG,
-	ISBE_PRO:    ISBE_PRO_CFG,
+// LoadConfig parses flags, environment variables, and config files to return the server configuration.
+func LoadConfig() (*mainserver.Config, string, error) {
+	var (
+		development   bool
+		adminPassword string
+	)
+
+	// If we are in development environment or not
+	flag.BoolVar(&development, "dev", false, "Development mode")
+
+	// The password for admin screens
+	flag.StringVar(&adminPassword, "admin-password", "", "Admin password for the server")
+
+	flag.Parse()
+
+	// By default, we get the local profile, and maybe we override it with the environment variable
+	profile := LOCAL
+	cfg := LOCAL_CFG
+
+	// If a profile was specified, use it
+	if profile = getStringEnvOrDefault("PROFILE", profile); profile != "" {
+		profile = strings.ToLower(profile)
+
+		switch profile {
+		case LOCAL:
+			cfg = LOCAL_CFG
+		case ALTIA_DEV:
+			cfg = ALTIA_DEV_CFG
+		case ISBE_DEV:
+			cfg = ISBE_DEV_CFG
+		case ISBE_PRE:
+			cfg = ISBE_PRE_CFG
+		case ISBE_PRO:
+			cfg = ISBE_PRO_CFG
+		default:
+			return nil, "", errl.Errorf("unknown profile: %s", profile)
+		}
+
+	}
+
+	// Override with the environment variable if it is set
+	cfg.Development = getBoolEnvOrDefault("CERTAUTH_DEVELOPMENT", cfg.Development)
+
+	// Say if we are in development or not
+	if cfg.Development {
+		slog.Info("Running in development mode")
+	} else {
+		slog.Info("Running in production mode")
+	}
+
+	// Get admin password from command line or environment variable.
+	// In any environment except development, the admin password is required.
+	// In development, the admin password is optional, and if not provided, it will have a default value.
+	adminPassword = getStringEnvOrDefault("CERTAUTH_ADMIN_PASSWORD", adminPassword)
+	if development && adminPassword == "" {
+		adminPassword = "pepe"
+	} else if adminPassword == "" {
+		return nil, "", errl.Errorf("admin password required")
+	}
+
+	// Get the URL and port for the CertAuth server, which is the OP url also
+	cfg.CertAuthConfig.CertAuthURL = getStringEnvOrDefault("CERTAUTH_URL", cfg.CertAuthConfig.CertAuthURL)
+	cfg.CertAuthConfig.CertAuthPort = getStringEnvOrDefault("CERTAUTH_PORT", cfg.CertAuthConfig.CertAuthPort)
+
+	// Get the URL and port for the CertSec server
+	cfg.CertAuthConfig.CertSecURL = getStringEnvOrDefault("CERTSEC_URL", cfg.CertAuthConfig.CertSecURL)
+	cfg.CertAuthConfig.CertSecPort = getStringEnvOrDefault("CERTSEC_PORT", cfg.CertAuthConfig.CertSecPort)
+
+	// Get the URL and port for the Onboard server
+	cfg.OnboardURL = getStringEnvOrDefault("ONBOARD_URL", cfg.OnboardURL)
+	cfg.OnboardPort = getStringEnvOrDefault("ONBOARD_PORT", cfg.OnboardPort)
+
+	// Get the config for the TSA (Timestamping Authority)
+	cfg.CertAuthConfig.TSAConfig.TSAURL = getStringEnvOrDefault("TSA_URL", cfg.CertAuthConfig.TSAConfig.TSAURL)
+	cfg.CertAuthConfig.TSAConfig.CACertURL = getStringEnvOrDefault("TSA_CA_CERT_URL", cfg.CertAuthConfig.TSAConfig.CACertURL)
+
+	// Get the DSS (Digital Signature Services) URL
+	cfg.CertAuthConfig.EUDSSURL = getStringEnvOrDefault("DSS_URL", cfg.CertAuthConfig.EUDSSURL)
+
+	// Get the config for the email service
+	cfg.CertAuthConfig.EmailConfig.IMAP = getStringEnvOrDefault("EMAIL_IMAP", cfg.CertAuthConfig.EmailConfig.IMAP)
+	cfg.CertAuthConfig.EmailConfig.SMTP = getStringEnvOrDefault("EMAIL_SMTP", cfg.CertAuthConfig.EmailConfig.SMTP)
+	cfg.CertAuthConfig.EmailConfig.SMTPPort = getStringEnvOrDefault("EMAIL_SMTP_PORT", cfg.CertAuthConfig.EmailConfig.SMTPPort)
+
+	// Get the URL for the management service
+	cfg.CertAuthConfig.ManagementURL = getStringEnvOrDefault("MANAGEMENT_URL", cfg.CertAuthConfig.ManagementURL)
+
+	// Set the profile in the CertAuth config
+	cfg.CertAuthConfig.Profile = profile
+
+	// The secrets are either in a file which is not in the Git repo or in the environment variables.
+	secretConfig := parseYamlConfig("secrets/config.yaml")
+
+	// The TSA credentials are secret and compulsory
+	tsaUser := getStringEnvOrDefault("TSA_USER", secretConfig.TSACreds.User)
+	tsaPassword := getStringEnvOrDefault("TSA_PASSWORD", secretConfig.TSACreds.Password)
+	if tsaUser == "" || tsaPassword == "" {
+		return nil, "", errl.Errorf("TSA user and password required")
+	}
+
+	// The email credentials are secret and compulsory
+	emailUser := getStringEnvOrDefault("SMTP_USERNAME", secretConfig.EmailCreds.User)
+	emailPassword := getStringEnvOrDefault("SMTP_PASSWORD", secretConfig.EmailCreds.Password)
+	if emailUser == "" || emailPassword == "" {
+		return nil, "", errl.Errorf("email user and password required")
+	}
+
+	// Update the config with the secrets
+	cfg.CertAuthConfig.TSAConfig.TSAUser = tsaUser
+	cfg.CertAuthConfig.TSAConfig.TSAPassword = tsaPassword
+	cfg.CertAuthConfig.EmailConfig.User = emailUser
+	cfg.CertAuthConfig.EmailConfig.Email = emailUser
+	cfg.CertAuthConfig.EmailConfig.Password = emailPassword
+
+	return &cfg, adminPassword, nil
+}
+
+// getStringEnvOrDefault gets an environment variable or returns a default value
+func getStringEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+// getBoolEnvOrDefault gets an environment variable or returns a default value.
+func getBoolEnvOrDefault(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if strings.ToLower(value) == "true" {
+			return true
+		} else {
+			return false
+		}
+	}
+	return defaultValue
+}
+
+// parseYamlConfig reads a YAML configuration from the given filename.
+func parseYamlConfig(filename string) SecretConfig {
+	var out SecretConfig
+	src, err := os.ReadFile(filename)
+	if err != nil {
+		return out
+	}
+	if err = yaml.Unmarshal(src, &out); err != nil {
+		return out
+	}
+	return out
 }

@@ -3,41 +3,15 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
-	"github.com/evidenceledger/certauth/internal/certauth"
-	"github.com/evidenceledger/certauth/internal/email"
 	"github.com/evidenceledger/certauth/internal/errl"
 	"github.com/evidenceledger/certauth/internal/mainserver"
 	"github.com/evidenceledger/certauth/internal/sqlogger"
-	"github.com/evidenceledger/certauth/tsaservice"
-	"github.com/goccy/go-yaml"
-)
-
-var (
-	development bool
-	profile     string
-
-	adminPassword string
-	certauthPort  string
-	certsecPort   string
-	certauthURL   string
-	certsecURL    string
-	onboardURL    string
-	onboardPort   string
-)
-
-const (
-	defaultCaCertURL     = "http://pki.digitelts.es/DIGITELTSCAROOT01.pem"
-	defaultTsaURL        = "https://timestamp-service.pre-api.digitelts.com/tsa"
-	defaultEUDSSURL      = "https://ec.europa.eu/digital-building-blocks/DSS/webapp-demo/services/rest/certificate-validation/validateCertificate"
-	defaultManagementURL = "https://poc-middleware-management.dev.cloud-w.envs.redisbe.com/api/managements"
 )
 
 var logLevel slog.Level = slog.LevelDebug
@@ -51,34 +25,13 @@ func main() {
 
 func run() error {
 
-	// Environment values have precedence over CLI flags or default values
+	// Load configuration
+	cfg, adminPassword, err := LoadConfig()
+	if err != nil {
+		return errl.Errorf("failed to load configuration: %v", err)
+	}
 
-	// If we are in development environment or not
-	flag.BoolVar(&development, "dev", false, "Development mode")
-	flag.StringVar(&profile, "profile", "local", "Profile (one of 'local, 'altia-dev, 'isbe-dev, 'isbe-pre, 'isbe-pro')")
-
-	// The password for admin screens
-	flag.StringVar(&adminPassword, "admin-password", "", "Admin password for the server")
-
-	// The URL and port for the CertAuth server, which is the OP url also
-	flag.StringVar(&certauthURL, "certauth-url", "https://certauth.mycredential.eu", "URL for the CertAuth server")
-	flag.StringVar(&certauthPort, "certauth-port", "8010", "Port for the main OP server")
-
-	// The URL and port for the CertSec server, the one asking for the certificate via TLS client authentication
-	flag.StringVar(&certsecURL, "certsec-url", "https://certsec.mycredential.eu", "URL for the CertSec server")
-	flag.StringVar(&certsecPort, "certsec-port", "8011", "Port for the CertSec server")
-
-	// The URL and port for the Onboard server, the example RP
-	flag.StringVar(&onboardURL, "onboard-url", "", "URL for the Onboard server")
-	flag.StringVar(&onboardPort, "onboard-port", "8012", "Port for the Onboard server")
-
-	flag.Parse()
-
-	// Check if we are in development or production.
-	// The environment variable takes precedence over the flag
-	development = getBoolEnvOrDefault("CERTAUTH_DEVELOPMENT", development)
-
-	// Initialize soon the custom SQLogHandler, so we can log the rest of the initialization process
+	// Initialize the custom SQLogHandler
 	logOptions := &sqlogger.Options{
 		Level:  &logLevel,
 		LogDir: "data/logs",
@@ -102,165 +55,14 @@ func run() error {
 	// And set the default logging system for all components
 	slog.SetDefault(slog.New(sqlog))
 
-	// Say if we are in development or not
-	if development {
-		slog.Info("Running in development mode")
-	} else {
-		slog.Info("Running in production mode")
-	}
-
-	// Get admin password from command line or environment variable.
-	// In any environment except development, the admin password is required.
-	// In development, the admin password is optional, and if not provided, it will have a default value.
-	adminPassword = getStringEnvOrDefault("CERTAUTH_ADMIN_PASSWORD", adminPassword)
-	if development && adminPassword == "" {
-		adminPassword = "pepe"
-	} else if adminPassword == "" {
-		return errl.Errorf("admin password required")
-	}
-
-	// Get the URL and port for the CertAuth server, which is the OP url also
-	certauthURL = getStringEnvOrDefault("CERTAUTH_URL", certauthURL)
-	certauthPort = getStringEnvOrDefault("CERTAUTH_PORT", certauthPort)
-
-	// Get the URL and port for the CertSec server
-	certsecURL = getStringEnvOrDefault("CERTSEC_URL", certsecURL)
-	certsecPort = getStringEnvOrDefault("CERTSEC_PORT", certsecPort)
-
-	// The Onboard application/server will be started only if explicitly stated in the environment or flag,
-	// or in development mode
-	onboardURL = getStringEnvOrDefault("ONBOARD_URL", onboardURL)
-	onboardPort = getStringEnvOrDefault("ONBOARD_PORT", onboardPort)
-	if development && onboardURL == "" {
-		onboardURL = "https://onboard.mycredential.eu"
-	}
-
-	// Get the config for the TSA (Timestamping Authority)
-	tsaURL := getStringEnvOrDefault("TSA_URL", defaultTsaURL)
-	tsaCaCertURL := getStringEnvOrDefault("TSA_CA_CERT_URL", defaultCaCertURL)
-
-	// Get the DSS (Digital Signature Services) URL
-	dssURL := getStringEnvOrDefault("DSS_URL", defaultEUDSSURL)
-
-	tsaCfg := &tsaservice.TSAConfig{
-		TSAURL:    tsaURL,
-		CACertURL: tsaCaCertURL,
-		EUDSSURL:  dssURL,
-	}
-
-	// Get the config for the email service
-	emailIMAP := getStringEnvOrDefault("EMAIL_IMAP", "imap.serviciodecorreo.es")
-	emailSMTP := getStringEnvOrDefault("EMAIL_SMTP", "smtp.serviciodecorreo.es")
-	emailSMTPPort := getStringEnvOrDefault("EMAIL_SMTP_PORT", "465")
-
-	emailCfg := &email.EmailConfig{
-		IMAP:     emailIMAP,
-		SMTP:     emailSMTP,
-		SMTPPort: emailSMTPPort,
-	}
-
-	// Get the URL for the management service
-	managementURL := getStringEnvOrDefault("MANAGEMENT_URL", defaultManagementURL)
-
-	// Configuration for the CertAuth server
-	certauthConfig := &certauth.Config{
-		Development:   development,
-		CertAuthURL:   certauthURL,
-		CertAuthPort:  certauthPort,
-		CertSecURL:    certsecURL,
-		CertSecPort:   certsecPort,
-		TSAConfig:     tsaCfg,
-		EmailConfig:   emailCfg,
-		ManagementURL: managementURL,
-		EUDSSURL:      dssURL,
-	}
-
-	// Configuration for the main server, including the CertAuth server config and Onboard server config
-	cfg := mainserver.Config{
-		Development:    development,
-		OnboardURL:     onboardURL,
-		OnboardPort:    onboardPort,
-		CertAuthConfig: certauthConfig,
-	}
-
-	// If a profile was specified, use it
-	if profile = getStringEnvOrDefault("PROFILE", profile); profile != "" {
-		profile = strings.ToLower(profile)
-		switch profile {
-		case ALTIA_LOCAL:
-			cfg = ALTIA_LOCAL_CFG
-		case ALTIA_DEV:
-			cfg = ALTIA_DEV_CFG
-		case ISBE_DEV:
-			cfg = ISBE_DEV_CFG
-		case ISBE_PRE:
-			cfg = ISBE_PRE_CFG
-		case ISBE_PRO:
-			cfg = ISBE_PRO_CFG
-		default:
-			return errl.Errorf("unknown profile: %s", profile)
-		}
-	}
-
-	// Set the profile in the CertAuth config
-	cfg.CertAuthConfig.Profile = profile
-
-	// Override profile settings with environment variables if they are set
-	// This allows using a profile as a base and customizing specific values via env vars
-	if envCertAuthURL := os.Getenv("CERTAUTH_URL"); envCertAuthURL != "" {
-		cfg.CertAuthConfig.CertAuthURL = envCertAuthURL
-	}
-	if envCertAuthPort := os.Getenv("CERTAUTH_PORT"); envCertAuthPort != "" {
-		cfg.CertAuthConfig.CertAuthPort = envCertAuthPort
-	}
-	if envCertSecURL := os.Getenv("CERTSEC_URL"); envCertSecURL != "" {
-		cfg.CertAuthConfig.CertSecURL = envCertSecURL
-	}
-	if envCertSecPort := os.Getenv("CERTSEC_PORT"); envCertSecPort != "" {
-		cfg.CertAuthConfig.CertSecPort = envCertSecPort
-	}
-	if envOnboardURL := os.Getenv("ONBOARD_URL"); envOnboardURL != "" {
-		cfg.OnboardURL = envOnboardURL
-	}
-	if envOnboardPort := os.Getenv("ONBOARD_PORT"); envOnboardPort != "" {
-		cfg.OnboardPort = envOnboardPort
-	}
-
-	// The secrets are either in a file not in the Git repo or in the environment variables.
-	// If the file does not exist, is empty or not parseable, we will use the environment variables.
-	secretConfig := ParseYamlConfig("secrets/config.yaml")
-
-	// The TSA credentials are secret and compulsory
-	tsaUser := getStringEnvOrDefault("TSA_USER", secretConfig.TSACreds.User)
-	tsaPassword := getStringEnvOrDefault("TSA_PASSWORD", secretConfig.TSACreds.Password)
-	// There is no default for the TSA user and password
-	if tsaUser == "" || tsaPassword == "" {
-		return errl.Errorf("TSA user and password required")
-	}
-
-	// The email credentials are secret and compulsory
-	emailUser := getStringEnvOrDefault("SMTP_USERNAME", secretConfig.EmailCreds.User)
-	emailPassword := getStringEnvOrDefault("SMTP_PASSWORD", secretConfig.EmailCreds.Password)
-	// There is no default for the email user and password
-	if emailUser == "" || emailPassword == "" {
-		return errl.Errorf("email user and password required")
-	}
-
-	// Update the config with the secrets
-	cfg.CertAuthConfig.TSAConfig.TSAUser = tsaUser
-	cfg.CertAuthConfig.TSAConfig.TSAPassword = tsaPassword
-	cfg.CertAuthConfig.EmailConfig.User = emailUser
-	cfg.CertAuthConfig.EmailConfig.Email = emailUser
-	cfg.CertAuthConfig.EmailConfig.Password = emailPassword
-
-	// Pretty-pring the full config
+	// Pretty-print the full config
 	fmt.Println("Full config:")
 	out, _ := json.MarshalIndent(cfg, "", "  ")
 	fmt.Println(string(out))
 	fmt.Println("Full config end")
 
 	// Create the main server. This will initialize the individual HTTP services and the database.
-	srv, err := mainserver.New(adminPassword, cfg, profile)
+	srv, err := mainserver.New(adminPassword, *cfg, cfg.CertAuthConfig.Profile)
 	if err != nil {
 		return errl.Errorf("failed to create server: %v", err)
 	}
@@ -279,66 +81,10 @@ func run() error {
 		cancel()
 	}()
 
-	// Start server
+	// Start servers
 	if err := srv.Start(ctx); err != nil {
 		return errl.Errorf("server failed: %v", err)
 	}
 
 	return nil
-}
-
-// getStringEnvOrDefault gets an environment variable or returns a default value
-// The environment variable is expected to be a string value
-func getStringEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
-
-// getBoolEnvOrDefault gets an environment variable or returns a default value.
-// The environment variable is expected to be a boolean value.
-// If the environment variable is set, only "true" (case insensitive) will return true,
-// and any other value will return false.
-// If the environment variable is not set, the default value will be returned.
-func getBoolEnvOrDefault(key string, defaultValue bool) bool {
-	if value := os.Getenv(key); value != "" {
-		if strings.ToLower(value) == "true" {
-			return true
-		} else {
-			return false
-		}
-	}
-	return defaultValue
-}
-
-type SecretConfig struct {
-	AgeRecipient string     `yaml:"age_recipient"`
-	TSACreds     TSACreds   `yaml:"tsa"`
-	EmailCreds   EmailCreds `yaml:"email"`
-}
-
-type TSACreds struct {
-	User     string `yaml:"user"`
-	Password string `yaml:"password"`
-}
-
-type EmailCreds struct {
-	User     string `yaml:"user"`
-	Password string `yaml:"password"`
-}
-
-// ParseYamlConfig reads a YAML configuration from the given filename.
-func ParseYamlConfig(filename string) SecretConfig {
-	var out SecretConfig
-	src, err := os.ReadFile(filename)
-	if err != nil {
-		// We just return the empty struct if the file is not found
-		return out
-	}
-	if err = yaml.Unmarshal(src, &out); err != nil {
-		// We just return the empty struct if the file can not be parsed
-		return out
-	}
-	return out
 }
