@@ -313,7 +313,7 @@ func initializePredefinedRPs(profile string, db *database.Database, onboardURL s
 			Name:        "ISBE Onboarding PRO",
 			Description: "The ISBE Onboarding Application in PRO",
 			ClientID:    "isbeonboard",
-			RedirectURL: "https://onboard.evidenceledger.eu/callback",
+			RedirectURL: "https://onboard.portal.redisbe.com/callback",
 			Scopes:      "openid eidas",
 			TokenExpiry: 3600,
 		}, "isbesecret")
