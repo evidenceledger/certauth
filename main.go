@@ -205,6 +205,27 @@ func run() error {
 	// Set the profile in the CertAuth config
 	cfg.CertAuthConfig.Profile = profile
 
+	// Override profile settings with environment variables if they are set
+	// This allows using a profile as a base and customizing specific values via env vars
+	if envCertAuthURL := os.Getenv("CERTAUTH_URL"); envCertAuthURL != "" {
+		cfg.CertAuthConfig.CertAuthURL = envCertAuthURL
+	}
+	if envCertAuthPort := os.Getenv("CERTAUTH_PORT"); envCertAuthPort != "" {
+		cfg.CertAuthConfig.CertAuthPort = envCertAuthPort
+	}
+	if envCertSecURL := os.Getenv("CERTSEC_URL"); envCertSecURL != "" {
+		cfg.CertAuthConfig.CertSecURL = envCertSecURL
+	}
+	if envCertSecPort := os.Getenv("CERTSEC_PORT"); envCertSecPort != "" {
+		cfg.CertAuthConfig.CertSecPort = envCertSecPort
+	}
+	if envOnboardURL := os.Getenv("ONBOARD_URL"); envOnboardURL != "" {
+		cfg.OnboardURL = envOnboardURL
+	}
+	if envOnboardPort := os.Getenv("ONBOARD_PORT"); envOnboardPort != "" {
+		cfg.OnboardPort = envOnboardPort
+	}
+
 	// The secrets are either in a file not in the Git repo or in the environment variables.
 	// If the file does not exist, is empty or not parseable, we will use the environment variables.
 	secretConfig := ParseYamlConfig("secrets/config.yaml")

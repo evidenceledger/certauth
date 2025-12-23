@@ -65,7 +65,7 @@ func New(adminPassword string, cfg Config, profile string) (*Server, error) {
 	}
 
 	// Initialize predefined Relying Parties
-	if err := initializePredefinedRPs(profile, db); err != nil {
+	if err := initializePredefinedRPs(profile, db, cfg.OnboardURL); err != nil {
 		return nil, errl.Errorf("failed to initialize predefined Relying Parties: %w", err)
 	}
 
@@ -162,20 +162,23 @@ func (s *Server) Start(ctx context.Context) error {
 }
 
 // initializePredefinedRPs adds some predefined Relying Parties to the database
-func initializePredefinedRPs(profile string, db *database.Database) error {
+func initializePredefinedRPs(profile string, db *database.Database, onboardURL string) error {
 
 	switch profile {
 	case ALTIA_LOCAL:
 
-		// ISBE Onboarding page in mycredential.eu
-		db.UpsertRelyingParty(&models.RelyingParty{
-			Name:        "ISBE Onboarding mycredential.eu",
-			Description: "The ISBE Onboarding Application in mycredential.eu",
-			ClientID:    "isbeonboard",
-			RedirectURL: "https://onboard.mycredential.eu/callback",
-			Scopes:      "openid eidas",
-			TokenExpiry: 3600,
-		}, "isbesecret")
+		// ISBE Onboarding page in localhost (for local development)
+		// Use the configured ONBOARD_URL for the redirect
+		if onboardURL != "" {
+			db.UpsertRelyingParty(&models.RelyingParty{
+				Name:        "ISBE Onboarding localhost",
+				Description: "The ISBE Onboarding Application in localhost",
+				ClientID:    "isbeonboard",
+				RedirectURL: onboardURL + "/callback",
+				Scopes:      "openid eidas",
+				TokenExpiry: 3600,
+			}, "isbesecret")
+		}
 
 		// ISBE Issuer for test
 		db.UpsertRelyingParty(&models.RelyingParty{

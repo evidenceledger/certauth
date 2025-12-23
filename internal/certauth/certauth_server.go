@@ -62,6 +62,10 @@ type Server struct {
 	// The HTTP server (using Fiber)
 	httpServer *fiber.App
 
+	// Configuration flags
+	development bool
+	profile     string
+
 	// The URL and internal port for the CertAuth server, the one acting as an IdP
 	certAuthURL  string
 	certAuthPort string
@@ -161,6 +165,8 @@ func New(db *database.Database, cache *cache.Cache, adminPassword string, cfg *C
 
 	// Put everything together in a server
 	s := &Server{
+		development:   cfg.Development,
+		profile:       cfg.Profile,
 		certAuthURL:   cfg.CertAuthURL,
 		certAuthPort:  cfg.CertAuthPort,
 		certSecURL:    cfg.CertSecURL,
