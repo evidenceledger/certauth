@@ -94,13 +94,13 @@ var ISBE_DEV_CFG = mainserver.Config{
 
 var ISBE_PRE_CFG = mainserver.Config{
 	Development:  true,
-	OnboardURL:   "https://onboard-pre.evidenceledger.eu",
+	OnboardURL:   "https://pre.onboard.portal.redisbe.com",
 	OnboardPort:  "8012",
-	PrivateArea:  "https://poc-front.pre.cloud-w.envs.redisbe.com/",
+	PrivateArea:  "https://pre.portal.redisbe.com/",
 	TMFServerURL: "https://tmf-pre.evidenceledger.eu",
 	CertAuthConfig: &certauth.Config{
 		Development:   true,
-		CertAuthURL:   "https://certauth-pre.evidenceledger.eu",
+		CertAuthURL:   "https://pre.certauth.portal.redisbe.com",
 		CertAuthPort:  "8010",
 		CertSecURL:    "https://certsec-pre.evidenceledger.eu",
 		CertSecPort:   "8011",
@@ -113,13 +113,13 @@ var ISBE_PRE_CFG = mainserver.Config{
 
 var ISBE_PRO_CFG = mainserver.Config{
 	Development:  false,
-	OnboardURL:   "https://onboard-pro.evidenceledger.eu",
+	OnboardURL:   "https://onboard.portal.redisbe.com",
 	OnboardPort:  "8012",
-	PrivateArea:  "https://poc-front.pro.cloud-w.envs.redisbe.com/",
+	PrivateArea:  "https://portal.redisbe.com/",
 	TMFServerURL: "https://tmf-pro.evidenceledger.eu",
 	CertAuthConfig: &certauth.Config{
 		Development:   false,
-		CertAuthURL:   "https://certauth-pro.evidenceledger.eu",
+		CertAuthURL:   "https://certauth.portal.redisbe.com",
 		CertAuthPort:  "8010",
 		CertSecURL:    "https://certsec-pro.evidenceledger.eu",
 		CertSecPort:   "8011",
