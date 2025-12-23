@@ -68,7 +68,7 @@ func (d *Database) initializePredefinedRPs() error {
 		Name:        "ISBE Onboarding PRE",
 		Description: "The ISBE Onboarding Application in PRE",
 		ClientID:    "isbeonboard",
-		RedirectURL: "https://pre.onboard.portal.redisbe.com/callback",
+		RedirectURL: "https://onboard.pre.portal.redisbe.com/callback",
 		Scopes:      "openid eidas",
 		TokenExpiry: 3600,
 	}, "isbesecret")
