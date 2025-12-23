@@ -11,10 +11,18 @@
 
         <div class="ui positive message">
             <div class="header">
-                The hemos enviado un correo electrónico con un código de verificación.
-                Debes introducir ese código en el campo de entrada al final del formulario para confirmar el correo
-                y poder continuar con el registro.
+                {{ if .emailSendFailed }}
+                Código de verificación generado
+                {{ else }}
+                Te hemos enviado un correo electrónico con un código de verificación.
+                {{ end }}
             </div>
+            {{ if .emailSendFailed }}
+            <p>El servicio de correo no está disponible. El código de verificación se muestra abajo para continuar el proceso.</p>
+            {{ else }}
+            <p>Debes introducir ese código en el campo de entrada al final del formulario para confirmar el correo
+                y poder continuar con el registro.</p>
+            {{ end }}
         </div>
 
         <div class="ui divider"></div>
@@ -105,20 +113,26 @@
 
             <div class="ui divider"></div>
 
+            {{ if .isLocalProfile }}
             <div class="ui warning message">
                 <i class="info circle icon"></i>
                 <div class="content">
-                    <div class="header">Modo Pruebas - Código de verificación</div>
-                    <p>Solo para pruebas, el código de verificación se muestra abajo. En producción, este código se
-                        enviaría a tu correo
-                        electrónico.
-                    </p>
+                    {{ if .emailSendFailed }}
+                    <div class="header">Modo Local - Servicio de correo no disponible</div>
+                    <p>El servicio de correo electrónico no está configurado o no está disponible. Para continuar con
+                        el proceso en modo local, usa el código mostrado abajo.</p>
+                    {{ else }}
+                    <div class="header">Modo Local - Código de verificación</div>
+                    <p>Solo en modo local, el código de verificación se muestra abajo. En producción, este código se
+                        enviaría únicamente a tu correo electrónico.</p>
+                    {{ end }}
                     <p><strong>Código de verificación:</strong> <span class="ui large label"
                             style="font-family: monospace;">{{ .verificationCode }}</span></p>
-                    <p><em>Por favor, introduce este código en el campo de abajo para simular el proceso de
+                    <p><em>Por favor, introduce este código en el campo de abajo para {{ if .emailSendFailed }}continuar{{ else }}simular{{ end }} el proceso de
                             verificación.</em></p>
                 </div>
             </div>
+            {{ end }}
 
             <form class="ui form" method="POST" action="{{ .postAction }}">
                 <input type="hidden" name="auth_code" value="{{ .authCode }}">

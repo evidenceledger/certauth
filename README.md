@@ -8,6 +8,53 @@ This project implements two different but related functionalities:
 
 The eIDAS certificate of the users is validated against the EU Trusted Lists (https://eidas.ec.europa.eu/efda/trust-services/browse/eidas/tls), ensuring the association of the certificate with the real-world identity of the user, either as a natural person or as a natural person who is a legal representative of an organization. In both cases, the identity of the user has been validated by one of the more than 200 QTSPs in the EU, which are highly regulated entities. In the case of a legal representative, the identity of the organization has been validated by the issuer QTSP, together with the relationship of the user with the organization.
 
+## Quick Start (Local Development)
+
+To run the application locally with Docker:
+
+### Prerequisites
+1. Docker and Docker Compose installed
+2. Add to `/etc/hosts`:
+   ```bash
+   127.0.0.1 certauth.localhost
+   127.0.0.1 certsec.localhost
+   127.0.0.1 onboard.localhost
+   ```
+
+### Setup and Run
+
+```bash
+# 1. Create test certificates
+chmod +x create-test-cert.sh && ./create-test-cert.sh
+
+# 2. (macOS) Install CA certificate to avoid browser warnings
+chmod +x install-cert.sh && ./install-cert.sh
+
+# 3. Import client certificate to your browser
+# Import certs/client.p12 (password: test)
+
+# 4. Start services
+docker-compose up -d
+
+# 5. Open browser
+# Visit https://onboard.localhost and test the flow
+```
+
+### Local Development Features
+
+When running with `PROFILE=local` (default):
+- **Email verification bypass**: Codes displayed on screen, SMTP failures non-blocking
+- **Certificate validation**: Self-signed certificates accepted with warnings
+- **Test data**: Sample certificates with all required eIDAS fields
+
+### Service URLs
+- **Onboard** (user registration): https://onboard.localhost
+- **CertAuth** (OpenID Provider): https://certauth.localhost  
+- **CertSec** (mTLS authentication): https://certsec.localhost
+
+### Complete Documentation
+See [DOCKER_SETUP.md](DOCKER_SETUP.md) for detailed setup, troubleshooting, and configuration options.
+
 ## Deployment
 
 The deployment of this project is very simple using Docker. With other infrastructure, it should be very simple to map into its requirements.

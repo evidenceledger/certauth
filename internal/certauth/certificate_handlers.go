@@ -113,6 +113,11 @@ func (s *Server) pageRequestEmail(c *fiber.Ctx) error {
 	_, err = VerifyCertificate(certData.CertificateDER, s.euDSSURL)
 	if err == nil {
 		certData.EIDASCertificate = true
+	} else {
+		// Log the validation error with certificate details for debugging
+		slog.Warn("Certificate validation failed (proceeding in test/demo mode)", "error", err, "subject", certData.Subject)
+		// In test/demo mode, we allow non-eIDAS certificates to proceed
+		// The UI will show a warning that the certificate is not eIDAS compliant
 	}
 
 	// Check if the organization is already registered
@@ -224,15 +229,27 @@ func VerifyCertificate(data string, url string) ([]byte, error) {
 	}
 
 	// All objects of the list must have a field "Indication": "PASSED"
-	for _, chainItem := range chainItemArray {
+	for i, chainItem := range chainItemArray {
 		indication := jpath.GetString(chainItem, "Indication")
 		if indication != "PASSED" {
-			// Get the subject object
+			// Get the subject object and additional validation info
 			subject := jpath.GetMap(chainItem, "subject")
-			// Log the subject
+			subIndication := jpath.GetString(chainItem, "SubIndication")
+
+			// Log the subject and validation details as a warning (not blocking in test/demo mode)
 			out, _ := json.Marshal(subject)
-			slog.Error("Validation error for certificate", "subject", string(out))
-			return nil, errl.Errorf("validation error for certificate %s", string(out))
+			slog.Warn("Certificate validation warning - not eIDAS compliant (proceeding in test/demo mode)",
+				"chain_index", i,
+				"indication", indication,
+				"sub_indication", subIndication,
+				"subject", string(out))
+
+			// In test/demo mode, return an error to signal non-eIDAS certificate
+			// The caller will handle this by allowing the flow to continue with a warning
+			if subIndication != "" {
+				return nil, errl.Errorf("certificado en la cadena (posición %d) no pasó la validación. Indicación: %s, Sub-indicación: %s", i+1, indication, subIndication)
+			}
+			return nil, errl.Errorf("certificado en la cadena (posición %d) no pasó la validación. Indicación: %s", i+1, indication)
 		}
 	}
 
@@ -287,16 +304,27 @@ func (s *Server) sendEmailVerification(c *fiber.Ctx) error {
 	// Send the actual email
 	err = s.emailService.SendVerificationEmail(email, emailVerificationCode)
 	if err != nil {
-		err := errl.Errorf("sendVerificationEmail: %w", err)
-		slog.Error(err.Error(), "auth_code", authCode)
-		return s.htmlRender.Render(c, "error", fiber.Map{"message": err})
+		// In local profile, we allow the process to continue even if email sending fails
+		if s.profile == "local" {
+			slog.Warn("Failed to send verification email (proceeding in local mode)", "error", err, "auth_code", authCode, "email", email)
+			// Continue with the flow and show the verification code on screen
+		} else {
+			// In non-local profiles, email sending is mandatory
+			err := errl.Errorf("sendVerificationEmail: %w", err)
+			slog.Error(err.Error(), "auth_code", authCode)
+			return s.htmlRender.Render(c, "error", fiber.Map{"message": err})
+		}
+	} else {
+		slog.Info("Verification email sent successfully", "email", email, "auth_code", authCode)
 	}
 
 	// Render the confirm_email template
 	return s.htmlRender.Render(c, "cert_3_confirm_email", fiber.Map{
 		"email":            email,
 		"authCode":         authCode,
-		"verificationCode": emailVerificationCode, // For testing - remove in production
+		"verificationCode": emailVerificationCode, // For testing in local mode
+		"emailSendFailed":  err != nil,            // Flag to show warning message
+		"isLocalProfile":   s.profile == "local",  // Flag to show verification code only in local mode
 		"subject":          certData.Subject,
 		"postAction":       verifyEmailCodeEndpoint,
 	})

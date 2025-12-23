@@ -37,6 +37,15 @@ type Server struct {
 	privateArea   string
 }
 
+// isSecure checks if the server URL uses HTTPS
+func (s *Server) isSecure() bool {
+	parsedURL, err := url.Parse(s.ourURL)
+	if err != nil {
+		return false
+	}
+	return parsedURL.Scheme == "https"
+}
+
 const templateDebug = true
 
 //go:embed views/*
@@ -204,7 +213,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Value:    state,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   s.isSecure(), // Only use Secure flag when using HTTPS
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   300, // 5 minutes
 	})
@@ -235,7 +244,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		Value:    state,
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   s.isSecure(), // Only use Secure flag when using HTTPS
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   300, // 5 minutes
 	})
@@ -269,7 +278,7 @@ func (s *Server) handleCallback(w http.ResponseWriter, r *http.Request) {
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   s.isSecure(), // Only use Secure flag when using HTTPS
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1,
 	})
