@@ -9,9 +9,9 @@ import (
 	"time"
 
 	certauth "github.com/evidenceledger/certauth/certauthserver"
+	certsec "github.com/evidenceledger/certauth/certsecserver"
+	"github.com/evidenceledger/certauth/database"
 	"github.com/evidenceledger/certauth/internal/cache"
-	"github.com/evidenceledger/certauth/internal/certsec"
-	"github.com/evidenceledger/certauth/internal/database"
 	"github.com/evidenceledger/certauth/internal/errl"
 	"github.com/evidenceledger/certauth/internal/models"
 	onboard "github.com/evidenceledger/certauth/onboard"
@@ -54,11 +54,15 @@ type Server struct {
 // It initializes the database, cache, CertAuth, CertSec and Onboard servers.
 func New(adminPassword string, cfg Config, profile string) (*Server, error) {
 
-	// Create a global in-memory cache with a default expiration time of 10 minutes
+	// Create a global in-memory cache for authentication processes with a default expiration time of 10 minutes
 	// TODO(hesusruiz): make this configurable
-	cache := cache.New(10 * time.Minute)
+	authprocCache := cache.NewGeneric[string, *models.AuthProcess](10 * time.Minute)
 
-	// Initialize database
+	// Create a global in-memory cache for SSO sessions with a default expiration time of 10 minutes
+	// TODO(hesusruiz): make this configurable
+	ssoCache := cache.NewGeneric[string, *models.SSOSession](10 * time.Minute)
+
+	// Initialize database with the default name
 	db, err := database.New("")
 	if err != nil {
 		slog.Error("Failed to initialize database", "error", err)
@@ -73,7 +77,7 @@ func New(adminPassword string, cfg Config, profile string) (*Server, error) {
 	// Create the authentication and authorization servers.
 	// They share the same database and cache.
 
-	certauthServer, err := certauth.New(db, cache, adminPassword, cfg.CertAuthConfig)
+	certauthServer, err := certauth.New(db, authprocCache, ssoCache, adminPassword, cfg.CertAuthConfig)
 	if err != nil {
 		return nil, errl.Errorf("failed to create certauth server: %w", err)
 	}
@@ -87,7 +91,7 @@ func New(adminPassword string, cfg Config, profile string) (*Server, error) {
 		CertSecURL:              cfg.CertAuthConfig.CertSecURL,
 		CertSecPort:             cfg.CertAuthConfig.CertSecPort,
 	}
-	certsecServer, err := certsec.New(db, cache, newCertSecConfig)
+	certsecServer, err := certsec.New(db, authprocCache, ssoCache, newCertSecConfig)
 	if err != nil {
 		return nil, errl.Errorf("failed to create certsec server: %w", err)
 	}

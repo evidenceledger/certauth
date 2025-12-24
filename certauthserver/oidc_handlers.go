@@ -106,12 +106,12 @@ func (s *Server) Authorization(c *fiber.Ctx) error {
 	rp, err := s.db.GetRelyingParty(authReq.ClientID)
 	if err != nil {
 		errorCode := "server_error"
-		errorDesc := errl.Errorf("database error: %w", err).Error()
+		errorDesc := fmt.Sprintf("database error: %s", err.Error())
 		return s.handleAuthorizationError(c, authReq.RedirectURI, authReq.State, errorCode, errorDesc)
 	}
 	if rp == nil {
 		errorCode := "unauthorized_client"
-		errorDesc := "invalid client_id"
+		errorDesc := fmt.Sprintf("invalid client_id: %s", authReq.ClientID)
 		return s.handleAuthorizationError(c, authReq.RedirectURI, authReq.State, errorCode, errorDesc)
 	}
 
@@ -119,7 +119,7 @@ func (s *Server) Authorization(c *fiber.Ctx) error {
 	// For security reasons, the redirect_uri must be the same as the one that was registered
 	if authReq.RedirectURI != rp.RedirectURL {
 		errorCode := "invalid_request"
-		errorDesc := "invalid redirect_uri"
+		errorDesc := fmt.Sprintf("invalid redirect_uri: %s", authReq.RedirectURI)
 		return s.handleAuthorizationError(c, authReq.RedirectURI, authReq.State, errorCode, errorDesc)
 	}
 
@@ -136,33 +136,44 @@ func (s *Server) Authorization(c *fiber.Ctx) error {
 	if ssoCookie != "" {
 		ssoClaims, err = s.jwtService.ParseSSOCookieToken(ssoCookie)
 		if err != nil {
-			slog.Warn("Invalid SSO cookie received, proceeding with normal flow", "error", errl.Error(err))
+			slog.Debug("Invalid SSO cookie received, proceeding with normal flow", "error", errl.Error(err))
 		}
 	} else {
 		slog.Debug("No SSO cookie received, proceeding with normal flow")
 	}
 
 	var ssoSession *models.SSOSession
+	// If received a valid SSO cookie, may bypass certificate selection
 	if ssoClaims != nil {
 
-		// Valid SSO cookie, we may bypass certificate selection
-		slog.Info("Valid SSO cookie received", "subject", ssoClaims["sub"])
+		slog.Debug("Valid SSO cookie received", "subject", ssoClaims["sub"])
 
 		// Retrieve the SSO session ID from the claims
 		ssoSessionID, _ := ssoClaims["session_id"].(string)
+		if ssoSessionID == "" {
+			slog.Warn("No SSO session ID found in claims, proceeding with normal flow")
+		}
 
-		// Retrieve the SSO session data from the cache corresponding to that session id
-		ssoSessionIntf, found := s.cache.Get(ssoSessionID)
+		ssoSessionCached, found := s.ssoCache.Get(ssoSessionID)
 		if !found {
 			slog.Warn("SSO session not found in cache, proceeding with normal flow", "sso_session_id", ssoSessionID)
 		} else {
-			ss, ok := ssoSessionIntf.(*models.SSOSession)
-			if !ok {
-				slog.Warn("Invalid SSO session type in cache, proceeding with normal flow", "sso_session_id", ssoSessionID)
-			} else {
-				ssoSession = ss
-			}
+			ssoSession = ssoSessionCached
 		}
+
+		// Retrieve the SSO session data from the cache corresponding to that session id
+		// ssoSessionIntf, found := s.cache.Get(ssoSessionID)
+		// if !found {
+		// 	slog.Warn("SSO session not found in cache, proceeding with normal flow", "sso_session_id", ssoSessionID)
+		// } else {
+		// 	ss, ok := ssoSessionIntf.(*models.SSOSession)
+		// 	if !ok {
+		// 		slog.Warn("Invalid SSO session type in cache, proceeding with normal flow", "sso_session_id", ssoSessionID)
+		// 	} else {
+		// 		ssoSession = ss
+		// 	}
+		// }
+
 	}
 
 	// Generate an authorization code for this RP authentication process.
@@ -175,7 +186,8 @@ func (s *Server) Authorization(c *fiber.Ctx) error {
 	// The key is the unique authorization code used in the OAUth authorithation code flow, which will be
 	// passed around the endpoints to associate with the in-memory authorization proces object.
 	// TODO: maybe create a unique id specific for this purpose, and only send the auth code when it is required.
-	s.cache.Set(authProcess.Code, authProcess, 15*time.Minute)
+	// s.cache.Set(authProcess.Code, authProcess, 15*time.Minute)
+	s.authprocCache.Set(authProcess.Code, authProcess, 15*time.Minute)
 
 	if ssoSession != nil {
 
@@ -283,8 +295,8 @@ func (s *Server) APITokenExchange(c *fiber.Ctx) error {
 		return errl.Errorf("failed to generate tokens: %w", err)
 	}
 
-	// Delete used auth code
-	s.cache.Delete(tokenReq.Code)
+	// Delete used auth process
+	s.authprocCache.Delete(tokenReq.Code)
 
 	slog.Info("Tokens generated successfully", "client_id", tokenReq.ClientID)
 
@@ -365,7 +377,7 @@ func (s *Server) validateTokenAuthorization(c *fiber.Ctx) (clientid string, err 
 	return username, nil
 }
 
-// handleAuthorizationError handles authorization errors by redirecting to the RP with error details
+// handleAuthorizationError handles authorization errors by redirecting back to the RP with error details
 func (s *Server) handleAuthorizationError(c *fiber.Ctx, redirectURI, state, errorCode, errorDescription string) error {
 	slog.Error("Authorization error", "error", errorCode, "redirect_uri", redirectURI)
 
@@ -551,14 +563,9 @@ func (s *Server) getAuthProcess(authCode string) (*models.AuthProcess, error) {
 	}
 
 	// Retrieve the AuthorizationRequest from the application authentication session
-	entry, _ := s.cache.Get(authCode)
-	if entry == nil {
+	authProcess, found := s.authprocCache.Get(authCode)
+	if !found {
 		return nil, errl.Errorf("Authorization code not found in cache for auth_code: %s", authCode)
-	}
-
-	authProcess, ok := entry.(*models.AuthProcess)
-	if !ok {
-		return nil, errl.Errorf("Invalid authorization request type in cache for auth_code: %s", authCode)
 	}
 
 	return authProcess, nil

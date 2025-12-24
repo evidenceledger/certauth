@@ -1,4 +1,4 @@
-package main
+package mainserver
 
 import (
 	"flag"
@@ -9,18 +9,8 @@ import (
 	certauth "github.com/evidenceledger/certauth/certauthserver"
 	"github.com/evidenceledger/certauth/internal/email"
 	"github.com/evidenceledger/certauth/internal/errl"
-	"github.com/evidenceledger/certauth/mainserver"
 	"github.com/evidenceledger/certauth/tsaservice"
 	"github.com/goccy/go-yaml"
-)
-
-// Profiles for different environments
-const (
-	LOCAL     = "local"
-	ALTIA_DEV = "altia-dev"
-	ISBE_DEV  = "isbe-dev"
-	ISBE_PRE  = "isbe-pre"
-	ISBE_PRO  = "isbe-pro"
 )
 
 // Default Configuration Constants
@@ -63,7 +53,7 @@ var defaultEmailConfig = &email.EmailConfig{
 	SMTPPort: "465",
 }
 
-var LOCAL_CFG = mainserver.Config{
+var LOCAL_CFG = Config{
 	Development:  true,
 	OnboardURL:   "https://onboard.mycredential.eu",
 	OnboardPort:  "8012",
@@ -82,7 +72,7 @@ var LOCAL_CFG = mainserver.Config{
 	},
 }
 
-var ALTIA_DEV_CFG = mainserver.Config{
+var ALTIA_DEV_CFG = Config{
 	Development:  true,
 	OnboardURL:   "https://onboard-dev.redisbe.com",
 	OnboardPort:  "8012",
@@ -101,7 +91,7 @@ var ALTIA_DEV_CFG = mainserver.Config{
 	},
 }
 
-var ISBE_DEV_CFG = mainserver.Config{
+var ISBE_DEV_CFG = Config{
 	Development:  true,
 	OnboardURL:   "https://onboard.dev.cloud-w.envs.redisbe.com",
 	OnboardPort:  "8012",
@@ -120,7 +110,7 @@ var ISBE_DEV_CFG = mainserver.Config{
 	},
 }
 
-var ISBE_PRE_CFG = mainserver.Config{
+var ISBE_PRE_CFG = Config{
 	Development:  true,
 	OnboardURL:   "https://pre.onboard.portal.redisbe.com",
 	OnboardPort:  "8012",
@@ -139,7 +129,7 @@ var ISBE_PRE_CFG = mainserver.Config{
 	},
 }
 
-var ISBE_PRO_CFG = mainserver.Config{
+var ISBE_PRO_CFG = Config{
 	Development:  false,
 	OnboardURL:   "https://onboard.portal.redisbe.com",
 	OnboardPort:  "8012",
@@ -159,7 +149,7 @@ var ISBE_PRO_CFG = mainserver.Config{
 }
 
 // LoadConfig parses flags, environment variables, and config files to return the server configuration.
-func LoadConfig() (*mainserver.Config, string, error) {
+func LoadConfig() (*Config, string, error) {
 	var (
 		development   bool
 		adminPassword string
@@ -174,15 +164,15 @@ func LoadConfig() (*mainserver.Config, string, error) {
 	flag.Parse()
 
 	// By default, we get the local profile, and maybe we override it with environment variables
-	profile := LOCAL
+	profile := ALTIA_LOCAL
 	cfg := LOCAL_CFG
 
 	// If a profile was specified, use it
-	if profile = getStringEnvOrDefault("PROFILE", profile); profile != "" {
+	if profile = GetStringEnvOrDefault("PROFILE", profile); profile != "" {
 		profile = strings.ToLower(profile)
 
 		switch profile {
-		case LOCAL:
+		case ALTIA_LOCAL:
 			cfg = LOCAL_CFG
 		case ALTIA_DEV:
 			cfg = ALTIA_DEV_CFG
@@ -199,7 +189,7 @@ func LoadConfig() (*mainserver.Config, string, error) {
 	}
 
 	// Override with the environment variable if it is set
-	cfg.Development = getBoolEnvOrDefault("CERTAUTH_DEVELOPMENT", cfg.Development)
+	cfg.Development = GetBoolEnvOrDefault("CERTAUTH_DEVELOPMENT", cfg.Development)
 
 	// Say if we are in development or not
 	if cfg.Development {
@@ -211,7 +201,7 @@ func LoadConfig() (*mainserver.Config, string, error) {
 	// Get admin password from command line or environment variable.
 	// In any environment except development, the admin password is required.
 	// In development, the admin password is optional, and if not provided, it will have a default value.
-	adminPassword = getStringEnvOrDefault("CERTAUTH_ADMIN_PASSWORD", adminPassword)
+	adminPassword = GetStringEnvOrDefault("CERTAUTH_ADMIN_PASSWORD", adminPassword)
 	if development && adminPassword == "" {
 		adminPassword = "pepe"
 	} else if adminPassword == "" {
@@ -219,31 +209,31 @@ func LoadConfig() (*mainserver.Config, string, error) {
 	}
 
 	// Check for override of the CertAuth server URL and port
-	cfg.CertAuthConfig.CertAuthURL = getStringEnvOrDefault("CERTAUTH_URL", cfg.CertAuthConfig.CertAuthURL)
-	cfg.CertAuthConfig.CertAuthPort = getStringEnvOrDefault("CERTAUTH_PORT", cfg.CertAuthConfig.CertAuthPort)
+	cfg.CertAuthConfig.CertAuthURL = GetStringEnvOrDefault("CERTAUTH_URL", cfg.CertAuthConfig.CertAuthURL)
+	cfg.CertAuthConfig.CertAuthPort = GetStringEnvOrDefault("CERTAUTH_PORT", cfg.CertAuthConfig.CertAuthPort)
 
 	// Check for override of the CertSec server URL and port
-	cfg.CertAuthConfig.CertSecURL = getStringEnvOrDefault("CERTSEC_URL", cfg.CertAuthConfig.CertSecURL)
-	cfg.CertAuthConfig.CertSecPort = getStringEnvOrDefault("CERTSEC_PORT", cfg.CertAuthConfig.CertSecPort)
+	cfg.CertAuthConfig.CertSecURL = GetStringEnvOrDefault("CERTSEC_URL", cfg.CertAuthConfig.CertSecURL)
+	cfg.CertAuthConfig.CertSecPort = GetStringEnvOrDefault("CERTSEC_PORT", cfg.CertAuthConfig.CertSecPort)
 
 	// Check for override of the Onboard server URL and port
-	cfg.OnboardURL = getStringEnvOrDefault("ONBOARD_URL", cfg.OnboardURL)
-	cfg.OnboardPort = getStringEnvOrDefault("ONBOARD_PORT", cfg.OnboardPort)
+	cfg.OnboardURL = GetStringEnvOrDefault("ONBOARD_URL", cfg.OnboardURL)
+	cfg.OnboardPort = GetStringEnvOrDefault("ONBOARD_PORT", cfg.OnboardPort)
 
 	// Check for override of the TSA (Timestamping Authority) config
-	cfg.CertAuthConfig.TSAConfig.TSAURL = getStringEnvOrDefault("TSA_URL", cfg.CertAuthConfig.TSAConfig.TSAURL)
-	cfg.CertAuthConfig.TSAConfig.CACertURL = getStringEnvOrDefault("TSA_CA_CERT_URL", cfg.CertAuthConfig.TSAConfig.CACertURL)
+	cfg.CertAuthConfig.TSAConfig.TSAURL = GetStringEnvOrDefault("TSA_URL", cfg.CertAuthConfig.TSAConfig.TSAURL)
+	cfg.CertAuthConfig.TSAConfig.CACertURL = GetStringEnvOrDefault("TSA_CA_CERT_URL", cfg.CertAuthConfig.TSAConfig.CACertURL)
 
 	// Check for override of the DSS (Digital Signature Services) URL
-	cfg.CertAuthConfig.EUDSSURL = getStringEnvOrDefault("DSS_URL", cfg.CertAuthConfig.EUDSSURL)
+	cfg.CertAuthConfig.EUDSSURL = GetStringEnvOrDefault("DSS_URL", cfg.CertAuthConfig.EUDSSURL)
 
 	// Check for override of the email service config
-	cfg.CertAuthConfig.EmailConfig.IMAP = getStringEnvOrDefault("EMAIL_IMAP", cfg.CertAuthConfig.EmailConfig.IMAP)
-	cfg.CertAuthConfig.EmailConfig.SMTP = getStringEnvOrDefault("EMAIL_SMTP", cfg.CertAuthConfig.EmailConfig.SMTP)
-	cfg.CertAuthConfig.EmailConfig.SMTPPort = getStringEnvOrDefault("EMAIL_SMTP_PORT", cfg.CertAuthConfig.EmailConfig.SMTPPort)
+	cfg.CertAuthConfig.EmailConfig.IMAP = GetStringEnvOrDefault("EMAIL_IMAP", cfg.CertAuthConfig.EmailConfig.IMAP)
+	cfg.CertAuthConfig.EmailConfig.SMTP = GetStringEnvOrDefault("EMAIL_SMTP", cfg.CertAuthConfig.EmailConfig.SMTP)
+	cfg.CertAuthConfig.EmailConfig.SMTPPort = GetStringEnvOrDefault("EMAIL_SMTP_PORT", cfg.CertAuthConfig.EmailConfig.SMTPPort)
 
 	// Check for override of the management service URL
-	cfg.CertAuthConfig.ManagementURL = getStringEnvOrDefault("MANAGEMENT_URL", cfg.CertAuthConfig.ManagementURL)
+	cfg.CertAuthConfig.ManagementURL = GetStringEnvOrDefault("MANAGEMENT_URL", cfg.CertAuthConfig.ManagementURL)
 
 	// Set the profile in the CertAuth config
 	cfg.CertAuthConfig.Profile = profile
@@ -252,15 +242,15 @@ func LoadConfig() (*mainserver.Config, string, error) {
 	secretConfig := parseYamlConfig("secrets/config.yaml")
 
 	// The TSA credentials are secret and compulsory
-	tsaUser := getStringEnvOrDefault("TSA_USER", secretConfig.TSACreds.User)
-	tsaPassword := getStringEnvOrDefault("TSA_PASSWORD", secretConfig.TSACreds.Password)
+	tsaUser := GetStringEnvOrDefault("TSA_USER", secretConfig.TSACreds.User)
+	tsaPassword := GetStringEnvOrDefault("TSA_PASSWORD", secretConfig.TSACreds.Password)
 	if tsaUser == "" || tsaPassword == "" {
 		return nil, "", errl.Errorf("TSA user and password required")
 	}
 
 	// The email credentials are secret and compulsory
-	emailUser := getStringEnvOrDefault("SMTP_USERNAME", secretConfig.EmailCreds.User)
-	emailPassword := getStringEnvOrDefault("SMTP_PASSWORD", secretConfig.EmailCreds.Password)
+	emailUser := GetStringEnvOrDefault("SMTP_USERNAME", secretConfig.EmailCreds.User)
+	emailPassword := GetStringEnvOrDefault("SMTP_PASSWORD", secretConfig.EmailCreds.Password)
 	if emailUser == "" || emailPassword == "" {
 		return nil, "", errl.Errorf("email user and password required")
 	}
@@ -275,16 +265,16 @@ func LoadConfig() (*mainserver.Config, string, error) {
 	return &cfg, adminPassword, nil
 }
 
-// getStringEnvOrDefault gets an environment variable or returns a default value
-func getStringEnvOrDefault(key, defaultValue string) string {
+// GetStringEnvOrDefault gets an environment variable or returns a default value
+func GetStringEnvOrDefault(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
 	}
 	return defaultValue
 }
 
-// getBoolEnvOrDefault gets an environment variable or returns a default value.
-func getBoolEnvOrDefault(key string, defaultValue bool) bool {
+// GetBoolEnvOrDefault gets an environment variable or returns a default value.
+func GetBoolEnvOrDefault(key string, defaultValue bool) bool {
 	if value := os.Getenv(key); value != "" {
 		if strings.ToLower(value) == "true" {
 			return true

@@ -11,12 +11,13 @@ import (
 	"time"
 
 	"github.com/ansrivas/fiberprometheus/v2"
+	"github.com/evidenceledger/certauth/database"
 	"github.com/evidenceledger/certauth/internal/cache"
-	"github.com/evidenceledger/certauth/internal/database"
 	"github.com/evidenceledger/certauth/internal/email"
 	"github.com/evidenceledger/certauth/internal/errl"
 	"github.com/evidenceledger/certauth/internal/html"
 	"github.com/evidenceledger/certauth/internal/jwtservice"
+	"github.com/evidenceledger/certauth/internal/models"
 	"github.com/evidenceledger/certauth/tsaservice"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -89,8 +90,10 @@ type Server struct {
 	// The HTML renderer
 	htmlRender *html.RendererFiber
 
-	// The cache
-	cache *cache.Cache
+	// The single session cache
+	ssoCache *cache.GenericCache[string, *models.SSOSession]
+	// The authentication process cache
+	authprocCache *cache.GenericCache[string, *models.AuthProcess]
 
 	// The TSA service
 	tsaService *tsaservice.TSAService
@@ -100,15 +103,20 @@ type Server struct {
 }
 
 const templateDebug = true
-const templateDirectory = "certauth/views"
+const templateDirectory = "certauthserver/views"
 const templateExtension = ".hbs"
-const templateStaticResources = "certauth/views/assets"
+const templateStaticResources = "certauthserver/views/assets"
 
 //go:embed views/*
 var viewsfs embed.FS
 
 // New creates a new CertAuth server
-func New(db *database.Database, cache *cache.Cache, adminPassword string, cfg *Config) (*Server, error) {
+func New(
+	db *database.Database,
+	authprocCache *cache.GenericCache[string, *models.AuthProcess],
+	ssoCache *cache.GenericCache[string, *models.SSOSession],
+	adminPassword string,
+	cfg *Config) (*Server, error) {
 
 	// The engine to display the screens HTML screens to the users
 	htmlrender, err := html.NewRendererFiber(templateDebug, viewsfs, templateDirectory, templateExtension)
@@ -177,7 +185,8 @@ func New(db *database.Database, cache *cache.Cache, adminPassword string, cfg *C
 		db:            db,
 		jwtService:    jwtService,
 		htmlRender:    htmlrender,
-		cache:         cache,
+		authprocCache: authprocCache,
+		ssoCache:      ssoCache,
 		tsaService:    tsaService,
 		emailService:  emailService,
 	}

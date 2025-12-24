@@ -27,7 +27,7 @@ func main() {
 func run() error {
 
 	// Load configuration
-	cfg, adminPassword, err := LoadConfig()
+	cfg, adminPassword, err := mainserver.LoadConfig()
 	if err != nil {
 		return errl.Errorf("failed to load configuration: %v", err)
 	}
@@ -42,7 +42,7 @@ func run() error {
 	// - If the process is running in a container (pid=1) then do not color the logs.
 	// - Otherwise, if the environment variable CERTAUTH_LOGS_NOCOLOR is set to "true" then do not color the logs.
 	ourpid := os.Getpid()
-	if ourpid == 1 || getBoolEnvOrDefault("CERTAUTH_LOGS_NOCOLOR", false) {
+	if ourpid == 1 || mainserver.GetBoolEnvOrDefault("CERTAUTH_LOGS_NOCOLOR", false) {
 		logOptions.NoColor = true
 	}
 

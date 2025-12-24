@@ -15,8 +15,8 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
+	"github.com/evidenceledger/certauth/database"
 	"github.com/evidenceledger/certauth/internal/cache"
-	"github.com/evidenceledger/certauth/internal/database"
 	"github.com/evidenceledger/certauth/internal/errl"
 	"github.com/evidenceledger/certauth/internal/html"
 	"github.com/evidenceledger/certauth/internal/models"
@@ -27,9 +27,9 @@ import (
 const stdCertHeader = "tls-client-certificate"
 const kubeCertHeader = "X-Amzn-Mtls-Clientcert"
 
-const templateDirectory = "internal/certsec/views"
+const templateDirectory = "certsecserver/views"
 const templateExtension = ".hbs"
-const templateStaticResources = "internal/certsec/views/assets"
+const templateStaticResources = "certsecserver/views/assets"
 
 // Config is the configuration for the CertSecserver.
 type Config struct {
@@ -66,8 +66,11 @@ type Server struct {
 	// The database
 	db *database.Database
 
-	// The cache
-	cache *cache.Cache
+	// The authentication process cache
+	authprocCache *cache.GenericCache[string, *models.AuthProcess]
+
+	// The single session cache
+	ssoCache *cache.GenericCache[string, *models.SSOSession]
 
 	// The template renderer
 	htmlRender *html.RendererFiber
@@ -85,7 +88,11 @@ var viewsfs embed.FS
 // supporting eIDAS certificates and Verifiable Credentials.
 // The CerSec server requires a reverse proxy (like Caddy or Nginx) in front, terminating the TLS connection
 // and configured to actually requesting the client certificate.
-func New(db *database.Database, cache *cache.Cache, cfg *Config) (*Server, error) {
+func New(
+	db *database.Database,
+	authprocCache *cache.GenericCache[string, *models.AuthProcess],
+	ssoCache *cache.GenericCache[string, *models.SSOSession],
+	cfg *Config) (*Server, error) {
 
 	// The engine to display the screens HTML screens to the users
 	htmlrender, err := html.NewRendererFiber(cfg.Development, viewsfs, templateDirectory, templateExtension)
@@ -113,7 +120,8 @@ func New(db *database.Database, cache *cache.Cache, cfg *Config) (*Server, error
 	s := &Server{
 		app:                     app,
 		db:                      db,
-		cache:                   cache,
+		authprocCache:           authprocCache,
+		ssoCache:                ssoCache,
 		Development:             cfg.Development,
 		CertAuthURL:             cfg.CertAuthURL,
 		CertificateBackEndpoint: cfg.CertificateBackEndpoint,
@@ -357,7 +365,7 @@ func (s *Server) handleCertificateAuth(c *fiber.Ctx) error {
 
 	// Retrieve the AuthorizationRequest associated with the authCode from the cache
 	// to ensure the auth code is valid and was recently issued
-	authReqInterface, found := s.cache.Get(authCode)
+	authProcess, found := s.authprocCache.Get(authCode)
 	if !found {
 		slog.Error("Authorization code not found in cache", "auth_code", authCode)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -365,9 +373,8 @@ func (s *Server) handleCertificateAuth(c *fiber.Ctx) error {
 		})
 	}
 
-	authProcess, ok := authReqInterface.(*models.AuthProcess)
-	if !ok {
-		slog.Error("Invalid type for AuthorizationRequest in cache", "auth_code", authCode)
+	if authProcess == nil {
+		slog.Error("Retrieved nil for AuthorizationRequest in cache", "auth_code", authCode)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Internal server error",
 		})

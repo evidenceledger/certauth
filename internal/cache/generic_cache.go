@@ -7,33 +7,31 @@ import (
 	"time"
 )
 
-// Cache stores arbitrary data with expiration time.
-type Cache struct {
+// GenericCache stores arbitrary data with expiration time.
+type GenericCache[K comparable, V any] struct {
 	items                        sync.Map
 	counter                      atomic.Uint32
 	defaultDuration              time.Duration
 	defaultExpirationCheckPeriod uint32
 }
 
-const defaultExpirationPeriod = 100
-
-// An item represents arbitrary data with expiration time.
-type item struct {
+// genericItem represents arbitrary data with expiration time.
+type genericItem[V any] struct {
 	// The data stored in the cache
-	data any
+	data V
 	// The expiration time in nanoseconds since the Unix epoch
 	expires int64
 }
 
-// New creates a new cache that asynchronously cleans
+// NewGeneric creates a new cache that asynchronously cleans
 // expired entries after the given time passes.
-func New(defaultDuration time.Duration) *Cache {
+func NewGeneric[K comparable, V any](defaultDuration time.Duration) *GenericCache[K, V] {
 
 	if defaultDuration <= 0 {
 		defaultDuration = 10 * time.Minute
 	}
 
-	cache := &Cache{
+	cache := &GenericCache[K, V]{
 		defaultDuration:              defaultDuration,
 		defaultExpirationCheckPeriod: defaultExpirationPeriod,
 	}
@@ -44,7 +42,7 @@ func New(defaultDuration time.Duration) *Cache {
 // Set sets a value for the given key with an expiration duration.
 // If the duration is less than 0, it will be stored forever.
 // If the duration is 0, the default expiration time will be used
-func (cache *Cache) Set(key string, value any, duration time.Duration) {
+func (cache *GenericCache[K, V]) Set(key K, value V, duration time.Duration) {
 
 	// A zero value means no expiration
 	var expires int64
@@ -57,7 +55,7 @@ func (cache *Cache) Set(key string, value any, duration time.Duration) {
 		expires = time.Now().Add(duration).UnixNano()
 	}
 
-	cache.items.Store(key, item{
+	cache.items.Store(key, genericItem[V]{
 		data:    value,
 		expires: expires,
 	})
@@ -73,30 +71,33 @@ func (cache *Cache) Set(key string, value any, duration time.Duration) {
 }
 
 // Get gets the value for the given key.
-func (cache *Cache) Get(key string) (any, bool) {
+func (cache *GenericCache[K, V]) Get(key K) (V, bool) {
 	obj, exists := cache.items.Load(key)
 
 	if !exists {
-		return nil, false
+		var zero V
+		return zero, false
 	}
 
-	item := obj.(item)
+	item := obj.(genericItem[V])
 
 	if item.expires > 0 && time.Now().UnixNano() > item.expires {
 		// Use the fact that the caller is going to get an expiration error to check for entries which have expired.
 		// This opportunistic expiration strategy impacts latency of the error case but seems an acceptable compromise.
 		cache.DeleteExpired()
-		return nil, false
+		var zero V
+		return zero, false
 	}
 
 	return item.data, true
 }
 
-func (cache *Cache) DeleteExpired() {
+// DeleteExpired deletes all expired items from the cache.
+func (cache *GenericCache[K, V]) DeleteExpired() {
 	now := time.Now().UnixNano()
 
 	fn := func(key, value any) bool {
-		item := value.(item)
+		item := value.(genericItem[V])
 
 		if item.expires > 0 && now > item.expires {
 			cache.items.Delete(key)
@@ -110,6 +111,6 @@ func (cache *Cache) DeleteExpired() {
 }
 
 // Delete deletes the key and its value from the cache.
-func (cache *Cache) Delete(key string) {
+func (cache *GenericCache[K, V]) Delete(key K) {
 	cache.items.Delete(key)
 }

@@ -581,7 +581,7 @@ func (s *Server) handleContractAccepted(c *fiber.Ctx) error {
 	}
 
 	// Store the SSO session in the cache (valid for 24 hours)
-	s.cache.Set(ssoSessionID, ssoSession, 24*time.Hour)
+	s.ssoCache.Set(ssoSessionID, ssoSession, 24*time.Hour)
 
 	// Generate SSO cookie
 	ssoCookie, err := s.generateSSOCookie(ssoSessionID, ssoSession.CertificateData)
