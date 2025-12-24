@@ -1,3 +1,4 @@
+// Package main is the entry point for the CertAuth application.
 package main
 
 import (
@@ -10,8 +11,8 @@ import (
 	"syscall"
 
 	"github.com/evidenceledger/certauth/internal/errl"
-	"github.com/evidenceledger/certauth/internal/mainserver"
 	"github.com/evidenceledger/certauth/internal/sqlogger"
+	"github.com/evidenceledger/certauth/mainserver"
 )
 
 var logLevel slog.Level = slog.LevelDebug

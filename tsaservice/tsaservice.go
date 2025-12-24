@@ -1,3 +1,4 @@
+// Package tsaservice provides a client for Time Stamping Authority (TSA) services.
 package tsaservice
 
 import (

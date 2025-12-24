@@ -6,10 +6,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/evidenceledger/certauth/internal/certauth"
+	certauth "github.com/evidenceledger/certauth/certauthserver"
 	"github.com/evidenceledger/certauth/internal/email"
 	"github.com/evidenceledger/certauth/internal/errl"
-	"github.com/evidenceledger/certauth/internal/mainserver"
+	"github.com/evidenceledger/certauth/mainserver"
 	"github.com/evidenceledger/certauth/tsaservice"
 	"github.com/goccy/go-yaml"
 )
@@ -173,7 +173,7 @@ func LoadConfig() (*mainserver.Config, string, error) {
 
 	flag.Parse()
 
-	// By default, we get the local profile, and maybe we override it with the environment variable
+	// By default, we get the local profile, and maybe we override it with environment variables
 	profile := LOCAL
 	cfg := LOCAL_CFG
 
@@ -218,31 +218,31 @@ func LoadConfig() (*mainserver.Config, string, error) {
 		return nil, "", errl.Errorf("admin password required")
 	}
 
-	// Get the URL and port for the CertAuth server, which is the OP url also
+	// Check for override of the CertAuth server URL and port
 	cfg.CertAuthConfig.CertAuthURL = getStringEnvOrDefault("CERTAUTH_URL", cfg.CertAuthConfig.CertAuthURL)
 	cfg.CertAuthConfig.CertAuthPort = getStringEnvOrDefault("CERTAUTH_PORT", cfg.CertAuthConfig.CertAuthPort)
 
-	// Get the URL and port for the CertSec server
+	// Check for override of the CertSec server URL and port
 	cfg.CertAuthConfig.CertSecURL = getStringEnvOrDefault("CERTSEC_URL", cfg.CertAuthConfig.CertSecURL)
 	cfg.CertAuthConfig.CertSecPort = getStringEnvOrDefault("CERTSEC_PORT", cfg.CertAuthConfig.CertSecPort)
 
-	// Get the URL and port for the Onboard server
+	// Check for override of the Onboard server URL and port
 	cfg.OnboardURL = getStringEnvOrDefault("ONBOARD_URL", cfg.OnboardURL)
 	cfg.OnboardPort = getStringEnvOrDefault("ONBOARD_PORT", cfg.OnboardPort)
 
-	// Get the config for the TSA (Timestamping Authority)
+	// Check for override of the TSA (Timestamping Authority) config
 	cfg.CertAuthConfig.TSAConfig.TSAURL = getStringEnvOrDefault("TSA_URL", cfg.CertAuthConfig.TSAConfig.TSAURL)
 	cfg.CertAuthConfig.TSAConfig.CACertURL = getStringEnvOrDefault("TSA_CA_CERT_URL", cfg.CertAuthConfig.TSAConfig.CACertURL)
 
-	// Get the DSS (Digital Signature Services) URL
+	// Check for override of the DSS (Digital Signature Services) URL
 	cfg.CertAuthConfig.EUDSSURL = getStringEnvOrDefault("DSS_URL", cfg.CertAuthConfig.EUDSSURL)
 
-	// Get the config for the email service
+	// Check for override of the email service config
 	cfg.CertAuthConfig.EmailConfig.IMAP = getStringEnvOrDefault("EMAIL_IMAP", cfg.CertAuthConfig.EmailConfig.IMAP)
 	cfg.CertAuthConfig.EmailConfig.SMTP = getStringEnvOrDefault("EMAIL_SMTP", cfg.CertAuthConfig.EmailConfig.SMTP)
 	cfg.CertAuthConfig.EmailConfig.SMTPPort = getStringEnvOrDefault("EMAIL_SMTP_PORT", cfg.CertAuthConfig.EmailConfig.SMTPPort)
 
-	// Get the URL for the management service
+	// Check for override of the management service URL
 	cfg.CertAuthConfig.ManagementURL = getStringEnvOrDefault("MANAGEMENT_URL", cfg.CertAuthConfig.ManagementURL)
 
 	// Set the profile in the CertAuth config

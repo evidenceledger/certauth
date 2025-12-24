@@ -1,3 +1,4 @@
+// Package x509util provides utility functions for parsing and handling X.509 certificates and keys.
 package x509util
 
 import (

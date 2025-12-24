@@ -1,3 +1,4 @@
+// Package email provides functionality for sending emails using SMTP, including template-based email generation.
 package email
 
 import (

@@ -1,3 +1,4 @@
+// Package database provides an interface for interacting with the SQLite database used by the application.
 package database
 
 import (

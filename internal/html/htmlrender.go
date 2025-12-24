@@ -1,3 +1,4 @@
+// Package html provides HTML rendering capabilities using both Fiber's engine and standard template rendering with security headers.
 package html
 
 import (
@@ -20,7 +21,7 @@ type RendererStd struct {
 	engine *html.Engine
 }
 
-// NewRendererFiber creates a new HTML renderer.
+// NewRendererFiber creates a new HTML renderer to be used in Fiber handlers.
 // It supports both embedded templates (in viewsfs) and external templates (in extDir).
 // If reload is true, the templates are loaded from the directory specified in extDir.
 // If reload is false, the templates are loaded from the embedded directory.
@@ -40,6 +41,12 @@ func NewRendererFiber(reload bool, viewsfs embed.FS, extDir string, extension st
 	return renderer, nil
 }
 
+// NewRendererStd creates a new HTML renderer to be used in standard http handlers.
+// It supports both embedded templates (in viewsfs) and external templates (in extDir).
+// If reload is true, the templates are loaded from the directory specified in extDir.
+// If reload is false, the templates are loaded from the embedded directory.
+// viewsfs is the filesystem containing the views.
+// extDir is the directory containing the external templates.
 func NewRendererStd(reload bool, viewsfs embed.FS, extDir string, extension string) (*RendererStd, error) {
 
 	engine, err := newEngine(reload, viewsfs, extDir, extension)
@@ -54,6 +61,13 @@ func NewRendererStd(reload bool, viewsfs embed.FS, extDir string, extension stri
 	return renderer, nil
 }
 
+// newEngine creates a new HTML engine.
+// It supports both embedded templates (in viewsfs) and external templates (in extDir).
+// If reload is true, the templates are loaded from the directory specified in extDir.
+// If reload is false, the templates are loaded from the embedded directory.
+// viewsfs is the filesystem containing the views.
+// extDir is the directory containing the external templates.
+// extension is the file extension of the templates.
 func newEngine(reload bool, viewsfs embed.FS, extDir string, extension string) (*html.Engine, error) {
 
 	// Check if extDir exists in the os file system
@@ -66,7 +80,6 @@ func newEngine(reload bool, viewsfs embed.FS, extDir string, extension string) (
 	if exists {
 
 		// Use the user-provided templates in the external directory
-		slog.Info("Using external HTML templates")
 		engine := html.NewFileSystem(http.Dir(extDir), extension)
 		engine.Reload(reload)
 
@@ -75,30 +88,11 @@ func newEngine(reload bool, viewsfs embed.FS, extDir string, extension string) (
 			return nil, errl.Errorf("Failed to load external HTML templates: %w", err)
 		}
 
+		slog.Info("Using external HTML templates", "dir", extDir)
 		return engine, nil
 
 	}
 
-	// entries, err := viewsfs.ReadDir(".")
-	// if err != nil {
-	// 	return nil, errl.Errorf("ReadDir failed: %w", err)
-	// }
-
-	// for _, entry := range entries {
-	// 	if entry.IsDir() {
-	// 		fmt.Println("Dir:", entry.Name())
-	// 	} else {
-	// 		fmt.Println("File:", entry.Name())
-	// 	}
-	// }
-
-	// Use the embedded directory
-	// viewsDir, err := fs.Sub(viewsfs, "views")
-	// if err != nil {
-	// 	return nil, errl.Errorf("Failed to load embedded HTML templates: %w", err)
-	// }
-
-	slog.Info("Using embedded HTML templates")
 	engine := html.NewFileSystem(http.FS(viewsfs), extension)
 	engine.Reload(reload)
 
@@ -112,6 +106,7 @@ func newEngine(reload bool, viewsfs embed.FS, extDir string, extension string) (
 		slog.Info("Loaded template", "name", tpl.Name())
 	}
 
+	slog.Info("Using embedded HTML templates")
 	return engine, nil
 }
 

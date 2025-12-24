@@ -1,3 +1,4 @@
+// Package errl provides error handling utilities including location tracking and severity levels.
 package errl
 
 import (

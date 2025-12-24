@@ -1,3 +1,4 @@
+// Package certsec implements the server logic for handling client certificate authentication from the user's browser.
 package certsec
 
 import (

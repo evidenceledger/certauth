@@ -1,3 +1,4 @@
+// Package cache provides a simple, concurrent-safe in-memory cache with expiration support.
 package cache
 
 import (
