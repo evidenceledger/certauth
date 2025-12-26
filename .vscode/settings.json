@@ -1,9 +1,6 @@
 {
    "editor.fontSize": 14,
-   // "go.languageServerFlags": [
-   //    "-mcp.listen=localhost:6969"
-   // ],
-   "geminicodeassist.inlineSuggestions.nextEditPredictions": false,
+   "geminicodeassist.inlineSuggestions.nextEditPredictions": true,
    "geminicodeassist.languages": [
       "go"
    ],

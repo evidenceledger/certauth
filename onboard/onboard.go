@@ -181,19 +181,37 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if user is logged in
+	// If user is logged in, show welcome page
 	sessionID := s.getSessionID(r)
 	if session := s.getSession(sessionID); session != nil {
 		s.renderWelcomePage(w, session)
 		return
 	}
 
-	// Show login page
-	s.renderLoginPage(w)
+	s.renderRegisterOrLoginPage(w)
 }
+
+type LoginOrRegister bool
+
+const (
+	Login    LoginOrRegister = true
+	Register LoginOrRegister = false
+)
 
 // handleLogin initiates the OIDC flow
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
+
+	s.handleLoginOrRegister(w, r, Login)
+
+}
+
+func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
+
+	s.handleLoginOrRegister(w, r, Register)
+
+}
+
+func (s *Server) handleLoginOrRegister(w http.ResponseWriter, r *http.Request, login LoginOrRegister) {
 
 	err := s.configureVerifier()
 	if err != nil {
@@ -220,40 +238,14 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// Redirect to the OP for authentication
-	s.oauth2Config.Scopes = []string{oidc.ScopeOpenID, "eidas"}
-	redirectURL := s.oauth2Config.AuthCodeURL(state, oauth2.SetAuthURLParam("nonce", nonce))
-	http.Redirect(w, r, redirectURL, http.StatusFound)
-}
-
-func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
-
-	err := s.configureVerifier()
-	if err != nil {
-		slog.Error("Failed to configure verifier", "error", err)
-		http.Error(w, "Failed to configure verifier", http.StatusInternalServerError)
-		return
+	if login {
+		s.oauth2Config.Scopes = []string{oidc.ScopeOpenID, "learcred"}
+	} else {
+		s.oauth2Config.Scopes = []string{oidc.ScopeOpenID, "eidas"}
 	}
-
-	state := s.generateRandomString(32)
-
-	// Generate nonce for replay protection
-	nonce := s.generateRandomString(32)
-
-	// Store state in session (in a real app, you'd use proper session management)
-	http.SetCookie(w, &http.Cookie{
-		Name:     "oauth_state",
-		Value:    state,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   s.isSecure(), // Only use Secure flag when using HTTPS
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   300, // 5 minutes
-	})
-
-	// Redirect to the OP for registration
-	s.oauth2Config.Scopes = []string{oidc.ScopeOpenID, "onlyeidas"}
 	redirectURL := s.oauth2Config.AuthCodeURL(state, oauth2.SetAuthURLParam("nonce", nonce))
 	http.Redirect(w, r, redirectURL, http.StatusFound)
+
 }
 
 // handleCallback handles the OIDC callback
@@ -461,10 +453,10 @@ func (s *Server) createSession(tokens map[string]any) *models.RPSession {
 
 // HTML rendering methods
 
-// renderLoginPage renders the login page, when there is no session yet
-func (s *Server) renderLoginPage(w http.ResponseWriter) {
+// renderRegisterOrLoginPage renders the login page, when there is no session yet
+func (s *Server) renderRegisterOrLoginPage(w http.ResponseWriter) {
 
-	s.html.Render(w, "login", nil)
+	s.html.Render(w, "register_or_login", nil)
 
 }
 

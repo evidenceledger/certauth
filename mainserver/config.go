@@ -9,6 +9,7 @@ import (
 	certauth "github.com/evidenceledger/certauth/certauthserver"
 	"github.com/evidenceledger/certauth/internal/email"
 	"github.com/evidenceledger/certauth/internal/errl"
+	"github.com/evidenceledger/certauth/internal/models"
 	"github.com/evidenceledger/certauth/tsaservice"
 	"github.com/goccy/go-yaml"
 )
@@ -41,6 +42,23 @@ type EmailCreds struct {
 
 // --- Predefined Configurations ---
 
+// Config is the configuration for the server.
+// It contains the configuration for CertAuth, CertSec and Onboard servers.
+type Config struct {
+	Development    bool
+	OnboardURL     string
+	OnboardPort    string
+	PrivateArea    string
+	TMFServerURL   string
+	CertAuthConfig *certauth.Config
+	PredefinedRPs  []PredefinedRP
+}
+
+type PredefinedRP struct {
+	RelyingParty *models.RelyingParty
+	ClientSecret string
+}
+
 var defaultTsaConfig = &tsaservice.TSAConfig{
 	TSAURL:    defaultTsaURL,
 	CACertURL: defaultCaCertURL,
@@ -51,101 +69,6 @@ var defaultEmailConfig = &email.EmailConfig{
 	IMAP:     "imap.serviciodecorreo.es",
 	SMTP:     "smtp.serviciodecorreo.es",
 	SMTPPort: "465",
-}
-
-var LOCAL_CFG = Config{
-	Development:  true,
-	OnboardURL:   "https://onboard.mycredential.eu",
-	OnboardPort:  "8012",
-	PrivateArea:  "/",
-	TMFServerURL: "https://tmf.evidenceledger.eu/",
-	CertAuthConfig: &certauth.Config{
-		Development:   true,
-		CertAuthURL:   "https://certauth.mycredential.eu",
-		CertAuthPort:  "8010",
-		CertSecURL:    "https://certsec.mycredential.eu",
-		CertSecPort:   "8011",
-		TSAConfig:     defaultTsaConfig,
-		EmailConfig:   defaultEmailConfig,
-		ManagementURL: defaultManagementURL,
-		EUDSSURL:      defaultEUDSSURL,
-	},
-}
-
-var ALTIA_DEV_CFG = Config{
-	Development:  true,
-	OnboardURL:   "https://onboard-dev.redisbe.com",
-	OnboardPort:  "8012",
-	PrivateArea:  "https://poc-front.dev.cloud-w.envs.redisbe.com/",
-	TMFServerURL: "https://tmf.evidenceledger.eu/",
-	CertAuthConfig: &certauth.Config{
-		Development:   true,
-		CertAuthURL:   "https://certauth-dev.redisbe.com",
-		CertAuthPort:  "8010",
-		CertSecURL:    "https://certsec.evidenceledger.eu",
-		CertSecPort:   "8011",
-		TSAConfig:     defaultTsaConfig,
-		EmailConfig:   defaultEmailConfig,
-		ManagementURL: "https://poc-middleware-management.dev.cloud-w.envs.redisbe.com/api/managements",
-		EUDSSURL:      defaultEUDSSURL,
-	},
-}
-
-var ISBE_DEV_CFG = Config{
-	Development:  true,
-	OnboardURL:   "https://onboard.dev.cloud-w.envs.redisbe.com",
-	OnboardPort:  "8012",
-	PrivateArea:  "https://poc-front.dev.cloud-w.envs.redisbe.com/",
-	TMFServerURL: "https://tmf.dev.cloud-w.envs.redisbe.com/tmf-api",
-	CertAuthConfig: &certauth.Config{
-		Development:   true,
-		CertAuthURL:   "https://certauth.dev.cloud-w.envs.redisbe.com",
-		CertAuthPort:  "8010",
-		CertSecURL:    "https://certsec.dev.cloud-w.envs.redisbe.com",
-		CertSecPort:   "8011",
-		TSAConfig:     defaultTsaConfig,
-		EmailConfig:   defaultEmailConfig,
-		ManagementURL: "https://poc-middleware-management.dev.cloud-w.envs.redisbe.com/api/managements",
-		EUDSSURL:      defaultEUDSSURL,
-	},
-}
-
-var ISBE_PRE_CFG = Config{
-	Development:  true,
-	OnboardURL:   "https://pre.onboard.portal.redisbe.com",
-	OnboardPort:  "8012",
-	PrivateArea:  "https://pre.portal.redisbe.com/",
-	TMFServerURL: "https://tmf-pre.evidenceledger.eu",
-	CertAuthConfig: &certauth.Config{
-		Development:   true,
-		CertAuthURL:   "https://pre.certauth.portal.redisbe.com",
-		CertAuthPort:  "8010",
-		CertSecURL:    "https://certsec-pre.evidenceledger.eu",
-		CertSecPort:   "8011",
-		TSAConfig:     defaultTsaConfig,
-		EmailConfig:   defaultEmailConfig,
-		ManagementURL: "https://poc-middleware-management.pre.cloud-w.envs.redisbe.com/api/managements",
-		EUDSSURL:      defaultEUDSSURL,
-	},
-}
-
-var ISBE_PRO_CFG = Config{
-	Development:  false,
-	OnboardURL:   "https://onboard.portal.redisbe.com",
-	OnboardPort:  "8012",
-	PrivateArea:  "https://portal.redisbe.com/",
-	TMFServerURL: "https://tmf-pro.evidenceledger.eu",
-	CertAuthConfig: &certauth.Config{
-		Development:   false,
-		CertAuthURL:   "https://certauth.portal.redisbe.com",
-		CertAuthPort:  "8010",
-		CertSecURL:    "https://certsec-pro.evidenceledger.eu",
-		CertSecPort:   "8011",
-		TSAConfig:     defaultTsaConfig,
-		EmailConfig:   defaultEmailConfig,
-		ManagementURL: "https://poc-middleware-management.pro.cloud-w.envs.redisbe.com/api/managements",
-		EUDSSURL:      defaultEUDSSURL,
-	},
 }
 
 // LoadConfig parses flags, environment variables, and config files to return the server configuration.
@@ -162,6 +85,266 @@ func LoadConfig() (*Config, string, error) {
 	flag.StringVar(&adminPassword, "admin-password", "", "Admin password for the server")
 
 	flag.Parse()
+
+	// Local VPS development environment, which uses the domain mycredential.eu
+	var LOCAL_CFG = Config{
+		Development:  true,
+		OnboardURL:   "https://onboard.mycredential.eu",
+		OnboardPort:  "8012",
+		PrivateArea:  "/",
+		TMFServerURL: "https://tmf.evidenceledger.eu/",
+		CertAuthConfig: &certauth.Config{
+			Development:   true,
+			CertAuthURL:   "https://certauth.mycredential.eu",
+			CertAuthPort:  "8010",
+			CertSecURL:    "https://certsec.mycredential.eu",
+			CertSecPort:   "8011",
+			TSAConfig:     defaultTsaConfig,
+			EmailConfig:   defaultEmailConfig,
+			ManagementURL: defaultManagementURL,
+			EUDSSURL:      defaultEUDSSURL,
+		},
+	}
+	LOCAL_CFG.PredefinedRPs = []PredefinedRP{
+		{
+			RelyingParty: &models.RelyingParty{
+				Name:        "ALTIA Onboarding local",
+				Description: "The ALTIA Onboarding Application in local",
+				ClientID:    "isbeonboard",
+				RedirectURL: LOCAL_CFG.OnboardURL + "/callback",
+				Scopes:      "openid eidas",
+				TokenExpiry: 3600,
+			},
+			ClientSecret: "isbesecret",
+		},
+		{
+			RelyingParty: &models.RelyingParty{
+				Name:        "ISBE Issuer for test",
+				Description: "The ISBE Credential Issuer Application",
+				ClientID:    "https://issuer.mycredential.eu",
+				RedirectURL: "https://issuer.mycredential.eu/lear/auth/callback",
+				Scopes:      "openid eidas",
+				TokenExpiry: 3600,
+			},
+			ClientSecret: "isbesecret",
+		},
+	}
+
+	var ALTIA_DEV_CFG = Config{
+		Development:  true,
+		OnboardURL:   "https://onboard-dev.redisbe.com",
+		OnboardPort:  "8012",
+		PrivateArea:  "https://poc-front.dev.cloud-w.envs.redisbe.com/",
+		TMFServerURL: "https://tmf.evidenceledger.eu/",
+		CertAuthConfig: &certauth.Config{
+			Development:   true,
+			CertAuthURL:   "https://certauth-dev.redisbe.com",
+			CertAuthPort:  "8010",
+			CertSecURL:    "https://certsec.evidenceledger.eu",
+			CertSecPort:   "8011",
+			TSAConfig:     defaultTsaConfig,
+			EmailConfig:   defaultEmailConfig,
+			ManagementURL: "https://poc-middleware-management.dev.cloud-w.envs.redisbe.com/api/managements",
+			EUDSSURL:      defaultEUDSSURL,
+		},
+	}
+	ALTIA_DEV_CFG.PredefinedRPs = []PredefinedRP{
+		{
+			RelyingParty: &models.RelyingParty{
+				Name:        "ISBE Catalog Netlify",
+				Description: "The ISBE Catalog application in Netlify",
+				ClientID:    "https://catalog.isbeonboard.com",
+				RedirectURL: "https://isbecatalog.netlify.app/",
+				Scopes:      "openid eidas",
+				TokenExpiry: 3600,
+			},
+			ClientSecret: "isbesecret",
+		},
+		{
+			RelyingParty: &models.RelyingParty{
+				Name:        "ISBE Onboarding DEV",
+				Description: "The ISBE Onboarding Application in DEV",
+				ClientID:    "isbeonboard",
+				RedirectURL: "https://onboard-dev.redisbe.com/callback",
+				Scopes:      "openid eidas",
+				TokenExpiry: 3600,
+			},
+			ClientSecret: "isbesecret",
+		},
+		{
+			RelyingParty: &models.RelyingParty{
+				Name:        "ALTIA Keycloak in DEV",
+				Description: "The ALTIA Keycloak in DEV application",
+				ClientID:    "https://idp.dev.cloud-w.envs.redisbe.com",
+				RedirectURL: "https://idp.dev.cloud-w.envs.redisbe.com/auth/realms/dev-isbe/broker/certificado-representante/endpoint",
+				Scopes:      "openid eidas",
+				TokenExpiry: 3600,
+			},
+			ClientSecret: "isbesecret",
+		},
+	}
+
+	var ISBE_DEV_CFG = Config{
+		Development:  true,
+		OnboardURL:   "https://onboard.dev.cloud-w.envs.redisbe.com",
+		OnboardPort:  "8012",
+		PrivateArea:  "https://poc-front.dev.cloud-w.envs.redisbe.com/",
+		TMFServerURL: "https://tmf.dev.cloud-w.envs.redisbe.com/tmf-api",
+		CertAuthConfig: &certauth.Config{
+			Development:   true,
+			CertAuthURL:   "https://certauth.dev.cloud-w.envs.redisbe.com",
+			CertAuthPort:  "8010",
+			CertSecURL:    "https://certsec.dev.cloud-w.envs.redisbe.com",
+			CertSecPort:   "8011",
+			TSAConfig:     defaultTsaConfig,
+			EmailConfig:   defaultEmailConfig,
+			ManagementURL: "https://poc-middleware-management.dev.cloud-w.envs.redisbe.com/api/managements",
+			EUDSSURL:      defaultEUDSSURL,
+		},
+	}
+	ISBE_DEV_CFG.PredefinedRPs = []PredefinedRP{
+		{
+			RelyingParty: &models.RelyingParty{
+				Name:        "ISBE Keycloak in DEV",
+				Description: "The ISBE Keycloak in DEV application",
+				ClientID:    "https://idp.dev.cloud-w.envs.redisbe.com",
+				RedirectURL: "https://idp.dev.cloud-w.envs.redisbe.com/auth/realms/dev-isbe/broker/certificado-representante/endpoint",
+				Scopes:      "openid eidas",
+				TokenExpiry: 3600,
+			},
+			ClientSecret: "isbesecret",
+		},
+		{
+			RelyingParty: &models.RelyingParty{
+				Name:        "ISBE Catalog DEV",
+				Description: "The ISBE Catalog application in DEV",
+				ClientID:    "https://catalog.isbeonboard.com",
+				RedirectURL: "https://catalog.dev.cloud-w.envs.redisbe.com/",
+				Scopes:      "openid eidas",
+				TokenExpiry: 3600,
+			},
+			ClientSecret: "isbesecret",
+		},
+		{
+			RelyingParty: &models.RelyingParty{
+				Name:        "ISBE Onboarding DEV",
+				Description: "The ISBE Onboarding Application in DEV",
+				ClientID:    "isbeonboard",
+				RedirectURL: ISBE_DEV_CFG.OnboardURL + "/callback",
+				Scopes:      "openid eidas",
+				TokenExpiry: 3600,
+			},
+			ClientSecret: "isbesecret",
+		},
+	}
+
+	var ISBE_PRE_CFG = Config{
+		Development:  true,
+		OnboardURL:   "https://onboard.pre.portal.redisbe.com",
+		OnboardPort:  "8012",
+		PrivateArea:  "https://pre.portal.redisbe.com/",
+		TMFServerURL: "https://tmf-pre.evidenceledger.eu",
+		CertAuthConfig: &certauth.Config{
+			Development:   true,
+			CertAuthURL:   "https://certauth.pre.portal.redisbe.com",
+			CertAuthPort:  "8010",
+			CertSecURL:    "https://certsec-pre.evidenceledger.eu",
+			CertSecPort:   "8011",
+			TSAConfig:     defaultTsaConfig,
+			EmailConfig:   defaultEmailConfig,
+			ManagementURL: "https://poc-middleware-management.pre.cloud-w.envs.redisbe.com/api/managements",
+			EUDSSURL:      defaultEUDSSURL,
+		},
+	}
+	ISBE_PRE_CFG.PredefinedRPs = []PredefinedRP{
+		{
+			RelyingParty: &models.RelyingParty{
+				Name:        "ISBE Keycloak in PRE",
+				Description: "The ISBE Keycloak in PRE application",
+				ClientID:    "https://idp.pre.cloud-w.envs.redisbe.com",
+				RedirectURL: "https://idp.pre.cloud-w.envs.redisbe.com/auth/realms/pre-isbe/broker/certificado-representante/endpoint",
+				Scopes:      "openid eidas",
+				TokenExpiry: 3600,
+			},
+			ClientSecret: "isbesecret",
+		},
+		{
+			RelyingParty: &models.RelyingParty{
+				Name:        "ISBE Catalog PRE",
+				Description: "The ISBE Catalog application in PRE",
+				ClientID:    "https://catalog.isbeonboard.com",
+				RedirectURL: "https://catalog.pre.cloud-w.envs.redisbe.com/",
+				Scopes:      "openid eidas",
+				TokenExpiry: 3600,
+			},
+			ClientSecret: "isbesecret",
+		},
+		{
+			RelyingParty: &models.RelyingParty{
+				Name:        "ISBE Onboarding PRE",
+				Description: "The ISBE Onboarding Application in PRE",
+				ClientID:    "isbeonboard",
+				RedirectURL: ISBE_PRE_CFG.OnboardURL + "/callback",
+				Scopes:      "openid eidas",
+				TokenExpiry: 3600,
+			},
+			ClientSecret: "isbesecret",
+		},
+	}
+
+	var ISBE_PRO_CFG = Config{
+		Development:  false,
+		OnboardURL:   "https://onboard.portal.redisbe.com",
+		OnboardPort:  "8012",
+		PrivateArea:  "https://portal.redisbe.com/",
+		TMFServerURL: "https://tmf-pro.evidenceledger.eu",
+		CertAuthConfig: &certauth.Config{
+			Development:   false,
+			CertAuthURL:   "https://certauth.portal.redisbe.com",
+			CertAuthPort:  "8010",
+			CertSecURL:    "https://certsec-pro.evidenceledger.eu",
+			CertSecPort:   "8011",
+			TSAConfig:     defaultTsaConfig,
+			EmailConfig:   defaultEmailConfig,
+			ManagementURL: "https://poc-middleware-management.pro.cloud-w.envs.redisbe.com/api/managements",
+			EUDSSURL:      defaultEUDSSURL,
+		},
+	}
+	ISBE_PRO_CFG.PredefinedRPs = []PredefinedRP{
+		{
+			RelyingParty: &models.RelyingParty{
+				Name:        "ISBE Keycloak in PRO",
+				Description: "The ISBE Keycloak in PRO application",
+				ClientID:    "https://idp.pro.cloud-w.envs.redisbe.com",
+				RedirectURL: "https://idp.portal.redisbe.com/auth/realms/pro-isbe/broker/certificado-representante/endpoint",
+				Scopes:      "openid eidas",
+				TokenExpiry: 3600,
+			},
+			ClientSecret: "isbesecret",
+		},
+		{
+			RelyingParty: &models.RelyingParty{
+				Name:        "ISBE Catalog PRO",
+				Description: "The ISBE Catalog application in PRO",
+				ClientID:    "https://catalog.isbeonboard.com",
+				RedirectURL: "https://catalog.redisbe.com/",
+				Scopes:      "openid eidas",
+				TokenExpiry: 3600,
+			},
+			ClientSecret: "isbesecret",
+		},
+		{
+			RelyingParty: &models.RelyingParty{
+				Name:        "ISBE Onboarding PRO",
+				Description: "The ISBE Onboarding Application in PRO",
+				ClientID:    "isbeonboard",
+				RedirectURL: ISBE_PRO_CFG.OnboardURL + "/callback",
+				Scopes:      "openid eidas",
+				TokenExpiry: 3600,
+			},
+			ClientSecret: "isbesecret",
+		},
+	}
 
 	// By default, we get the local profile, and maybe we override it with environment variables
 	profile := ALTIA_LOCAL
