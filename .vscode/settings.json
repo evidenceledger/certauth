@@ -2,8 +2,11 @@
    "editor.fontSize": 14,
    "geminicodeassist.inlineSuggestions.nextEditPredictions": true,
    "geminicodeassist.languages": [
-      "go"
+      "go",
+      "html",
+      "javascript"
    ],
    "geminicodeassist.updateChannel": "Insiders",
-   "geminicodeassist.chat.changeView": "Default diff view"
+   "geminicodeassist.chat.changeView": "Default diff view",
+   "geminicodeassist.rules": "prefer to use the gotools mcp server for anything related to go code\n\n\n\n"
 }

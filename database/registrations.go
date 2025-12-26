@@ -24,11 +24,14 @@ func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certifi
 	buf.WriteString(certificateData.CertificateDER)
 	tstDataToTimestamp := buf.Bytes()
 
+	// Create a timestamp using a TSA Trust Service Provider
 	timestamp, err := tsaService.Timestamp(tstDataToTimestamp)
 	if err != nil {
 		return errl.Errorf("failed to timestamp data: %w", err)
 	}
 
+	// Verify the timestamp and retrieve the actual time according to the TSA Service Provider
+	// This is the time that we will record, instead of our own time
 	genTime, err := tsaService.Verify(timestamp, tstDataToTimestamp)
 	if err != nil {
 		return errl.Errorf("failed to verify timestamp: %w", err)
@@ -36,6 +39,8 @@ func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certifi
 
 	slog.Info("Timestamp verified", "genTime", genTime)
 
+	// This is the data model for the registration table:
+	//
 	// organization_identifier TEXT UNIQUE NOT NULL,
 	// organization TEXT,
 	// email TEXT,
@@ -63,6 +68,7 @@ func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certifi
 		) VALUES (?, ?, ?, ?, jsonb(?), ?, ?, ?, ?, ?)
 	`
 
+	// Create a new registration
 	_, err = d.db.Exec(query,
 		certificateData.OrganizationID,
 		certificateData.Subject.Organization,
