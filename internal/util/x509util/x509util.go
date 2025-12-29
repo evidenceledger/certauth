@@ -307,13 +307,13 @@ func NewCAELSICertificateDER(subAttrs ELSIName, keyparams KeyParams) (subPrivKey
 }
 
 // ParseCertificate extracts the first certificate from the given PEM string
-func ParseCertificateFromPEM(pemData []byte) (cert *x509.Certificate, issuer *ELSIName, subject *ELSIName, err error) {
+func ParseCertificateFromPEM(pemData []byte) (cert *x509.Certificate, issuer *ELSIName, subject *ELSIName, b64der string, err error) {
 	var block *pem.Block
 	for len(pemData) > 0 {
 		// Get the next block, bypassing the headers
 		block, pemData = pem.Decode(pemData)
 		if block == nil {
-			return nil, nil, nil, errors.New("error decoding pem block")
+			return nil, nil, nil, "", errors.New("error decoding pem block")
 		}
 
 		// Continue until we find a certificate or the end of the PEM data
@@ -324,12 +324,16 @@ func ParseCertificateFromPEM(pemData []byte) (cert *x509.Certificate, issuer *EL
 		// Try to parse the certificate from the block
 		cert, issuer, subject, err := ParseEIDASCertDer(block.Bytes)
 		if err != nil {
-			return nil, nil, nil, errors.Wrap(err, "error parsing certificate")
+			return nil, nil, nil, "", errors.Wrap(err, "error parsing certificate")
 		}
-		return cert, issuer, subject, nil
+
+		// Create the B64 encoded DER string
+		b64DER := base64.StdEncoding.EncodeToString(block.Bytes)
+
+		return cert, issuer, subject, b64DER, nil
 	}
 
-	return nil, nil, nil, errors.New("error parsing certificate: no certificate found")
+	return nil, nil, nil, "", errors.New("error parsing certificate: no certificate found")
 }
 
 func ParseEIDASCertB64Der(certDer string) (cert *x509.Certificate, issuer *ELSIName, subject *ELSIName, err error) {
