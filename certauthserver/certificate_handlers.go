@@ -68,7 +68,7 @@ func (s *Server) pageCertLogin(c *fiber.Ctx) error {
 	}
 
 	// Present the screen informing the user about the next step
-	return s.htmlRender.Render(c, "cert_1_select", fiber.Map{
+	return s.htmlRender.Render(c, "inform_user", fiber.Map{
 		"authCode":   authProcess.Code,
 		"certsecURL": s.certSecURL,
 	})
@@ -156,7 +156,7 @@ func (s *Server) pageRequestEmail(c *fiber.Ctx) error {
 	slog.Info("Certificate received exit", "auth_code", authCode, "cert_length", len(certData.Certificate.Raw))
 
 	// Present the screen
-	return s.htmlRender.Render(c, "cert_2_received", fiber.Map{
+	return s.htmlRender.Render(c, "cert_received", fiber.Map{
 		"authCode":    authCode,
 		"authCodeObj": authProcess,
 		"certData":    certData,
@@ -319,7 +319,7 @@ func (s *Server) sendEmailVerification(c *fiber.Ctx) error {
 	}
 
 	// Render the confirm_email template
-	return s.htmlRender.Render(c, "cert_3_confirm_email", fiber.Map{
+	return s.htmlRender.Render(c, "verify_email", fiber.Map{
 		"email":            email,
 		"authCode":         authCode,
 		"verificationCode": emailVerificationCode, // For testing in local mode
@@ -424,7 +424,7 @@ func (s *Server) verifyEmailCodeAndPresentContractForm(c *fiber.Ctx) error {
 	}
 
 	// Render the certificate consent template
-	return s.htmlRender.Render(c, "contract", fiber.Map{
+	return s.htmlRender.Render(c, "contract_form", fiber.Map{
 		"authCode":    authCode,
 		"authCodeObj": authProcess,
 		"certType":    certData.CertificateType,
@@ -484,7 +484,7 @@ func (s *Server) pagePresentContractForAcceptance(c *fiber.Ctx) error {
 	certData.Subject.EmailAddress = storedEmail
 
 	// Render the certificate consent template
-	return s.htmlRender.Render(c, "contractprint", fiber.Map{
+	return s.htmlRender.Render(c, "contract_print", fiber.Map{
 		"authCode":    authCode,
 		"authCodeObj": authProcess,
 		"formData":    formData,

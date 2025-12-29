@@ -1,13 +1,52 @@
+{{define "verify_email"}}
 {{template "preamble" .}}
 {{template "logobar" .}}
 
 <div class="ui hidden divider"></div>
 
-<div class="ui container" style="max-width: 800px;">
-
-    <div class="ui huge header">Confirmación del correo electrónico</div>
+<div class="ui container">
 
     <div class="ui raised segment" style="border-radius:1rem">
+
+        <div class="ui five ordered stackable steps">
+            <div class="completed step">
+                <div class="content">
+                    <div class="title">Certificado</div>
+                    <div class="description">Seleccionar certificado</div>
+                </div>
+            </div>
+            <div class="completed step">
+                <div class="content">
+                    <div class="title">Email</div>
+                    <div class="description">Proporcionar email</div>
+                </div>
+            </div>
+            <div class="active step">
+                <div class="content">
+                    <div class="title">Verificar Email</div>
+                    <div class="description">Introducir código</div>
+                </div>
+            </div>
+            <div class="disabled step">
+                <div class="content">
+                    <div class="title">Contrato</div>
+                    <div class="description">Completar datos</div>
+                </div>
+            </div>
+            <div class="disabled step">
+                <div class="content">
+                    <div class="title">Completado</div>
+                    <div class="description">Revisar y aceptar contrato</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+
+    <div class="ui raised segment" style="border-radius:1rem">
+
+        <h2 class="ui huge header">Confirmación del correo electrónico</h2>
 
         <div class="ui positive message">
             <div class="header">
@@ -18,7 +57,9 @@
                 {{ end }}
             </div>
             {{ if .emailSendFailed }}
-            <p>El servicio de correo no está disponible. El código de verificación se muestra abajo para continuar el proceso.</p>
+            <p>El servicio de correo no está disponible. El código de verificación se muestra abajo para continuar
+                el
+                proceso.</p>
             {{ else }}
             <p>Debes introducir ese código en el campo de entrada al final del formulario para confirmar el correo
                 y poder continuar con el registro.</p>
@@ -107,7 +148,8 @@
                 <div class="field">
                     <label for="email">Email</label>
                     <input type="email" id="email" name="email" value="{{ .email }}" readonly>
-                    <small class="ui text">Este es el correo electrónico que proporcionaste en el paso anterior.</small>
+                    <small class="ui text">Este es el correo electrónico que proporcionaste en el paso
+                        anterior.</small>
                 </div>
             </div>
 
@@ -119,7 +161,8 @@
                 <div class="content">
                     {{ if .emailSendFailed }}
                     <div class="header">Modo Local - Servicio de correo no disponible</div>
-                    <p>El servicio de correo electrónico no está configurado o no está disponible. Para continuar con
+                    <p>El servicio de correo electrónico no está configurado o no está disponible. Para continuar
+                        con
                         el proceso en modo local, usa el código mostrado abajo.</p>
                     {{ else }}
                     <div class="header">Modo Local - Código de verificación</div>
@@ -128,7 +171,8 @@
                     {{ end }}
                     <p><strong>Código de verificación:</strong> <span class="ui large label"
                             style="font-family: monospace;">{{ .verificationCode }}</span></p>
-                    <p><em>Por favor, introduce este código en el campo de abajo para {{ if .emailSendFailed }}continuar{{ else }}simular{{ end }} el proceso de
+                    <p><em>Por favor, introduce este código en el campo de abajo para
+                            {{ if .emailSendFailed }}continuar{{ else }}simular{{ end }} el proceso de
                             verificación.</em></p>
                 </div>
             </div>
@@ -155,3 +199,4 @@
 </div>
 
 {{template "postamble" .}}
+{{end}}

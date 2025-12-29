@@ -1,13 +1,52 @@
+{{define "inform_user"}}
 {{template "preamble" .}}
 {{template "logobar" .}}
 
 <div class="ui hidden divider"></div>
 
-<div class="ui container" style="max-width: 800px;">
-
-    <div class="ui huge header">Entrar con un certificado de representación</div>
+<div class="ui container">
 
     <div class="ui raised segment" style="border-radius:1rem">
+
+        <div class="ui five ordered stackable steps">
+            <div class="active step">
+                <div class="content">
+                    <div class="title">Certificado</div>
+                    <div class="description">Seleccionar certificado</div>
+                </div>
+            </div>
+            <div class="disabled step">
+                <div class="content">
+                    <div class="title">Email</div>
+                    <div class="description">Proporcionar email</div>
+                </div>
+            </div>
+            <div class="disabled step">
+                <div class="content">
+                    <div class="title">Verificar Email</div>
+                    <div class="description">Introducir código</div>
+                </div>
+            </div>
+            <div class="disabled step">
+                <div class="content">
+                    <div class="title">Contrato</div>
+                    <div class="description">Completar datos</div>
+                </div>
+            </div>
+            <div class="disabled step">
+                <div class="content">
+                    <div class="title">Completado</div>
+                    <div class="description">Revisar y aceptar contrato</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+
+    <div class="ui raised segment" style="border-radius:1rem">
+
+        <h2 class="ui huge header">Entrar con un certificado de representación</h2>
 
         <div class="ui warning message">
             <div class="header">
@@ -46,3 +85,4 @@
 </div>
 
 {{template "postamble" .}}
+{{end}}

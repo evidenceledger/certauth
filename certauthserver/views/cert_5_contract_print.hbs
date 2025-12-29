@@ -1,4 +1,4 @@
-{{define "contract"}}
+{{define "contract_print"}}
 {{template "preamble"}}
 {{template "logobar"}}
 
@@ -57,7 +57,45 @@
 
 <div class="ui hidden divider"></div>
 
-<div class="ui container" style="max-width: 1000px;">
+<div class="ui container">
+
+    <div class="ui raised segment" style="border-radius:1rem">
+
+        <div class="ui five ordered stackable steps">
+            <div class="completed step">
+                <div class="content">
+                    <div class="title">Certificado</div>
+                    <div class="description">Seleccionar certificado</div>
+                </div>
+            </div>
+            <div class="completed step">
+                <div class="content">
+                    <div class="title">Email</div>
+                    <div class="description">Proporcionar email</div>
+                </div>
+            </div>
+            <div class="completed step">
+                <div class="content">
+                    <div class="title">Verificar Email</div>
+                    <div class="description">Introducir código</div>
+                </div>
+            </div>
+            <div class="completed step">
+                <div class="content">
+                    <div class="title">Contrato</div>
+                    <div class="description">Completar datos</div>
+                </div>
+            </div>
+            <div class="active step">
+                <div class="content">
+                    <div class="title">Completado</div>
+                    <div class="description">Revisar y aceptar contrato</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
 
     <form id="contract_form" name="contract_form" method="POST" action="{{ .postAction }}">
         {{with .formData}}
@@ -83,67 +121,49 @@
             </p>
 
             <!-- IDENTIFICACION PARTICIPANTE -->
-            <p>Y de otra parte,
-                <input type="text" name="organization_name" placeholder="Denominación del Participante"
-                    class="contract-input" style="width: 300px;" autofocus required value="{{ .OrganizationName }}">,
+            <p>Y de otra parte, {{ .OrganizationName }},
                 persona jurídica constituida conforme a las leyes de
-                <input type="text" name="organization_country" placeholder="Estado miembro de la UE"
-                    class="contract-input" style="width: 250px;" required value="{{ .OrganizationCountry }}">,
+                {{ .OrganizationCountry }},
                 con domicilio social en
-                <input type="text" name="organization_address" placeholder="Domicilio social del Participante"
-                    class="contract-input" style="width: 350px;" required value="{{ .OrganizationAddress }}">
+                {{ .OrganizationAddress }}
                 y N.I.F. número
-                <input type="text" name="organization_nif" placeholder="NIF del Participante" class="contract-input"
-                    style="width: 180px;" required value="{{ .OrganizationNif }}">,
+                {{ .OrganizationNif }},
                 inscrita en el Registro Mercantil de
-                <input type="text" name="registry_name" placeholder="Registro Mercantil del Participante"
-                    class="contract-input" style="width: 300px;" required>,
+                {{ .RegistryName }}
                 al tomo
-                <input type="text" name="registry_volume" placeholder="Tomo" class="contract-input"
-                    style="width: 100px;" required>, folio
-                <input type="text" name="registry_folio" placeholder="Folio" class="contract-input"
-                    style="width: 100px;" required>, hoja
-                <input type="text" name="registry_sheet" placeholder="Hoja" class="contract-input" style="width: 100px;"
-                    required>,
+                {{ .RegistryVolume }}, folio
+                {{ .RegistryFolio }}, hoja
+                {{ .RegistrySheet }},
                 representada en este acto por
-                <select name="representative_title" class="contract-input" style="width: 60px;">
-                    <option value="D.">D.</option>
-                    <option value="Dña.">Dña.</option>
-                </select>
-                <input type="text" name="representative_name" placeholder="Representante del Participante"
-                    class="contract-input" style="width: 300px;" required value="{{ .RepresentativeName }}">,
+                {{ .RepresentativeTitle }}
+                {{ .RepresentativeName }},
                 con correo electrónico
-                <input type="email" name="representative_email" placeholder="Correo electrónico del Representante"
-                    class="contract-input" style="width: 300px;" required value="{{ .RepresentativeEmail }}">,
+                {{ .RepresentativeEmail }},
                 según acredita mediante escritura otorgada ante el Notario de
-                <input type="text" name="notary_city" placeholder="Ciudad Notario del Participante"
-                    class="contract-input" style="width: 250px;" required>,
-                <select name="notary_title" class="contract-input" style="width: 60px;">
-                    <option value="D.">D.</option>
-                    <option value="Dña.">Dña.</option>
-                </select> <input type="text" name="notary_name" placeholder="Notario del Participante"
-                    class="contract-input" style="width: 250px;" required>, el <input type="number" name="notary_day"
-                    placeholder="Día" class="contract-input" style="width: 60px;" min="1" max="31" required> de
-                <select name="notary_month" class="contract-input" style="width: 120px;">
-                    <option value=""></option>
-                    <option value="Enero">Enero</option>
-                    <option value="Febrero">Febrero</option>
-                    <option value="Marzo">Marzo</option>
-                    <option value="Abril">Abril</option>
-                    <option value="Mayo">Mayo</option>
-                    <option value="Junio">Junio</option>
-                    <option value="Julio">Julio</option>
-                    <option value="Agosto">Agosto</option>
-                    <option value="Septiembre">Septiembre</option>
-                    <option value="Octubre">Octubre</option>
-                    <option value="Noviembre">Noviembre</option>
-                    <option value="Diciembre">Diciembre</option>
-                </select>
-                <input type="number" name="notary_year" placeholder="Año" class="contract-input" style="width: 80px;"
-                    min="2000" required>, con el número
-                <input type="text" name="notary_protocol_number" placeholder="Protocolo" class="contract-input"
-                    style="width: 150px;" required> de su protocolo
+                {{ .NotaryCity }},
+                {{ .NotaryTitle }} {{ .NotaryName }}, el {{ .NotaryDay }} de
+                {{ .NotaryMonth }},
+                {{ .NotaryYear }}, con el número
+                {{ .NotaryProtocolNumber }} de su protocolo
                 (en adelante, el “<strong>Participante</strong>”).
+                <input type="hidden" name="organization_name" value="{{ .OrganizationName }}">
+                <input type="hidden" name="organization_country" value="{{ .OrganizationCountry }}">
+                <input type="hidden" name="organization_address" value="{{ .OrganizationAddress }}">
+                <input type="hidden" name="organization_nif" value="{{ .OrganizationNif }}">
+                <input type="hidden" name="registry_name" value="{{ .RegistryName }}">
+                <input type="hidden" name="registry_volume" value="{{ .RegistryVolume }}">
+                <input type="hidden" name="registry_folio" value="{{ .RegistryFolio }}">
+                <input type="hidden" name="registry_sheet" value="{{ .RegistrySheet }}">
+                <input type="hidden" name="representative_title" value="{{ .RepresentativeTitle }}">
+                <input type="hidden" name="representative_name" value="{{ .RepresentativeName }}">
+                <input type="hidden" name="representative_email" value="{{ .RepresentativeEmail }}">
+                <input type="hidden" name="notary_city" value="{{ .NotaryCity }}">
+                <input type="hidden" name="notary_title" value="{{ .NotaryTitle }}">
+                <input type="hidden" name="notary_name" value="{{ .NotaryName }}">
+                <input type="hidden" name="notary_day" value="{{ .NotaryDay }}">
+                <input type="hidden" name="notary_month" value="{{ .NotaryMonth }}">
+                <input type="hidden" name="notary_year" value="{{ .NotaryYear }}">
+                <input type="hidden" name="notary_protocol_number" value="{{ .NotaryProtocolNumber }}">
             </p>
 
             <p>Ambas partes, en adelante denominadas conjuntamente como “<strong>las Partes</strong>”,
@@ -247,8 +267,9 @@
 
                 <div class="ui positive message">
                     <div class="ui large checkbox">
-                        <input id="contract_base" type="checkbox" name="contract_base">
+                        <input type="checkbox" disabled {{if .ContractCheckBase}}checked{{end}}>
                         <label>Acepto las estipulaciones del contrato marco</label>
+                        <input type="hidden" name="contract_base" value="{{ .ContractCheckBase }}">
                     </div>
                 </div>
 
@@ -262,6 +283,7 @@
 
             <p>En Madrid, a {{ .TodayDay }} de {{ .TodayMonth }} de {{ .TodayYear }}</p>
 
+            {{if eq .Annex "developer"}}
             <!-- ANEXO I -->
             <div class="ui blue segment">
 
@@ -269,8 +291,9 @@
 
                 <div class="ui positive message">
                     <div class="ui large checkbox">
-                        <input id="contract_developer" type="radio" name="annex" value="developer">
+                        <input type="checkbox" disabled checked>
                         <label>Acepto los términos y condiciones del Anexo I</label>
+                        <input type="hidden" name="annex" value="developer">
                     </div>
                 </div>
 
@@ -278,7 +301,9 @@
                         en todo lo no modificado expresamente por este Anexo I.)</em></p>
 
             </div>
+            {{end}}
 
+            {{if eq .Annex "operator"}}
             <div class="ui divider"></div>
 
             <!-- ANEXO II -->
@@ -288,8 +313,9 @@
 
                 <div class="ui positive message">
                     <div class="ui large checkbox">
-                        <input id="contract_operator" type="radio" name="annex" value="operator">
+                        <input type="checkbox" disabled checked>
                         <label>Acepto los términos y condiciones del Anexo II</label>
+                        <input type="hidden" name="annex" value="operator">
                     </div>
                 </div>
 
@@ -297,6 +323,7 @@
                         en todo lo no modificado expresamente por este Anexo II.)</em></p>
 
             </div>
+            {{end}}
 
             <div class="ui divider"></div>
 
@@ -305,29 +332,25 @@
         <input type="hidden" name="auth_code" value="{{ $.authCode }}">
         <input type="hidden" name="state" value="{{ $.authCodeObj.State }}">
 
-
         <div class="ui raised segment" style="border-radius:1rem">
 
-            <h2><strong>GENERACIÓN DEL CONTRATO</strong></h2>
+            <h2><strong>ACEPTACIÓN Y FIRMA</strong></h2>
 
             <div class="ui segment">
-                <p>Usa el botón "Genera contrato" para generar un borrador de contrato para que puedas revisarlo y
-                    firmarlo en el paso siguiente.</p>
-                <div class="ui three spaced buttons">
+                <p>Aceptar y firmar el contrato</p>
+                <div class="ui two spaced buttons">
                     <button id="generate-button" class="ui large black circular button">
-                        <i class="check icon"></i> Genera contrato
+                        <i class="check icon"></i> Aceptar y firmar
                     </button>
-                    <a class="ui large red circular button"
-                        href="{{ $.authCodeObj.RedirectURI }}?error=access_denied&state={{ $.authCodeObj.State }}">
-                        <i class="times circle icon"></i> Cancelar
+                    <a id="back-button" href="" class="ui large circular button">
+                        <i class="arrow left icon"></i> Volver atrás
                     </a>
                 </div>
             </div>
 
-
         </div>
-
         {{end}}
+
     </form>
 
 </div>
@@ -338,19 +361,7 @@
             debugger;
 
             var contract_form = document.forms["contract_form"];
-            var contract_base = contract_form.elements["contract_base"];
-            var contract_developer = contract_form.elements["contract_developer"];
-            var contract_operator = contract_form.elements["contract_operator"];
-
-            if (!contract_base.checked) {
-                alert("Debes aceptar las estipulaciones del contrato marco");
-                return;
-            }
-
-            if (contract_operator.checked && contract_developer.checked) {
-                alert("Solo puedes aceptar uno de los términos y condiciones de los Anexos I o II");
-                return;
-            }
+            var part = contract_form.elements["participant_name"];
 
             const data = new FormData(contract_form);
             for (const pair of data.entries()) {
@@ -360,33 +371,11 @@
             contract_form.submit();
         });
 
-
-        function fillTestData() {
-            var contract_form = document.forms["contract_form"];
-            for (const pair of Object.entries(test_data)) {
-                contract_form.elements[pair[0]].value = pair[1];
-            }
-        }
+        $('#back-button').on('click', function (e) {
+            e.preventDefault();
+            window.history.back();
+        });
     });
-
-    var test_data = {
-        "organization_name": "Good Air S.L.",
-        "organization_country": "España",
-        "organization_address": "Academia 28",
-        "organization_nif": "VATES-12345678K",
-        "registry_name": "Madrid",
-        "registry_volume": "1",
-        "registry_folio": "22",
-        "registry_sheet": "333",
-        "representative_name": "Perica Perez",
-        "representative_email": "jesus@alastria.io",
-        "notary_city": "Barcelona",
-        "notary_name": "Notillo",
-        "notary_day": "23",
-        "notary_month": "Mayo",
-        "notary_year": "2015",
-        "notary_protocol_number": "888888",
-    }
 </script>
 
 {{template "postamble"}}

@@ -3,12 +3,14 @@ package certsec
 
 import (
 	"context"
+	"crypto/x509"
 	"embed"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -314,17 +316,37 @@ func isAdmin(issuer *x509util.ELSIName, subject *x509util.ELSIName) bool {
 func (s *Server) checkAdminAuthentication(c *fiber.Ctx) (*x509util.ELSIName, error) {
 	// Check both the std and kube cert headers to see if we received a certificate
 	certFromHeader := c.Get(stdCertHeader)
-	if certFromHeader == "" {
+	if certFromHeader != "" {
+		slog.Debug("Certificate data found in standard header", "header", stdCertHeader, "cert_length", len(certFromHeader))
+	} else {
 		certFromHeader = c.Get(kubeCertHeader)
-	}
-	if certFromHeader == "" {
-		return nil, errl.Errorf("No certificate provided, neither in %s nor in %s", stdCertHeader, kubeCertHeader)
+		if certFromHeader != "" {
+			slog.Debug("Certificate data found in kube header", "header", kubeCertHeader, "cert_length", len(certFromHeader))
+		} else {
+			return nil, errl.Errorf("No certificate provided, neither in %s nor in %s", stdCertHeader, kubeCertHeader)
+		}
 	}
 
-	// Parse the certificate
-	cert, issuer, subject, err := x509util.ParseEIDASCertB64Der(certFromHeader)
-	if err != nil {
-		return nil, errl.Errorf("Failed to parse certificate: %w", err)
+	// Parse the certificate, which may come as DER or PEM format
+	// First, detect if it seems PEM
+	var cert *x509.Certificate
+	var issuer *x509util.ELSIName
+	var subject *x509util.ELSIName
+	var err error
+	if strings.HasPrefix(certFromHeader, "-----BEGIN") {
+		// It's PEM, so decode it from base64 and then PEM decode it
+		cert, issuer, subject, err = x509util.ParseCertificateFromPEM([]byte(certFromHeader))
+		if err != nil {
+			fmt.Printf("Bad PEM certificate: %s\n", certFromHeader)
+			return nil, errl.Errorf("Failed to parse certificate from PEM: %w", err)
+		}
+	} else {
+		// Assume it is DER, so decode it directly
+		cert, issuer, subject, err = x509util.ParseEIDASCertB64Der(certFromHeader)
+		if err != nil {
+			fmt.Printf("Bad DER certificate: %s\n", certFromHeader)
+			return nil, errl.Errorf("Failed to parse certificate: %w", err)
+		}
 	}
 
 	// For testing we accept personal certificates, but we do not accept that both
@@ -391,20 +413,40 @@ func (s *Server) handleCertificateAuth(c *fiber.Ctx) error {
 
 	// Get the certificate from the TLS connection
 	// Check both the std and kube cert headers to see if we received a certificate
+
+	// Check both the std and kube cert headers to see if we received a certificate
 	certFromHeader := c.Get(stdCertHeader)
-	if certFromHeader == "" {
+	if certFromHeader != "" {
+		slog.Debug("Certificate data found in standard header", "header", stdCertHeader, "cert_length", len(certFromHeader))
+	} else {
 		certFromHeader = c.Get(kubeCertHeader)
-	}
-	if certFromHeader == "" {
-		return sendBackError(errl.Errorf("No certificate provided either in %s or in %s", stdCertHeader, kubeCertHeader))
+		if certFromHeader != "" {
+			slog.Debug("Certificate data found in kube header", "header", kubeCertHeader, "cert_length", len(certFromHeader))
+		} else {
+			return sendBackError(errl.Errorf("No certificate provided either in %s or in %s", stdCertHeader, kubeCertHeader))
+		}
 	}
 
-	slog.Info("Certificate received", "auth_code", authCode, "cert_length", len(certFromHeader))
-
-	// Parse the certificate
-	cert, issuer, subject, err := x509util.ParseEIDASCertB64Der(certFromHeader)
-	if err != nil {
-		return sendBackError(errl.Errorf("Failed to parse certificate: %w", err))
+	// Parse the certificate, which may come as DER or PEM format
+	// First, detect if it seems PEM
+	var cert *x509.Certificate
+	var issuer *x509util.ELSIName
+	var subject *x509util.ELSIName
+	var err error
+	if strings.HasPrefix(certFromHeader, "-----BEGIN") {
+		// It's PEM, so decode it from base64 and then PEM decode it
+		cert, issuer, subject, err = x509util.ParseCertificateFromPEM([]byte(certFromHeader))
+		if err != nil {
+			fmt.Printf("Bad PEM certificate: %s\n", certFromHeader)
+			return sendBackError(errl.Errorf("Failed to parse PEM certificate: %w", err))
+		}
+	} else {
+		// Assume it is DER, so decode it directly
+		cert, issuer, subject, err = x509util.ParseEIDASCertB64Der(certFromHeader)
+		if err != nil {
+			fmt.Printf("Bad DER certificate: %s\n", certFromHeader)
+			return sendBackError(errl.Errorf("Failed to parse DER certificate: %w", err))
+		}
 	}
 
 	// For testing we accept personal certificates, but we do not accept that both

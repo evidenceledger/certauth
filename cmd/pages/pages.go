@@ -27,7 +27,7 @@ func main() {
 	fmt.Println(wd)
 
 	// The engine to display the screens (HTML) to the users
-	htmlrender, err := html.NewRendererFiber(true, viewsfs, "internal/certauth/views", ".hbs")
+	htmlrender, err := html.NewRendererFiber(true, viewsfs, "certauthserver/views", ".hbs")
 	if err != nil {
 		slog.Error("Failed to initialize template engine", "error", err)
 		panic(err)
@@ -150,10 +150,10 @@ func main() {
 			"postAction": "/page/form",
 		}
 
-		return htmlrender.Render(c, "contractprint", data)
+		return htmlrender.Render(c, "contract_print", data)
 	})
 
-	app.Static("/static", "./internal/certauth/views/assets")
+	app.Static("/static", "./certauthserver/views/assets")
 
 	if err := app.Listen(":8080"); err != nil {
 		fmt.Println(err)
