@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "PRU",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "cmd/pru/main.go"
+        },
+        {
             "name": "Pages",
             "type": "go",
             "request": "launch",

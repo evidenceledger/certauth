@@ -306,6 +306,7 @@ var adminIssuerOrganizationIdentifiers = []string{
 
 var adminSubjectSerialNumbers = []string{
 	"IDCES-21442837Y",
+	"A12345678",
 }
 
 // isAdmin checks if the certificate is issued by any organization which is an authorized issuer.
@@ -339,7 +340,7 @@ func (s *Server) checkAdminAuthentication(c *fiber.Ctx) (*x509util.ELSIName, err
 
 		// This header contains the URL-encoded PEM format of the entire client certificate chain presented in the connection, with +=/ as safe characters.
 		// We have to first decode
-		certFromHeaderDecoded, err := url.QueryUnescape(certFromHeader)
+		certFromHeaderDecoded, err := url.PathUnescape(certFromHeader)
 		if err != nil {
 			fmt.Printf("Failed to decode base64url certificate from header: %s\n", certFromHeader)
 			return nil, errl.Errorf("Failed to decode base64url certificate from header: %w", err)
@@ -448,7 +449,7 @@ func (s *Server) handleCertificateAuth(c *fiber.Ctx) error {
 
 		// This header contains the URL-encoded PEM format of the entire client certificate chain presented in the connection, with +=/ as safe characters.
 		// We have to first decode
-		certFromHeaderDecoded, err := url.QueryUnescape(certFromHeader)
+		certFromHeaderDecoded, err := url.PathUnescape(certFromHeader)
 		if err != nil {
 			fmt.Printf("Failed to decode base64url certificate from header: %s\n", certFromHeader)
 			return sendBackError(errl.Errorf("Failed to decode base64url certificate from header: %w", err))
