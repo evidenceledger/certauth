@@ -17,7 +17,7 @@ func main() {
 
 	println(decoded)
 
-	cert, issuer, subject, err := x509util.ParseCertificateFromPEM([]byte(decoded))
+	cert, issuer, subject, _, err := x509util.ParseCertificateFromPEM([]byte(decoded))
 	if err != nil {
 		panic(err)
 	}
