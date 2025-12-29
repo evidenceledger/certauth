@@ -2,6 +2,7 @@
 // Use of this source code is governed by an Apache 2.0
 // license that can be found in the LICENSE file.
 
+// Package jpath provides a wrapper for traversing and accessing JSON/YAML structures using dot notation.
 package jpath
 
 import (

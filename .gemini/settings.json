@@ -1,8 +1,9 @@
 {
-  "mcpServers": {
-    "gopls": {
-      "url": "http://localhost:6969/sessions/1",
-      "args": []
-    }
-  }
+   "mcpServers": {
+      "gotools": {
+         "command": "gopls",
+         "args": ["mcp"],
+         "trust": true
+      }
+   }
 }

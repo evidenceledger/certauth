@@ -1,3 +1,4 @@
+// Package tmfservice provides a client for interacting with TMF (TM Forum) APIs.
 package tmfservice
 
 import (

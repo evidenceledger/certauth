@@ -1,3 +1,4 @@
+// Package jwtservice provides functionality for generating, signing, and verifying JSON Web Tokens (JWT).
 package jwtservice
 
 import (

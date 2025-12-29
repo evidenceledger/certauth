@@ -71,6 +71,22 @@ The `PROFILE` environment variable is used to select the profile to use for a de
 
 The other four environment variables are required for all profiles, and are not included in the profiles, given its sensitive nature. You should ask your systems administyrator for the appropriate values for your environment.
 
+## Configuration Reference
+
+The following environment variables can be used to override configuration values:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `CERTAUTH_URL` | Base URL for the CertAuth service | Profile dependent |
+| `CERTAUTH_PORT` | Port for CertAuth service | `8010` |
+| `CERTSEC_URL` | URL for the mTLS CertSec service | Profile dependent |
+| `CERTSEC_PORT` | Port for CertSec service | `8011` |
+| `ONBOARD_URL` | URL for the Onboard service | Profile dependent |
+| `ONBOARD_PORT` | Port for Onboard service | `8012` |
+| `TSA_URL` | Timestamp Authority URL | `https://timestamp-service...` |
+| `MANAGEMENT_URL` | Management Service URL | Profile dependent |
+| `CERTAUTH_LOGS_NOCOLOR` | Set to "true" to disable log coloring | `false` |
+
 ## Observability
 
 The CertAuth service exposes Prometheus metrics at the `/metrics` endpoint. 

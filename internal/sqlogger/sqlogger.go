@@ -1,3 +1,4 @@
+// Package sqlogger provides a custom slog.Handler that logs to a SQLite database and standard output.
 package sqlogger
 
 import (

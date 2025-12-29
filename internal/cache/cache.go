@@ -1,3 +1,4 @@
+// Package cache provides a simple, concurrent-safe in-memory cache with expiration support.
 package cache
 
 import (
@@ -18,7 +19,9 @@ const defaultExpirationPeriod = 100
 
 // An item represents arbitrary data with expiration time.
 type item struct {
-	data    any
+	// The data stored in the cache
+	data any
+	// The expiration time in nanoseconds since the Unix epoch
 	expires int64
 }
 
