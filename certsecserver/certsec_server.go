@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/x509"
 	"embed"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -335,7 +336,16 @@ func (s *Server) checkAdminAuthentication(c *fiber.Ctx) (*x509util.ELSIName, err
 	var err error
 	if strings.HasPrefix(certFromHeader, "-----BEGIN") {
 		// It's PEM, so decode it from base64 and then PEM decode it
-		cert, issuer, subject, err = x509util.ParseCertificateFromPEM([]byte(certFromHeader))
+
+		// This header contains the URL-encoded PEM format of the entire client certificate chain presented in the connection, with +=/ as safe characters.
+		// We have to first decode
+		certFromHeaderDecoded, err := base64.RawURLEncoding.DecodeString(certFromHeader)
+		if err != nil {
+			fmt.Printf("Failed to decode base64url certificate from header: %s\n", certFromHeader)
+			return nil, errl.Errorf("Failed to decode base64url certificate from header: %w", err)
+		}
+
+		cert, issuer, subject, err = x509util.ParseCertificateFromPEM(certFromHeaderDecoded)
 		if err != nil {
 			fmt.Printf("Bad PEM certificate: %s\n", certFromHeader)
 			return nil, errl.Errorf("Failed to parse certificate from PEM: %w", err)
@@ -435,7 +445,16 @@ func (s *Server) handleCertificateAuth(c *fiber.Ctx) error {
 	var err error
 	if strings.HasPrefix(certFromHeader, "-----BEGIN") {
 		// It's PEM, so decode it from base64 and then PEM decode it
-		cert, issuer, subject, err = x509util.ParseCertificateFromPEM([]byte(certFromHeader))
+
+		// This header contains the URL-encoded PEM format of the entire client certificate chain presented in the connection, with +=/ as safe characters.
+		// We have to first decode
+		certFromHeaderDecoded, err := base64.RawURLEncoding.DecodeString(certFromHeader)
+		if err != nil {
+			fmt.Printf("Failed to decode base64url certificate from header: %s\n", certFromHeader)
+			return sendBackError(errl.Errorf("Failed to decode base64url certificate from header: %w", err))
+		}
+
+		cert, issuer, subject, err = x509util.ParseCertificateFromPEM(certFromHeaderDecoded)
 		if err != nil {
 			fmt.Printf("Bad PEM certificate: %s\n", certFromHeader)
 			return sendBackError(errl.Errorf("Failed to parse PEM certificate: %w", err))
