@@ -1,9 +1,20 @@
 {
-   "mcpServers": {
-      "gotools": {
-         "command": "gopls",
-         "args": ["mcp"],
-         "trust": true
-      }
-   }
+  "mcpServers": {
+    "gotools": {
+      "command": "gopls",
+      "args": [
+        "mcp"
+      ],
+      "trust": true
+    },
+    "sqlite-tool": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@berthojoris/mcp-sqlite-server",
+        "sqlite:////home/ubuntu/certauth/data/onboard.db",
+        "list,read,create,update"
+      ]
+    }
+  }
 }

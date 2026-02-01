@@ -1,12 +1,21 @@
 {
-   "editor.fontSize": 12,
-   "geminicodeassist.inlineSuggestions.nextEditPredictions": true,
-   "geminicodeassist.languages": [
-      "go",
-      "html",
-      "javascript"
-   ],
-   "geminicodeassist.updateChannel": "Insiders",
-   "geminicodeassist.chat.changeView": "Default diff view",
-   "geminicodeassist.rules": "prefer to use the gotools mcp server for anything related to go code\n\n\n\n"
+    "editor.fontSize": 14,
+    "geminicodeassist.inlineSuggestions.nextEditPredictions": true,
+    "geminicodeassist.languages": [
+        "go",
+        "html",
+        "javascript"
+    ],
+    "geminicodeassist.updateChannel": "Insiders",
+    "geminicodeassist.chat.changeView": "Default diff view",
+    "geminicodeassist.rules": "prefer to use the gotools mcp server for anything related to go code\n\n\n\n",
+    "emeraldwalk.runonsave": {
+        "commands": [
+            {
+                "match": ".*\\.md$",
+                "isAsync": true,
+                "cmd": "pandoc \"${file}\" -f markdown -t html -s --reference-location=section --toc --toc-depth=2 -H \"${fileDirname}/my.css\" --lua-filter=\"${fileDirname}/anchors.lua\" -o \"${fileDirname}/${fileBasenameNoExt}.html\""
+            }
+        ]
+    }
 }

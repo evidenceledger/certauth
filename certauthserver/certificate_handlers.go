@@ -312,7 +312,8 @@ func (s *Server) sendEmailVerification(c *fiber.Ctx) error {
 			// In non-local profiles, email sending is mandatory
 			err := errl.Errorf("sendVerificationEmail: %w", err)
 			slog.Error(err.Error(), "auth_code", authCode)
-			return s.htmlRender.Render(c, "error", fiber.Map{"message": err})
+			// Disable the error return, until the email server is working again
+			// return s.htmlRender.Render(c, "error", fiber.Map{"message": err})
 		}
 	} else {
 		slog.Info("Verification email sent successfully", "email", email, "auth_code", authCode)
