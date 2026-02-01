@@ -176,6 +176,20 @@
                             verificación.</em></p>
                 </div>
             </div>
+            {{ else if .emailSendFailed }}
+            <div class="ui warning message">
+                <i class="info circle icon"></i>
+                <div class="content">
+                    <div class="header">Modo Local - Servicio de correo no disponible</div>
+                    <p>El servicio de correo electrónico no está configurado o no está disponible. Para continuar
+                        con el proceso en modo local, usa el código mostrado abajo.</p>
+
+                    <p><strong>Código de verificación:</strong> <span class="ui large label"
+                            style="font-family: monospace;">{{ .verificationCode }}</span></p>
+                    <p><em>Por favor, introduce este código en el campo de abajo para continuar el proceso de
+                            verificación.</em></p>
+                </div>
+            </div>
             {{ end }}
 
             <form class="ui form" method="POST" action="{{ .postAction }}">
