@@ -14,8 +14,9 @@
             {
                 "match": ".*\\.md$",
                 "isAsync": true,
-                "cmd": "pandoc \"${file}\" -f markdown -t html -s --reference-location=section --toc --toc-depth=2 -H \"${fileDirname}/my.css\" --lua-filter=\"${fileDirname}/anchors.lua\" -o \"${fileDirname}/${fileBasenameNoExt}.html\""
+                "cmd": "pandoc \"${file}\" -f markdown -t html  --reference-location=section --toc --toc-depth=2 --lua-filter=\"${fileDirname}/anchors.lua\" -o \"${fileDirname}/${fileBasenameNoExt}.html\""
             }
         ]
-    }
+    },
+    "html.format.extraLiners": "head, body, /html, h1, h2"
 }

@@ -37,6 +37,11 @@
         cursor: pointer;
     }
 
+    .contract-text li {
+        font-size: 1.2rem;
+        line-height: 1.4285em;
+    }
+
     p {
         font-size: 1.2rem;
     }
@@ -96,7 +101,7 @@
 
     </div>
 
-    <form id="contract_form" name="contract_form" method="POST" action="{{ .postAction }}">
+    <form id="contract_form" class="contract-text" name="contract_form" method="POST" action="{{ .postAction }}">
         {{with .formData}}
 
         <div class="ui raised segment" style="border-radius:1rem">
@@ -180,7 +185,7 @@
                     min="2000" required>, con el número
                 <input type="text" name="notary_protocol_number" placeholder="Protocolo" class="contract-input"
                     style="width: 150px;" required> de su protocolo
-                (en adelante, el “<strong>Participante</strong>”).
+                (en adelante, la “<strong>Entidad Adherente</strong>”).
             </p>
 
             <p>Ambas partes, en adelante denominadas conjuntamente como “<strong>las Partes</strong>”,
@@ -191,88 +196,121 @@
             </p>
 
             <!-- EXPOSICION DE LOS MOTIVOS DEL CONTRATO -->
+
             <h2 class="text-center"><strong>EXPONEN</strong></h2>
 
             <ol type="I">
                 <li>
-                    <p>Que ISBE es una infraestructura de blockchain
-                        público-permisionada de ámbito nacional, cuya gobernanza explícita y
-                        sistema de niveles de participación garantizan un equilibrio entre la
-                        apertura del ecosistema y los requisitos de seguridad, resiliencia y
-                        cumplimiento jurídico.</p>
+                    <p>
+                        Que ISBE es una infraestructura de blockchain público-permisionada de ámbito nacional, cuya
+                        gobernanza explícita y sistema de niveles de participación garantizan un equilibrio entre la
+                        apertura
+                        del ecosistema y los requisitos de seguridad, resiliencia y cumplimiento jurídico.
+                    </p>
                 </li>
                 <li>
-                    <p>Que la red ISBE opera bajo un modelo público-permisionado, lo que
-                        significa que, si bien se trata de una infraestructura abierta y
-                        colaborativa, el acceso a ciertas funcionalidades está restringido a
-                        participantes autorizados según su nivel de participación (el
-                        “<strong>Nivel de Participación</strong>”). El ecosistema se estructura
-                        en los siguientes Niveles de Participación :</p>
-
-                    <ol type="a">
-                        <li>
-                            <p>Nivel 0: Participante Básico.</p>
-                        </li>
-                        <li>
-                            <p>Nivel 1: Observador.</p>
-                        </li>
-                        <li>
-                            <p>Nivel 2: Proveedor de Servicios.</p>
-                        </li>
-                        <li>
-                            <p>Nivel 3: Validador.</p>
-                        </li>
+                    <p>
+                        Que la red ISBE opera bajo un modelo público-permisionado, lo que significa que, si bien se
+                        trata de
+                        una infraestructura abierta y colaborativa, el acceso a ciertas funcionalidades está restringido
+                        a
+                        participantes autorizados según su nivel de participación (el “<strong>Nivel de
+                            Participación</strong>”). El ecosistema se estructura en los siguientes Niveles de
+                        Participación, cada uno de ellos
+                        desarrollado en su correspondiente anexo al presente Contrato Marco:
+                    </p>
+                    <ol type="1">
+                        <li><p>Básico;</p></li>
+                        <li><p>Desarrollador;</p></li>
+                        <li><p>Observador;</p></li>
+                        <li><p>Operador de Nodo de Ejecución; y</p></li>
+                        <li><p>Operador de Nodo de Consenso.</p></li>
                     </ol>
                 </li>
                 <li>
-                    <p>Que cada uno de los referidos Niveles de Participación tiene unas
-                        capacidades operativas y responsabilidades específicas dentro de la red
-                        ISBE, siendo acumulativos y evolutivos, pudiendo el Participante
-                        ostentar simultáneamente más de un Nivel de Participación, de acuerdo
-                        con las funciones que desempeñe en la red y las capacidades operativas y
-                        responsabilidades asociadas a cada Nivel de Participación. Por ejemplo,
-                        un Participante puede actuar simultáneamente como Validador y Proveedor
-                        de Servicios, cumpliendo las obligaciones correspondientes a ambos
-                        Niveles de Participación.</p>
+                    <p>
+                        Que cada uno de los referidos Niveles de Participación tiene un régimen propio de derechos,
+                        capacidades operativas y obligaciones dentro de la red ISBE. Los Niveles de Participación son
+                        autónomos entre sí, sin jerarquía ni progresión obligatoria entre ellos, pudiendo la Entidad
+                        Adherente suscribir uno o varios Niveles de Participación de manera simultánea, siempre que
+                        cumpla
+                        íntegramente las obligaciones asociadas a cada uno y respete las segregaciones funcionales que
+                        resulten exigibles, en especial entre roles técnicos y de infraestructura. La multipertenencia
+                        es
+                        voluntaria y, en ningún caso, obligatoria.
+                    </p>
                 </li>
                 <li>
-                    <p>Que la relación jurídica entre el Participante y la Entidad
-                        Gestora (según dicho término queda definido más adelante) se articula a
-                        través de la siguiente estructura contractual:</p>
-
+                    <p>
+                        Que, con el fin de preservar la neutralidad, la seguridad y el carácter federado de la red ISBE,
+                        la
+                        acumulación de Niveles de Participación que pueda comprometer dichos principios podrá ser
+                        condicionada, limitada o, en su caso, revocada por el órgano de supervisión o de gobernanza
+                        competente de la Entidad Gestora (según dicho término queda definido más adelante), mediante
+                        resolución motivada, basada en criterios objetivos, transparentes y no discriminatorios y de
+                        acuerdo
+                        con las Políticas ISBE, actuando esta facultad como mecanismo para evitar concentraciones de
+                        poder o
+                        fenómenos de captura de la infraestructura.
+                    </p>
+                </li>
+                <li>
+                    <p>
+                        Que la relación jurídica entre la Entidad Adherente y la Entidad Gestora se articula a través de
+                        la
+                        siguiente estructura contractual, actuando la Entidad Gestora como contraparte contractual única
+                        frente a la Entidad Adherente y como responsable de la administración y coordinación de la red
+                        ISBE,
+                        de conformidad con las decisiones de sus órganos de gobernanza:
+                    </p>
                     <ul>
                         <li>
-                            <p>Mediante la suscripción del presente Contrato Marco, el
-                                Participante adquiere la condición de Participante Básico y acepta las
-                                condiciones generales y políticas de ISBE aplicables a todos los
-                                miembros de la red ISBE.</p>
+                            <p>
+                                Mediante la suscripción del presente Contrato Marco de adhesión a la red ISBE, que
+                                establece el
+                                marco jurídico general, las Políticas ISBE de obligado cumplimiento y el régimen de
+                                responsabilidad común aplicable a todos los miembros de la red.
+                            </p>
                         </li>
                         <li>
-                            <p>Para optar a cualquier otro Nivel de Participación superior
-                                (<em>i.e.</em> Observador, Proveedor de Servicios y/o Validador), el
-                                Participante deberá suscribir el anexo correspondiente a dicho Nivel de
-                                Participación que acompaña el presente Contrato Marco. Cada anexo
-                                detallará las facultades, obligaciones y limitaciones propias de ese
-                                Nivel de Participación, evitando la necesidad de firmar nuevos contratos
-                                independientes en caso de que el Participante quiera modificar su Nivel
-                                de Participación.</p>
-
-                            <p>La adhesión del Participante a un anexo se realizará únicamente una
-                                vez cumplidos los requisitos aplicables al Nivel de Participación
-                                correspondiente y seguirá los procedimientos de solicitud establecidos
-                                por la gobernanza de ISBE.</p>
-
+                            <p>
+                                Mediante la suscripción, de forma inseparable, de al menos uno de los anexos de nivel de
+                                participación (los “<strong>Anexos de Rol</strong>”), cada uno de los cuales regula el
+                                régimen
+                                específico aplicable al correspondiente Nivel de Participación.
+                            </p>
+                            <p>
+                                La adhesión de la Entidad Adherente a un Anexo de Rol se realizará:
+                                <strong><em>(i)</em></strong> de forma automática, en el caso de los Niveles de
+                                Participación
+                                Básico y Desarrollador, una vez formalizada la solicitud por los canales habilitados por
+                                la
+                                Entidad Gestora y verificadas las comprobaciones mínimas previstas en las Políticas
+                                ISBE, sin
+                                necesidad de un proceso de revisión individualizada; y <strong><em>(ii)</em></strong>
+                                para el
+                                resto de Niveles de Participación, únicamente una vez cumplidos los requisitos
+                                aplicables al
+                                Nivel de Participación correspondiente y previa revisión y aprobación por la Entidad
+                                Gestora,
+                                de acuerdo con los procedimientos de solicitud establecidos por la gobernanza de ISBE.
+                            </p>
                         </li>
                     </ul>
-
+                    <p>
+                        No se admite la adhesión a ISBE únicamente mediante la firma del Contrato Marco sin la asunción
+                        simultánea de, al menos, un Nivel de Participación.
+                    </p>
                 </li>
                 <li>
-                    <p>Que, habiendo llegado ambas partes a un acuerdo respecto a la
-                        colaboración del Participante en la red ISBE conforme a lo indicado en
-                        los expositivos anteriores, las Partes formalizan el presente
-                        <strong>CONTRATO MARCO DE ADHESIÓN A LA RED ISBE</strong> (el
-                        “<strong>Contrato Marco</strong>”), que se regirá con arreglo y sujeción
-                        a las siguientes,
+                    <p>
+                        Que, habiendo llegado ambas Partes a un acuerdo respecto a la colaboración de la Entidad
+                        Adherente en
+                        la red ISBE conforme a lo indicado en los expositivos anteriores, las Partes formalizan el
+                        presente
+                        <strong>CONTRATO MARCO DE ADHESIÓN A LA RED ISBE</strong> (el “<strong>Contrato
+                            Marco</strong>”), que
+                        se regirá con arreglo y sujeción a las siguientes,
                     </p>
                 </li>
             </ol>
@@ -306,7 +344,7 @@
 
                 <div class="ui positive message">
                     <div class="ui large checkbox">
-                        <input id="contract_developer" type="radio" name="annex" value="developer">
+                        <input id="contract_basic" type="checkbox" name="contract_basic">
                         <label>Acepto los términos y condiciones del Anexo I</label>
                     </div>
                 </div>
@@ -325,7 +363,7 @@
 
                 <div class="ui positive message">
                     <div class="ui large checkbox">
-                        <input id="contract_operator" type="radio" name="annex" value="operator">
+                        <input id="contract_developer" type="checkbox" name="contract_developer">
                         <label>Acepto los términos y condiciones del Anexo II</label>
                     </div>
                 </div>
@@ -376,16 +414,16 @@
 
             var contract_form = document.forms["contract_form"];
             var contract_base = contract_form.elements["contract_base"];
+            var contract_basic = contract_form.elements["contract_basic"];
             var contract_developer = contract_form.elements["contract_developer"];
-            var contract_operator = contract_form.elements["contract_operator"];
 
             if (!contract_base.checked) {
                 alert("Debes aceptar las estipulaciones del contrato marco");
                 return;
             }
 
-            if (contract_operator.checked && contract_developer.checked) {
-                alert("Solo puedes aceptar uno de los términos y condiciones de los Anexos I o II");
+            if (!contract_basic.checked && !contract_developer.checked) {
+                alert("Debes aceptar como mínimo uno de los términos y condiciones de los Anexos I o II");
                 return;
             }
 

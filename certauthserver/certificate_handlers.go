@@ -554,6 +554,7 @@ func (s *Server) handleContractAccepted(c *fiber.Ctx) error {
 	}
 
 	// Update the auth process with the signed annex
+	// TODO: check if we can delete the SignedAnnex field
 	authProcess.SignedAnnex = formData.Annex
 
 	fileToSend := []byte(contrato)
@@ -629,12 +630,8 @@ func (s *Server) notifyManagement(certData *models.CertificateData, email string
 		Principal: true,
 	}
 
-	if contractForm.Annex == "developer" {
+	if contractForm.ContractCheckDeveloper == "on" {
 		role.Developer = true
-	}
-
-	if contractForm.Annex == "operator" {
-		role.OpExec = true
 	}
 
 	// Prepare the multipart payload

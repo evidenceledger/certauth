@@ -37,6 +37,11 @@
         cursor: pointer;
     }
 
+    .contract-text li {
+        font-size: 1.2rem;
+        line-height: 1.4285em;
+    }
+
     p {
         font-size: 1.2rem;
     }
@@ -97,7 +102,7 @@
     </div>
 
 
-    <form id="contract_form" name="contract_form" method="POST" action="{{ .postAction }}">
+    <form id="contract_form" class="contract-text" name="contract_form" method="POST" action="{{ .postAction }}">
         {{with .formData}}
 
         <div class="ui raised segment" style="border-radius:1rem">
@@ -283,7 +288,7 @@
 
             <p>En Madrid, a {{ .TodayDay }} de {{ .TodayMonth }} de {{ .TodayYear }}</p>
 
-            {{if eq .Annex "developer"}}
+            {{if eq .ContractCheckBasic "on"}}
             <!-- ANEXO I -->
             <div class="ui blue segment">
 
@@ -293,7 +298,7 @@
                     <div class="ui large checkbox">
                         <input type="checkbox" disabled checked>
                         <label>Acepto los términos y condiciones del Anexo I</label>
-                        <input type="hidden" name="annex" value="developer">
+                        <input type="hidden" name="contract_basic" value="on">
                     </div>
                 </div>
 
@@ -303,7 +308,7 @@
             </div>
             {{end}}
 
-            {{if eq .Annex "operator"}}
+            {{if eq .ContractCheckDeveloper "on"}}
             <div class="ui divider"></div>
 
             <!-- ANEXO II -->
@@ -315,7 +320,7 @@
                     <div class="ui large checkbox">
                         <input type="checkbox" disabled checked>
                         <label>Acepto los términos y condiciones del Anexo II</label>
-                        <input type="hidden" name="annex" value="operator">
+                        <input type="hidden" name="contract_developer" value="on">
                     </div>
                 </div>
 
