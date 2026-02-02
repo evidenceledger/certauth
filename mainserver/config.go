@@ -315,7 +315,7 @@ func LoadConfig() (*Config, string, error) {
 			RelyingParty: &models.RelyingParty{
 				Name:        "ISBE Keycloak in PRO",
 				Description: "The ISBE Keycloak in PRO application",
-				ClientID:    "https://idp.pro.cloud-w.envs.redisbe.com",
+				ClientID:    "https://idp.portal.redisbe.com",
 				RedirectURL: "https://idp.portal.redisbe.com/auth/realms/pro-isbe/broker/certificado-representante/endpoint",
 				Scopes:      "openid eidas",
 				TokenExpiry: 3600,
