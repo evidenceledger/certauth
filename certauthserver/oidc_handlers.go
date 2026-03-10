@@ -85,6 +85,7 @@ func (s *Server) Authorization(c *fiber.Ctx) error {
 		Scopes:    strings.Fields(c.Query("scope")),
 		State:     utils.CopyString(c.Query("state")),
 		Nonce:     utils.CopyString(c.Query("nonce")),
+		UILocales: utils.CopyString(c.Query("ui_locales")),
 		CreatedAt: time.Now(),
 	}
 
@@ -95,6 +96,7 @@ func (s *Server) Authorization(c *fiber.Ctx) error {
 		"scope", c.Query("scope"),
 		"state", authReq.State,
 		"nonce", authReq.Nonce,
+		"ui_locales", authReq.UILocales,
 	)
 
 	// Validate request
@@ -240,7 +242,12 @@ func (s *Server) PageLogin(c *fiber.Ctx) error {
 	}
 	slog.Debug("Login page", "data", data)
 
-	return s.htmlRender.Render(c, "login", data)
+	templateName := "login"
+	if authProcess.UILocales == "en" {
+		templateName = "login_en"
+	}
+
+	return s.htmlRender.Render(c, templateName, data)
 
 }
 
@@ -405,6 +412,7 @@ func (s *Server) generateAuthProcess(req *models.AuthorizationRequest, rp *model
 		RedirectURI: req.RedirectURI,
 		State:       req.State,
 		Nonce:       req.Nonce,
+		UILocales:   req.UILocales,
 		Scopes:      req.Scopes,
 		CreatedAt:   time.Now(),
 		ExpiresAt:   time.Now().Add(10 * time.Minute),

@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/evidenceledger/certauth/internal/errl"
@@ -36,39 +37,57 @@ func (s *Server) registerCertificateHandlers() {
 
 	// Presents a screen informing the user that a certificate will be requested.
 	s.httpServer.Get(certLoginEndpoint, s.pageCertLogin)
+	s.httpServer.Get(certLoginEndpoint+"/en", s.pageCertLogin)
 
 	// Redirected from CertSec after the user has provided a certificate.
 	// Presents a screen with the certificate data and requests the email from the user.
 	s.httpServer.Get(CertificateBackEndpoint, s.pageRequestEmail)
+	s.httpServer.Get(CertificateBackEndpoint+"/en", s.pageRequestEmail)
 
 	// Receives the email address and sends an email to the user to verify if the email is correct.
 	// Presents a screen to allow the user to enter the verification code sent to its email.
 	s.httpServer.Post(sendEmailVerificationEndpoint, s.sendEmailVerification)
+	s.httpServer.Post(sendEmailVerificationEndpoint+"/en", s.sendEmailVerification)
 
 	// Receives the email verification code and verifies it.
 	// Presents the contract text with an embedded form so the user can fill missing data.
 	s.httpServer.Post(verifyEmailCodeEndpoint, s.verifyEmailCodeAndPresentContractForm)
+	s.httpServer.Post(verifyEmailCodeEndpoint+"/en", s.verifyEmailCodeAndPresentContractForm)
 	s.httpServer.Post(presentContractForAcceptanceEndpoint, s.pagePresentContractForAcceptance)
+	s.httpServer.Post(presentContractForAcceptanceEndpoint+"/en", s.pagePresentContractForAcceptance)
 
 	// Handle consent received, generation of SSO cookie and redirection to Relying Party
 	s.httpServer.Post(contractAcceptedEndpoint, s.handleContractAccepted)
+	s.httpServer.Post(contractAcceptedEndpoint+"/en", s.handleContractAccepted)
 
 }
 
 // pageCertLogin shows the certificate selection screen
 func (s *Server) pageCertLogin(c *fiber.Ctx) error {
 	slog.Info("CertLoginPage", "from", c.Hostname(), "to", c.IP())
+	isEnglish := strings.HasSuffix(c.Path(), "/en")
 
 	// Retrieve the AuthorizationRequest from the application authentication session
 	authProcess, err := s.getAuthProcess(c.Query("code"))
 	if err != nil {
 		err := errl.Errorf("getAuthProcess: %w", err)
 		slog.Error(err.Error())
+		if isEnglish {
+			return s.htmlRender.Render(c, "error_en", fiber.Map{"message": err})
+		}
 		return s.htmlRender.Render(c, "error", fiber.Map{"message": err})
 	}
 
+	if authProcess.UILocales == "en" {
+		isEnglish = true
+	}
+
 	// Present the screen informing the user about the next step
-	return s.htmlRender.Render(c, "inform_user", fiber.Map{
+	templateName := "inform_user"
+	if isEnglish {
+		templateName = "inform_user_en"
+	}
+	return s.htmlRender.Render(c, templateName, fiber.Map{
 		"authCode":   authProcess.Code,
 		"certsecURL": s.certSecURL,
 	})
@@ -80,6 +99,7 @@ func (s *Server) pageCertLogin(c *fiber.Ctx) error {
 // corresponding to the current authentication process.
 // Then CerSec redirects back to us (CertAuth) with the 'code' and possibly an 'error' parameter in the URL
 func (s *Server) pageRequestEmail(c *fiber.Ctx) error {
+	isEnglish := strings.HasSuffix(c.Path(), "/en")
 	// Get auth code from query parameter
 	authCode := c.Query("code")
 
@@ -88,15 +108,25 @@ func (s *Server) pageRequestEmail(c *fiber.Ctx) error {
 	if err != nil {
 		err := errl.Errorf("getAuthProcess: %w", err)
 		slog.Error(err.Error())
+		if isEnglish {
+			return s.htmlRender.Render(c, "error_en", fiber.Map{"message": err})
+		}
 		return s.htmlRender.Render(c, "error", fiber.Map{"message": err})
 	}
 	slog.Info("Certificate received entry", "auth_code", authCode)
+
+	if authProcess.UILocales == "en" {
+		isEnglish = true
+	}
 
 	// Check if CertSec returned some error
 	certError := c.Query("error")
 	if certError != "" || authProcess.ErrorInProcess != nil {
 		err := authProcess.ErrorInProcess
 		slog.Error("Error:", "error", err)
+		if isEnglish {
+			return s.htmlRender.Render(c, "error_en", fiber.Map{"message": err})
+		}
 		return s.htmlRender.Render(c, "error", fiber.Map{
 			"message": err,
 		})
@@ -156,13 +186,19 @@ func (s *Server) pageRequestEmail(c *fiber.Ctx) error {
 	slog.Info("Certificate received exit", "auth_code", authCode, "cert_length", len(certData.Certificate.Raw))
 
 	// Present the screen
-	return s.htmlRender.Render(c, "cert_received", fiber.Map{
+	templateName := "cert_received"
+	postAction := sendEmailVerificationEndpoint
+	if isEnglish {
+		templateName = "cert_received_en"
+		postAction += "/en"
+	}
+	return s.htmlRender.Render(c, templateName, fiber.Map{
 		"authCode":    authCode,
 		"authCodeObj": authProcess,
 		"certData":    certData,
 		"certType":    certData.CertificateType,
 		"subject":     certData.Subject,
-		"postAction":  sendEmailVerificationEndpoint,
+		"postAction":  postAction,
 	})
 
 }
@@ -258,6 +294,7 @@ func VerifyCertificate(data string, url string) ([]byte, error) {
 
 // sendEmailVerification handles the email verification form submission
 func (s *Server) sendEmailVerification(c *fiber.Ctx) error {
+	isEnglish := strings.HasSuffix(c.Path(), "/en")
 	// Get form data
 	email := utils.CopyString(c.FormValue("email"))
 	authCode := c.FormValue("auth_code")
@@ -267,12 +304,22 @@ func (s *Server) sendEmailVerification(c *fiber.Ctx) error {
 	if err != nil {
 		err := errl.Errorf("getAuthProcess: %w", err)
 		slog.Error(err.Error())
+		if isEnglish {
+			return s.htmlRender.Render(c, "error_en", fiber.Map{"message": err})
+		}
 		return s.htmlRender.Render(c, "error", fiber.Map{"message": err})
+	}
+
+	if authProcess.UILocales == "en" {
+		isEnglish = true
 	}
 
 	if email == "" || authCode == "" {
 		err := errl.Errorf("Missing email or authorization code")
 		slog.Error(err.Error())
+		if isEnglish {
+			return s.htmlRender.Render(c, "error_en", fiber.Map{"message": err})
+		}
 		return s.htmlRender.Render(c, "error", fiber.Map{"message": err})
 	}
 
@@ -280,6 +327,9 @@ func (s *Server) sendEmailVerification(c *fiber.Ctx) error {
 	if !isValidEmail(email) {
 		err := errl.Errorf("Invalid email format")
 		slog.Error(err.Error())
+		if isEnglish {
+			return s.htmlRender.Render(c, "error_en", fiber.Map{"message": err})
+		}
 		return s.htmlRender.Render(c, "error", fiber.Map{"message": err})
 	}
 
@@ -289,6 +339,9 @@ func (s *Server) sendEmailVerification(c *fiber.Ctx) error {
 	if certData == nil {
 		err := errl.Errorf("certificate data not found in authorization request")
 		slog.Error(err.Error(), "auth_code", authCode)
+		if isEnglish {
+			return s.htmlRender.Render(c, "error_en", fiber.Map{"message": err})
+		}
 		return s.htmlRender.Render(c, "error", fiber.Map{"message": err})
 	}
 
@@ -320,14 +373,20 @@ func (s *Server) sendEmailVerification(c *fiber.Ctx) error {
 	}
 
 	// Render the confirm_email template
-	return s.htmlRender.Render(c, "verify_email", fiber.Map{
+	templateName := "verify_email"
+	postAction := verifyEmailCodeEndpoint
+	if isEnglish {
+		templateName = "verify_email_en"
+		postAction += "/en"
+	}
+	return s.htmlRender.Render(c, templateName, fiber.Map{
 		"email":            email,
 		"authCode":         authCode,
 		"verificationCode": emailVerificationCode, // For testing in local mode
 		"emailSendFailed":  err != nil,            // Flag to show warning message
 		"isLocalProfile":   s.profile == "local",  // Flag to show verification code only in local mode
 		"subject":          certData.Subject,
-		"postAction":       verifyEmailCodeEndpoint,
+		"postAction":       postAction,
 	})
 }
 
@@ -351,6 +410,7 @@ func generateRandomCode() string {
 // verifyEmailCodeAndPresentContractForm handles the email verification code verification,
 // and presents the contract form to the user.
 func (s *Server) verifyEmailCodeAndPresentContractForm(c *fiber.Ctx) error {
+	isEnglish := strings.HasSuffix(c.Path(), "/en")
 	// Get form data
 	emailVerificationCode := utils.CopyString(c.FormValue("verification_code"))
 	authCode := utils.CopyString(c.FormValue("auth_code"))
@@ -369,7 +429,14 @@ func (s *Server) verifyEmailCodeAndPresentContractForm(c *fiber.Ctx) error {
 	if err != nil {
 		err := errl.Errorf("getAuthProcess: %w", err)
 		slog.Error(err.Error())
+		if isEnglish {
+			return s.htmlRender.Render(c, "error_en", fiber.Map{"message": err})
+		}
 		return s.htmlRender.Render(c, "error", fiber.Map{"message": err})
+	}
+
+	if authProcess.UILocales == "en" {
+		isEnglish = true
 	}
 
 	storedEmailVerificationCode := authProcess.EmailVerificationCode
@@ -425,17 +492,24 @@ func (s *Server) verifyEmailCodeAndPresentContractForm(c *fiber.Ctx) error {
 	}
 
 	// Render the certificate consent template
-	return s.htmlRender.Render(c, "contract_form", fiber.Map{
+	templateName := "contract_form"
+	postAction := presentContractForAcceptanceEndpoint
+	if isEnglish {
+		templateName = "contract_form_en"
+		postAction += "/en"
+	}
+	return s.htmlRender.Render(c, templateName, fiber.Map{
 		"authCode":    authCode,
 		"authCodeObj": authProcess,
 		"certType":    certData.CertificateType,
 		"subject":     certData.Subject,
 		"formData":    formData,
-		"postAction":  presentContractForAcceptanceEndpoint,
+		"postAction":  postAction,
 	})
 }
 
 func (s *Server) pagePresentContractForAcceptance(c *fiber.Ctx) error {
+	isEnglish := strings.HasSuffix(c.Path(), "/en")
 
 	// Data for checking the form is valid, before we do anything else
 	authCode := utils.CopyString(c.FormValue("auth_code"))
@@ -450,7 +524,14 @@ func (s *Server) pagePresentContractForAcceptance(c *fiber.Ctx) error {
 	if err != nil {
 		err := errl.Errorf("getAuthProcess: %w", err)
 		slog.Error(err.Error())
+		if isEnglish {
+			return s.htmlRender.Render(c, "error_en", fiber.Map{"message": err})
+		}
 		return s.htmlRender.Render(c, "error", fiber.Map{"message": err})
+	}
+
+	if authProcess.UILocales == "en" {
+		isEnglish = true
 	}
 
 	// Parse the formData
@@ -485,11 +566,17 @@ func (s *Server) pagePresentContractForAcceptance(c *fiber.Ctx) error {
 	certData.Subject.EmailAddress = storedEmail
 
 	// Render the certificate consent template
-	return s.htmlRender.Render(c, "contract_print", fiber.Map{
+	templateName := "contract_print"
+	postAction := contractAcceptedEndpoint
+	if isEnglish {
+		templateName = "contract_print_en"
+		postAction += "/en"
+	}
+	return s.htmlRender.Render(c, templateName, fiber.Map{
 		"authCode":    authCode,
 		"authCodeObj": authProcess,
 		"formData":    formData,
-		"postAction":  contractAcceptedEndpoint,
+		"postAction":  postAction,
 	})
 
 }
@@ -498,6 +585,7 @@ func (s *Server) pagePresentContractForAcceptance(c *fiber.Ctx) error {
 // We then generate the SSO cookie and redirect to the RP with the auth code.
 // The RP will eventually exchange the auth code for ID and access tokens, which will contain user and certificate data.
 func (s *Server) handleContractAccepted(c *fiber.Ctx) error {
+	isEnglish := strings.HasSuffix(c.Path(), "/en")
 
 	// Data for checking the form is valid, before we do anything else
 	authCode := utils.CopyString(c.FormValue("auth_code"))
@@ -512,7 +600,14 @@ func (s *Server) handleContractAccepted(c *fiber.Ctx) error {
 	if err != nil {
 		err := errl.Errorf("getAuthProcess: %w", err)
 		slog.Error(err.Error())
+		if isEnglish {
+			return s.htmlRender.Render(c, "error_en", fiber.Map{"message": err})
+		}
 		return s.htmlRender.Render(c, "error", fiber.Map{"message": err})
+	}
+
+	if authProcess.UILocales == "en" {
+		isEnglish = true
 	}
 
 	// Parse the formData

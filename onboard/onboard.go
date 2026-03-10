@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -84,8 +85,11 @@ func New(internalPort, ourURL, providerURL, clientID, clientSecret, privateArea 
 func (s *Server) Start() error {
 
 	http.HandleFunc("/", s.handleHome)
+	http.HandleFunc("/en", s.handleHome)
 	http.HandleFunc("/login", s.handleLogin)
+	http.HandleFunc("/login/en", s.handleLogin)
 	http.HandleFunc("/register", s.handleRegister)
+	http.HandleFunc("/register/en", s.handleRegister)
 	http.HandleFunc("/callback", s.handleCallback)
 	http.HandleFunc("/logout", s.handleLogout)
 
@@ -169,7 +173,7 @@ func (s *Server) configureVerifier() error {
 
 // handleHome handles the home page
 func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
+	if r.URL.Path != "/" && r.URL.Path != "/en" {
 		http.NotFound(w, r)
 		return
 	}
@@ -184,11 +188,11 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 	// If user is logged in, show welcome page
 	sessionID := s.getSessionID(r)
 	if session := s.getSession(sessionID); session != nil {
-		s.renderWelcomePage(w, session)
+		s.renderWelcomePage(w, r, session)
 		return
 	}
 
-	s.renderRegisterOrLoginPage(w)
+	s.renderRegisterOrLoginPage(w, r)
 }
 
 type LoginOrRegister bool
@@ -222,6 +226,10 @@ func (s *Server) handleLoginOrRegister(w http.ResponseWriter, r *http.Request, l
 
 	// Generate state for CSRF protection
 	state := s.generateRandomString(32)
+	isEnglish := strings.HasSuffix(r.URL.Path, "/en")
+	if isEnglish {
+		state = "en_" + state
+	}
 
 	// Generate nonce for replay protection
 	nonce := s.generateRandomString(32)
@@ -243,7 +251,16 @@ func (s *Server) handleLoginOrRegister(w http.ResponseWriter, r *http.Request, l
 	} else {
 		s.oauth2Config.Scopes = []string{oidc.ScopeOpenID, "eidas"}
 	}
-	redirectURL := s.oauth2Config.AuthCodeURL(state, oauth2.SetAuthURLParam("nonce", nonce))
+
+	opts := []oauth2.AuthCodeOption{
+		oauth2.SetAuthURLParam("nonce", nonce),
+	}
+
+	if isEnglish {
+		opts = append(opts, oauth2.SetAuthURLParam("ui_locales", "en"))
+	}
+
+	redirectURL := s.oauth2Config.AuthCodeURL(state, opts...)
 	http.Redirect(w, r, redirectURL, http.StatusFound)
 
 }
@@ -278,7 +295,7 @@ func (s *Server) handleCallback(w http.ResponseWriter, r *http.Request) {
 
 	if autherror != "" {
 		slog.Error("RP OIDC error received", "error", autherror, "description", errorDescription)
-		s.renderErrorPage(w, autherror, errorDescription)
+		s.renderErrorPage(w, r, autherror, errorDescription)
 		return
 	}
 
@@ -292,7 +309,7 @@ func (s *Server) handleCallback(w http.ResponseWriter, r *http.Request) {
 	oauth2Token, err = s.oauth2Config.Exchange(ctx, code)
 	if err != nil {
 		slog.Error("RP token exchange error received", "error", autherror, "description", errorDescription)
-		s.renderErrorPage(w, autherror, errorDescription)
+		s.renderErrorPage(w, r, autherror, errorDescription)
 		return
 	}
 
@@ -306,7 +323,7 @@ func (s *Server) handleCallback(w http.ResponseWriter, r *http.Request) {
 	idToken, err = s.verifier.Verify(ctx, rawIDToken)
 	if err != nil {
 		slog.Error("RP verifying the ID token error received", "error", autherror, "description", errorDescription)
-		s.renderErrorPage(w, autherror, errorDescription)
+		s.renderErrorPage(w, r, autherror, errorDescription)
 		return
 	}
 
@@ -314,7 +331,7 @@ func (s *Server) handleCallback(w http.ResponseWriter, r *http.Request) {
 	var claims models.ELSI_IDTokenClaims
 	if err := idToken.Claims(&claims); err != nil {
 		slog.Error("RP extract custom claims error received", "error", autherror, "description", errorDescription)
-		s.renderErrorPage(w, autherror, errorDescription)
+		s.renderErrorPage(w, r, autherror, errorDescription)
 		return
 	}
 
@@ -342,7 +359,13 @@ func (s *Server) handleCallback(w http.ResponseWriter, r *http.Request) {
 
 	// Redirect to home page
 	// http.Redirect(w, r, "/", http.StatusFound)
-	http.Redirect(w, r, s.privateArea, http.StatusFound)
+
+	slog.Info("Redirecting to private area", "path", s.ourURL, "state", state)
+	redirectPath := s.ourURL
+	if strings.HasPrefix(state, "en_") {
+		redirectPath = redirectPath + "/en"
+	}
+	http.Redirect(w, r, redirectPath, http.StatusFound)
 }
 
 // handleLogout handles user logout
@@ -454,14 +477,22 @@ func (s *Server) createSession(tokens map[string]any) *models.RPSession {
 // HTML rendering methods
 
 // renderRegisterOrLoginPage renders the login page, when there is no session yet
-func (s *Server) renderRegisterOrLoginPage(w http.ResponseWriter) {
+func (s *Server) renderRegisterOrLoginPage(w http.ResponseWriter, r *http.Request) {
 
-	s.html.Render(w, "register_or_login", nil)
+	isEnglish := strings.HasSuffix(r.URL.Path, "/en")
+	templateName := "register_or_login"
+	if isEnglish {
+		templateName = "register_or_login_en"
+	}
+
+	s.html.Render(w, templateName, nil)
 
 }
 
 // renderWelcomePage renders the welcome page, displaying the certificate information
-func (s *Server) renderWelcomePage(w http.ResponseWriter, session *models.RPSession) {
+func (s *Server) renderWelcomePage(w http.ResponseWriter, r *http.Request, session *models.RPSession) {
+
+	isEnglish := strings.HasSuffix(r.URL.Path, "/en")
 
 	var idTokenClaims models.ELSI_IDTokenClaims
 	token, _, err := jwt.NewParser().ParseUnverified(session.IDToken, &idTokenClaims)
@@ -496,18 +527,30 @@ func (s *Server) renderWelcomePage(w http.ResponseWriter, session *models.RPSess
 		"subject":  idTokenClaims,
 	}
 
-	s.html.Render(w, "welcome", data)
+	templateName := "welcome"
+	if isEnglish {
+		templateName = "welcome_en"
+	}
+
+	s.html.Render(w, templateName, data)
 
 }
 
 // renderErrorPage renders the error page
-func (s *Server) renderErrorPage(w http.ResponseWriter, error, description string) {
+func (s *Server) renderErrorPage(w http.ResponseWriter, r *http.Request, error, description string) {
+
+	isEnglish := strings.HasSuffix(r.URL.Path, "/en")
 
 	data := map[string]any{
 		"error":       error,
 		"description": description,
 	}
 
-	s.html.Render(w, "error", data)
+	templateName := "error"
+	if isEnglish {
+		templateName = "error_en"
+	}
+
+	s.html.Render(w, templateName, data)
 
 }

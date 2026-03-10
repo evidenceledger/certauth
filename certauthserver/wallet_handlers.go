@@ -79,7 +79,12 @@ func (s *Server) PageWalletLogin(c *fiber.Ctx) error {
 	}
 
 	// Present a screen with the QR code to be scanned by the Wallet
-	return s.htmlRender.Render(c, "wallet_login", data)
+	templateName := "wallet_login"
+	if authProcess.UILocales == "en" {
+		templateName = "wallet_login_en"
+	}
+
+	return s.htmlRender.Render(c, templateName, data)
 
 }
 
