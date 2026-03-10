@@ -16,6 +16,7 @@ type AuthorizationRequest struct {
 	Scopes    []string
 	State     string `json:"state"`
 	Nonce     string `json:"nonce,omitempty"`
+	UILocales string `json:"ui_locales,omitempty"`
 	CreatedAt time.Time
 }
 
@@ -40,6 +41,7 @@ type AuthProcess struct {
 	RedirectURI           string           `json:"redirect_uri"`
 	State                 string           `json:"state"`
 	Nonce                 string           `json:"nonce"`
+	UILocales             string           `json:"ui_locales,omitempty"`
 	Scopes                []string         `json:"scopes"`
 	CreatedAt             time.Time        `json:"created_at"`
 	ExpiresAt             time.Time        `json:"expires_at"`
