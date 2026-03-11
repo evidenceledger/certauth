@@ -774,6 +774,7 @@ func (s *Server) notifyManagement(certData *models.CertificateData, email string
 	if err != nil {
 		return "", fmt.Errorf("failed to create delete request: %w", err)
 	}
+	slog.Info("Deleted organization from Management portal", "url", deleteURL)
 
 	// Get the API key from the environment based on the profile
 	apiKey := os.Getenv("MANAGEMENT_API_KEY")
@@ -782,6 +783,7 @@ func (s *Server) notifyManagement(certData *models.CertificateData, email string
 		apiKey = "aa83b134-1a59-4ea3-b632-812f36d6b4c1"
 	}
 	deleteReq.Header.Set("X-Api-Key", apiKey)
+	slog.Debug("API key", "X-Api-Key", apiKey)
 
 	deleteClient := &http.Client{}
 	deleteResp, err := deleteClient.Do(deleteReq)
@@ -789,6 +791,11 @@ func (s *Server) notifyManagement(certData *models.CertificateData, email string
 		return "", fmt.Errorf("failed to send delete request: %w", err)
 	}
 	defer deleteResp.Body.Close()
+
+	// Print the buffer that we are sending
+	b := bodyBuf.String()
+	slog.Info("Sending POST to main portal", "url", s.managementURL)
+	slog.Info("Request body", "body", b)
 
 	// Create and send the HTTP request
 	req, err := http.NewRequest("POST", s.managementURL, bodyBuf)
