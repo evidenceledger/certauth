@@ -711,6 +711,7 @@ func (s *Server) notifyManagement(certData *models.CertificateData, email string
 	// Structs for the data to be sent
 	type Role struct {
 		Principal bool `json:"principal"`
+		Basic     bool `json:"basic"`
 		Developer bool `json:"developer"`
 		OpExec    bool `json:"op_exec"`
 	}
@@ -721,8 +722,21 @@ func (s *Server) notifyManagement(certData *models.CertificateData, email string
 		SelectedRole           Role   `json:"selected_role"`
 	}
 
+	// Enforce the constraints on customer acceptance of the contract and anexes
+	// The base has to be signed, and at least one of the anexes has to be signed
+	if contractForm.ContractCheckBase != "on" {
+		return "", fmt.Errorf("contract check base not accepted")
+	}
+	if contractForm.ContractCheckBasic != "on" && contractForm.ContractCheckDeveloper != "on" {
+		return "", fmt.Errorf("contract check basic or developer not accepted")
+	}
+
 	role := Role{
 		Principal: true,
+	}
+
+	if contractForm.ContractCheckBasic == "on" {
+		role.Basic = true
 	}
 
 	if contractForm.ContractCheckDeveloper == "on" {
