@@ -30,7 +30,7 @@ func (o *OID4VPAuthRequest) String() string {
 
 // createJWTSecuredAuthenticationRequest creates an Authorization Request Object according to:
 // "IETF RFC 9101: The OAuth 2.0 Authorization Framework: JWT-Secured Authorization Request (JAR)""
-func (s *Server) createJWTSecuredAuthenticationRequest(response_uri string, state string) (string, error) {
+func (s *CertAuthServer) createJWTSecuredAuthenticationRequest(response_uri string, state string) (string, error) {
 
 	// This specifies the type of credential that the Verifier will accept
 	// TODO: In this use case it is hardcoded, which is enough if the Verifier is simple and uses

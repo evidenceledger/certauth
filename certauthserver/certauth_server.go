@@ -18,6 +18,7 @@ import (
 	"github.com/evidenceledger/certauth/internal/html"
 	"github.com/evidenceledger/certauth/internal/jwtservice"
 	"github.com/evidenceledger/certauth/internal/models"
+	"github.com/evidenceledger/certauth/internal/tmfservice"
 	"github.com/evidenceledger/certauth/tsaservice"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -27,13 +28,23 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 )
 
+type Profile string
+
+const (
+	ALTIA_LOCAL Profile = "local"
+	ALTIA_DEV   Profile = "altia-dev"
+	ISBE_DEV    Profile = "isbe-dev"
+	ISBE_PRE    Profile = "isbe-pre"
+	ISBE_PRO    Profile = "isbe-pro"
+)
+
 // Configuration for the CertAuth server
 type Config struct {
 	// If Development is true, we log more and use some default configuration options
 	Development bool
 
 	// The profile that we are running with
-	Profile string
+	Profile Profile
 
 	// The URL and internal port for the CertAuth server, the one acting as an IdP
 	CertAuthURL  string
@@ -54,19 +65,22 @@ type Config struct {
 
 	// The URL for the Digital Signature Services. We use it now for verification of certificates only.
 	EUDSSURL string
+
+	// The URL for the TM Forum server
+	TMFServerURL string
 }
 
-// Server represents the CertAuth server
+// CertAuthServer represents the CertAuth server
 // It acts as an OpenID Provider with the Relying Parties, and as an OID4VP Relying Party for the Wallet.
 // In this way it insulates the OID4VP protocol from the Relying Parties, which just use standard OIDC to
 // authenticate users and get an ID Token and an Access Token.
-type Server struct {
+type CertAuthServer struct {
 	// The HTTP server (using Fiber)
 	httpServer *fiber.App
 
 	// Configuration flags
 	development bool
-	profile     string
+	profile     Profile
 
 	// The URL and internal port for the CertAuth server, the one acting as an IdP
 	certAuthURL  string
@@ -100,6 +114,9 @@ type Server struct {
 
 	// The email service
 	emailService *email.Service
+
+	// The TMF service
+	tmfService *tmfservice.TMFService
 }
 
 const templateDebug = true
@@ -116,7 +133,7 @@ func New(
 	authprocCache *cache.GenericCache[string, *models.AuthProcess],
 	ssoCache *cache.GenericCache[string, *models.SSOSession],
 	adminPassword string,
-	cfg *Config) (*Server, error) {
+	cfg *Config) (*CertAuthServer, error) {
 
 	// The engine to display the screens HTML screens to the users
 	htmlrender, err := html.NewRendererFiber(templateDebug, viewsfs, templateDirectory, templateExtension)
@@ -172,8 +189,17 @@ func New(
 		return nil, errl.Errorf("failed to create email service: %v", err)
 	}
 
+	// Initialize the tmfservice
+	tmfservice, err := tmfservice.NewTMFService(&tmfservice.TMFClientConfig{
+		BaseURL: cfg.TMFServerURL,
+		Timeout: 30,
+	})
+	if err != nil {
+		return nil, errl.Errorf("failed to create tmfservice: %v", err)
+	}
+
 	// Put everything together in a server
-	s := &Server{
+	s := &CertAuthServer{
 		development:   cfg.Development,
 		profile:       cfg.Profile,
 		certAuthURL:   cfg.CertAuthURL,
@@ -189,6 +215,7 @@ func New(
 		ssoCache:      ssoCache,
 		tsaService:    tsaService,
 		emailService:  emailService,
+		tmfService:    tmfservice,
 	}
 
 	// Register the health check endpoint
@@ -213,7 +240,7 @@ func New(
 }
 
 // Start starts the server
-func (s *Server) Start(ctx context.Context) error {
+func (s *CertAuthServer) Start(ctx context.Context) error {
 
 	if s.httpServer == nil {
 		return errors.New("server not initialized")

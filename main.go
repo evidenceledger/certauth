@@ -63,7 +63,7 @@ func run() error {
 	fmt.Println("Full config end")
 
 	// Create the main server. This will initialize the individual HTTP services and the database.
-	srv, err := mainserver.New(adminPassword, *cfg, cfg.CertAuthConfig.Profile)
+	srv, err := mainserver.New(adminPassword, *cfg)
 	if err != nil {
 		return errl.Errorf("failed to create server: %v", err)
 	}

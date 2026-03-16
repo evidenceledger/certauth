@@ -29,7 +29,7 @@ const (
 	logoutEndpoint = "/logout"
 )
 
-func (s *Server) registerOIDCHandlers() {
+func (s *CertAuthServer) registerOIDCHandlers() {
 
 	// The discovery endpoints, where the Relying Party can retrieve information about the server
 	s.httpServer.Get(oidc_configuration, s.APIDiscovery)
@@ -50,7 +50,7 @@ func (s *Server) registerOIDCHandlers() {
 }
 
 // APIDiscovery handles the discovery endpoint, where the Relying Party can retrieve information about the server
-func (s *Server) APIDiscovery(c *fiber.Ctx) error {
+func (s *CertAuthServer) APIDiscovery(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"issuer":                 s.certAuthURL,
 		"authorization_endpoint": s.certAuthURL + authorization_endpoint,
@@ -66,7 +66,7 @@ func (s *Server) APIDiscovery(c *fiber.Ctx) error {
 }
 
 // APIJWKS handles the JSON Web Key Set endpoint
-func (s *Server) APIJWKS(c *fiber.Ctx) error {
+func (s *CertAuthServer) APIJWKS(c *fiber.Ctx) error {
 	jwks := s.jwtService.GetJWKS()
 	return c.JSON(jwks)
 }
@@ -74,7 +74,7 @@ func (s *Server) APIJWKS(c *fiber.Ctx) error {
 // Authorization handles OAuth2 authorization endpoint.
 // This is the first step of the authorization process.
 // We support two types of authorization: with an eIDAS certificate and with a Verifiable Credential
-func (s *Server) Authorization(c *fiber.Ctx) error {
+func (s *CertAuthServer) Authorization(c *fiber.Ctx) error {
 
 	// Parse authorization request
 	authReq := &models.AuthorizationRequest{
@@ -226,7 +226,7 @@ func (s *Server) Authorization(c *fiber.Ctx) error {
 
 }
 
-func (s *Server) PageLogin(c *fiber.Ctx) error {
+func (s *CertAuthServer) PageLogin(c *fiber.Ctx) error {
 	slog.Info("Login page", "from", c.Hostname(), "to", c.IP())
 
 	// Retrieve the AuthorizationRequest from the application authentication session
@@ -253,7 +253,7 @@ func (s *Server) PageLogin(c *fiber.Ctx) error {
 
 // APITokenExchange handles OAuth2 token endpoint.
 // This is the last step for the RP in the authentication flow.
-func (s *Server) APITokenExchange(c *fiber.Ctx) error {
+func (s *CertAuthServer) APITokenExchange(c *fiber.Ctx) error {
 
 	// Parse token request
 	var tokenReq models.TokenRequest
@@ -311,20 +311,20 @@ func (s *Server) APITokenExchange(c *fiber.Ctx) error {
 }
 
 // UserInfo handles OpenID Connect userinfo endpoint
-func (s *Server) UserInfo(c *fiber.Ctx) error {
+func (s *CertAuthServer) UserInfo(c *fiber.Ctx) error {
 	// TODO: Implement userinfo with token validation
 	return c.SendStatus(fiber.StatusNotImplemented)
 }
 
 // Logout handles logout endpoint
-func (s *Server) Logout(c *fiber.Ctx) error {
+func (s *CertAuthServer) Logout(c *fiber.Ctx) error {
 	// TODO: Implement logout (no-op for now)
 	return c.JSON(fiber.Map{"status": "logged_out"})
 }
 
 // Helper methods
 
-func (s *Server) validateAuthorizationRequest(req *models.AuthorizationRequest) (errorCode string, errorDescription string) {
+func (s *CertAuthServer) validateAuthorizationRequest(req *models.AuthorizationRequest) (errorCode string, errorDescription string) {
 	if req.ResponseType != "code" {
 		return "invalid_request", "unsupported response_type"
 	}
@@ -340,7 +340,7 @@ func (s *Server) validateAuthorizationRequest(req *models.AuthorizationRequest) 
 	return "", ""
 }
 
-func (s *Server) validateTokenAuthorization(c *fiber.Ctx) (clientid string, err error) {
+func (s *CertAuthServer) validateTokenAuthorization(c *fiber.Ctx) (clientid string, err error) {
 
 	// Get authorization header
 	authHeader := c.Get(fiber.HeaderAuthorization)
@@ -385,7 +385,7 @@ func (s *Server) validateTokenAuthorization(c *fiber.Ctx) (clientid string, err 
 }
 
 // handleAuthorizationError handles authorization errors by redirecting back to the RP with error details
-func (s *Server) handleAuthorizationError(c *fiber.Ctx, redirectURI, state, errorCode, errorDescription string) error {
+func (s *CertAuthServer) handleAuthorizationError(c *fiber.Ctx, redirectURI, state, errorCode, errorDescription string) error {
 	slog.Error("Authorization error", "error", errorCode, "redirect_uri", redirectURI)
 
 	redirectURL, _ := url.Parse(redirectURI)
@@ -400,7 +400,7 @@ func (s *Server) handleAuthorizationError(c *fiber.Ctx, redirectURI, state, erro
 	return c.Status(fiber.StatusFound).Redirect(redirectURL.String())
 }
 
-func (s *Server) generateAuthProcess(req *models.AuthorizationRequest, rp *models.RelyingParty) *models.AuthProcess {
+func (s *CertAuthServer) generateAuthProcess(req *models.AuthorizationRequest, rp *models.RelyingParty) *models.AuthProcess {
 	// Generate random code
 	codeBytes := make([]byte, 32)
 	rand.Read(codeBytes)
@@ -422,7 +422,7 @@ func (s *Server) generateAuthProcess(req *models.AuthorizationRequest, rp *model
 	return authCode
 }
 
-func (s *Server) generateTokens(authProcess *models.AuthProcess, rp *models.RelyingParty) (map[string]any, error) {
+func (s *CertAuthServer) generateTokens(authProcess *models.AuthProcess, rp *models.RelyingParty) (map[string]any, error) {
 
 	if authProcess.CertificateData == nil && authProcess.CredentialData == nil {
 		err := errl.Errorf("no credential or certificate data found in auth process")
@@ -498,7 +498,7 @@ func generateRandomString() string {
 }
 
 // generateSSOCookie generates the SSO cookie
-func (s *Server) generateSSOCookie(ssoSessionID string, certData *models.CertificateData) (*fiber.Cookie, error) {
+func (s *CertAuthServer) generateSSOCookie(ssoSessionID string, certData *models.CertificateData) (*fiber.Cookie, error) {
 
 	// Determine the sub identifier based on certificate type
 	var sub string
@@ -565,7 +565,7 @@ func (s *Server) generateSSOCookie(ssoSessionID string, certData *models.Certifi
 	return cookie, nil
 }
 
-func (s *Server) getAuthProcess(authCode string) (*models.AuthProcess, error) {
+func (s *CertAuthServer) getAuthProcess(authCode string) (*models.AuthProcess, error) {
 	if authCode == "" {
 		return nil, errl.Errorf("Missing authorization code")
 	}

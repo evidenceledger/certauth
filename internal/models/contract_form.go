@@ -25,5 +25,4 @@ type ContractForm struct {
 	ContractCheckBase      string `form:"contract_base" json:"contract_base"`
 	ContractCheckBasic     string `form:"contract_basic" json:"contract_basic"`
 	ContractCheckDeveloper string `form:"contract_developer" json:"contract_developer"`
-	Annex                  string `form:"annex" json:"annex"`
 }

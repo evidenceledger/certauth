@@ -131,7 +131,6 @@ func (s *JWTService) GenerateAccessTokenForCert(authProcess *models.AuthProcess,
 		"organizationIdentifier": certData.Subject.OrganizationIdentifier,
 		"serialNumber":           certData.Subject.SerialNumber,
 		"country":                certData.Subject.Country,
-		"signed_annex":           authProcess.SignedAnnex,
 	}
 
 	power := []map[string]any{

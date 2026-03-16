@@ -1,6 +1,6 @@
 module github.com/evidenceledger/certauth
 
-go 1.24.6
+go 1.25.5
 
 require (
 	github.com/ansrivas/fiberprometheus/v2 v2.14.0
@@ -72,6 +72,7 @@ require (
 	github.com/gofiber/template/html/v2 v2.1.3
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hesusruiz/eudiw-ssi-go v0.0.0-20251017211128-a2a987ffaeac
+	github.com/hesusruiz/utils/errl v0.0.0-20260203155429-e59ff4b6d2e4
 	github.com/lestrrat-go/blackmagic v1.0.4 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
 	github.com/lestrrat-go/httprc v1.0.6 // indirect

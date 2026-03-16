@@ -95,6 +95,7 @@ func LoadConfig() (*Config, string, error) {
 		TMFServerURL: "https://tmf.evidenceledger.eu/",
 		CertAuthConfig: &certauth.Config{
 			Development:   true,
+			Profile:       certauth.ALTIA_LOCAL,
 			CertAuthURL:   "https://certauth.mycredential.eu",
 			CertAuthPort:  "8010",
 			CertSecURL:    "https://certsec.mycredential.eu",
@@ -138,6 +139,7 @@ func LoadConfig() (*Config, string, error) {
 		TMFServerURL: "https://tmf.evidenceledger.eu/",
 		CertAuthConfig: &certauth.Config{
 			Development:   true,
+			Profile:       certauth.ALTIA_DEV,
 			CertAuthURL:   "https://certauth-dev.redisbe.com",
 			CertAuthPort:  "8010",
 			CertSecURL:    "https://certsec.evidenceledger.eu",
@@ -192,6 +194,7 @@ func LoadConfig() (*Config, string, error) {
 		TMFServerURL: "https://tmf.dev.cloud-w.envs.redisbe.com/tmf-api",
 		CertAuthConfig: &certauth.Config{
 			Development:   true,
+			Profile:       certauth.ISBE_DEV,
 			CertAuthURL:   "https://certauth.dev.cloud-w.envs.redisbe.com",
 			CertAuthPort:  "8010",
 			CertSecURL:    "https://certsec.dev.cloud-w.envs.redisbe.com",
@@ -246,6 +249,7 @@ func LoadConfig() (*Config, string, error) {
 		TMFServerURL: "https://tmf-pre.evidenceledger.eu",
 		CertAuthConfig: &certauth.Config{
 			Development:   true,
+			Profile:       certauth.ISBE_PRE,
 			CertAuthURL:   "https://certauth.pre.portal.redisbe.com",
 			CertAuthPort:  "8010",
 			CertSecURL:    "https://certsec-pre.evidenceledger.eu",
@@ -300,6 +304,7 @@ func LoadConfig() (*Config, string, error) {
 		TMFServerURL: "https://tmf-pro.evidenceledger.eu",
 		CertAuthConfig: &certauth.Config{
 			Development:   false,
+			Profile:       certauth.ISBE_PRO,
 			CertAuthURL:   "https://certauth.portal.redisbe.com",
 			CertAuthPort:  "8010",
 			CertSecURL:    "https://certsec-pro.evidenceledger.eu",
@@ -417,9 +422,6 @@ func LoadConfig() (*Config, string, error) {
 
 	// Check for override of the management service URL
 	cfg.CertAuthConfig.ManagementURL = GetStringEnvOrDefault("MANAGEMENT_URL", cfg.CertAuthConfig.ManagementURL)
-
-	// Set the profile in the CertAuth config
-	cfg.CertAuthConfig.Profile = profile
 
 	// The secrets are either in a file which is not in the Git repo or in the environment variables.
 	secretConfig := parseYamlConfig("secrets/config.yaml")

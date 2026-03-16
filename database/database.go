@@ -13,6 +13,19 @@ type Database struct {
 	db *sql.DB
 }
 
+// This is the data model for the registration table:
+//
+// organization_identifier: the unique identifier of the organization
+// organization: the name of the organization
+// email: the contact email of the organization
+// country: the two letter code of the country of the organization
+// contract_form: the contract form filled by the organization, in JSON format
+// eidas_cert: the eIDAS certificate of the organization, in DER format
+// timestamp: the timestamp of the registration, obtained from a QTSA service provider
+// contract_document: the contract document of the organization, as a BLOB
+// created_at: the creation timestamp of the registration
+// updated_at: the update timestamp of the registration
+
 var tableCreateQueries = []string{
 	`CREATE TABLE IF NOT EXISTS relying_parties (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
