@@ -151,7 +151,6 @@ func (s *JWTService) GenerateIDTokenForCert(authProcess *models.AuthProcess, cer
 	claims["elsi_certificate_type"] = certData.CertificateType
 
 	// Add signed annex information
-	claims["signed_annex"] = authProcess.SignedAnnex
 	claims["power"] = authProcess.Powers
 
 	// Create token

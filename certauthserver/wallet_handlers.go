@@ -14,7 +14,7 @@ import (
 	"github.com/skip2/go-qrcode"
 )
 
-func (s *Server) registerWalletHandlers() {
+func (s *CertAuthServer) registerWalletHandlers() {
 
 	// The page with the QR code to login with the Wallet
 	s.httpServer.Get("/wallet/login", s.PageWalletLogin)
@@ -30,7 +30,7 @@ func (s *Server) registerWalletHandlers() {
 
 // PageWalletLogin presents the QR code for Wallet authentication.
 // It is called from the main login page of CertAuth.
-func (s *Server) PageWalletLogin(c *fiber.Ctx) error {
+func (s *CertAuthServer) PageWalletLogin(c *fiber.Ctx) error {
 	slog.Info("Landing page", "from", c.Hostname(), "to", c.IP())
 
 	// Retrieve the AuthorizationRequest from the application authentication session
@@ -126,7 +126,7 @@ func dataForWalletLogin(verifierURL string, authRequestID string) (map[string]an
 
 // APIWalletLoginPagePoll is the endpoint called periodically by the Wallet Login page to check
 // if the authentication request has been processed or is still pending.
-func (s *Server) APIWalletLoginPagePoll(c *fiber.Ctx) error {
+func (s *CertAuthServer) APIWalletLoginPagePoll(c *fiber.Ctx) error {
 
 	// Get state from query parameter
 	authReqId := c.Query("state")
@@ -165,7 +165,7 @@ func (s *Server) APIWalletLoginPagePoll(c *fiber.Ctx) error {
 
 // APIWalletAuthenticationRequest is the endpoint that the Wallet calls to retrieve the
 // OID4VP Authentication Request object
-func (s *Server) APIWalletAuthenticationRequest(c *fiber.Ctx) error {
+func (s *CertAuthServer) APIWalletAuthenticationRequest(c *fiber.Ctx) error {
 
 	// Retrieve the AuthorizationRequest from the application authentication session
 	authProcess, err := s.getAuthProcess(c.Query("state"))
@@ -187,7 +187,7 @@ func (s *Server) APIWalletAuthenticationRequest(c *fiber.Ctx) error {
 
 // APIWalletAuthenticationResponse is the endpoint that the Wallet calls to send the
 // Authentication Response with the LEARCredential
-func (s *Server) APIWalletAuthenticationResponse(c *fiber.Ctx) error {
+func (s *CertAuthServer) APIWalletAuthenticationResponse(c *fiber.Ctx) error {
 
 	// Get state from query parameter
 	authReqId := c.FormValue("state")

@@ -13,25 +13,25 @@ import (
 
 func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certificateData *models.CertificateData, email string, formData *models.ContractForm) error {
 
-	// Convert form data into JSON
+	// Convert form data into JSON, which will be stored in the database
 	formDataJSON, err := json.Marshal(formData)
 	if err != nil {
 		return errl.Errorf("failed to marshal form data: %w", err)
 	}
 
+	// Create a timestamp using the configured TSA Trust Service Provider
 	buf := bytes.Buffer{}
 	buf.Write(formDataJSON)
 	buf.WriteString(certificateData.CertificateDER)
 	tstDataToTimestamp := buf.Bytes()
 
-	// Create a timestamp using a TSA Trust Service Provider
 	timestamp, err := tsaService.Timestamp(tstDataToTimestamp)
 	if err != nil {
 		return errl.Errorf("failed to timestamp data: %w", err)
 	}
 
 	// Verify the timestamp and retrieve the actual time according to the TSA Service Provider
-	// This is the time that we will record, instead of our own time
+	// This is the official time that we will record, instead of our own time
 	genTime, err := tsaService.Verify(timestamp, tstDataToTimestamp)
 	if err != nil {
 		return errl.Errorf("failed to verify timestamp: %w", err)
@@ -47,7 +47,6 @@ func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certifi
 	// country TEXT,
 	// contract_form BLOB,
 	// eidas_cert TEXT,
-	// signed_annex TEXT,
 	// timestamp BLOB,
 	// contract_document TEXT,
 	// created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -61,11 +60,10 @@ func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certifi
 			country,
 			contract_form,
 			eidas_cert,
-			signed_annex,
 			timestamp,
 			created_at,
 			updated_at
-		) VALUES (?, ?, ?, ?, jsonb(?), ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, jsonb(?), ?, ?, ?, ?)
 	`
 
 	// Create a new registration
@@ -76,7 +74,6 @@ func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certifi
 		certificateData.Subject.Country,
 		formDataJSON,
 		certificateData.CertificateDER,
-		formData.Annex,
 		timestamp,
 		genTime,
 		genTime,

@@ -23,16 +23,17 @@ type TMFClientConfig struct {
 	Timeout int `json:"timeout" yaml:"timeout"`
 }
 
-// TMFClient is a client for the TMForum API.
-type TMFClient struct {
-	config *TMFClientConfig
-	client *http.Client
+// TMFService is a client for the TMForum API.
+type TMFService struct {
+	config  *TMFClientConfig
+	BaseURL string
+	client  *http.Client
 }
 
 type TMFObject map[string]any
 
-// NewClient creates a new client.
-func NewClient(config *TMFClientConfig) (*TMFClient, error) {
+// NewTMFService creates a new client.
+func NewTMFService(config *TMFClientConfig) (*TMFService, error) {
 
 	if config.Timeout == 0 {
 		config.Timeout = 30
@@ -44,11 +45,12 @@ func NewClient(config *TMFClientConfig) (*TMFClient, error) {
 
 	config.BaseURL = strings.TrimSuffix(config.BaseURL, "/")
 
-	return &TMFClient{
+	return &TMFService{
 		config: config,
 		client: &http.Client{
 			Timeout: time.Duration(config.Timeout) * time.Second,
 		},
+		BaseURL: config.BaseURL,
 	}, nil
 }
 
@@ -94,11 +96,11 @@ func NewClient(config *TMFClientConfig) (*TMFClient, error) {
 // }
 
 // Get sends a GET request to the remote server.
-func (c *TMFClient) Get(path string, headers map[string]string) (*http.Response, error) {
+func (c *TMFService) Get(path string, headers map[string]string) (*http.Response, error) {
 	return c.do("GET", path, nil, headers)
 }
 
-func (c *TMFClient) GetList(path string, headers map[string]string) ([]TMFObject, error) {
+func (c *TMFService) GetList(path string, headers map[string]string) ([]TMFObject, error) {
 
 	method := "GET"
 	url := fmt.Sprintf("%s%s", c.config.BaseURL, path)
@@ -145,21 +147,21 @@ func (c *TMFClient) GetList(path string, headers map[string]string) ([]TMFObject
 }
 
 // Post sends a POST request to the remote server.
-func (c *TMFClient) Post(path string, body []byte, headers map[string]string) (*http.Response, error) {
+func (c *TMFService) Post(path string, body []byte, headers map[string]string) (*http.Response, error) {
 	return c.do("POST", path, body, headers)
 }
 
 // Patch sends a PATCH request to the remote server.
-func (c *TMFClient) Patch(path string, body []byte, headers map[string]string) (*http.Response, error) {
+func (c *TMFService) Patch(path string, body []byte, headers map[string]string) (*http.Response, error) {
 	return c.do("PATCH", path, body, headers)
 }
 
 // Delete sends a DELETE request to the remote server.
-func (c *TMFClient) Delete(path string, headers map[string]string) (*http.Response, error) {
+func (c *TMFService) Delete(path string, headers map[string]string) (*http.Response, error) {
 	return c.do("DELETE", path, nil, headers)
 }
 
-func (c *TMFClient) do(method, path string, body []byte, headers map[string]string) (*http.Response, error) {
+func (c *TMFService) do(method, path string, body []byte, headers map[string]string) (*http.Response, error) {
 	url := fmt.Sprintf("%s%s", c.config.BaseURL, path)
 	slog.Debug("sending", slog.String("method", method), "url", url)
 

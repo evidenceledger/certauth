@@ -14,6 +14,7 @@ import (
 	"github.com/evidenceledger/certauth/internal/errl"
 	"github.com/evidenceledger/certauth/internal/jpath"
 	"github.com/evidenceledger/certauth/internal/models"
+	"github.com/evidenceledger/certauth/internal/tmfservice"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/utils"
 
@@ -33,7 +34,7 @@ const (
 	contractAcceptedEndpoint             = "/contract-accepted"
 )
 
-func (s *Server) registerCertificateHandlers() {
+func (s *CertAuthServer) registerCertificateHandlers() {
 
 	// Presents a screen informing the user that a certificate will be requested.
 	s.httpServer.Get(certLoginEndpoint, s.pageCertLogin)
@@ -63,7 +64,7 @@ func (s *Server) registerCertificateHandlers() {
 }
 
 // pageCertLogin shows the certificate selection screen
-func (s *Server) pageCertLogin(c *fiber.Ctx) error {
+func (s *CertAuthServer) pageCertLogin(c *fiber.Ctx) error {
 	slog.Info("CertLoginPage", "from", c.Hostname(), "to", c.IP())
 	isEnglish := strings.HasSuffix(c.Path(), "/en")
 
@@ -98,7 +99,7 @@ func (s *Server) pageCertLogin(c *fiber.Ctx) error {
 // When CertSec receives the certificate from the user's browser, it sets the CertificateData field in the AuthProcess entry
 // corresponding to the current authentication process.
 // Then CerSec redirects back to us (CertAuth) with the 'code' and possibly an 'error' parameter in the URL
-func (s *Server) pageRequestEmail(c *fiber.Ctx) error {
+func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 	isEnglish := strings.HasSuffix(c.Path(), "/en")
 	// Get auth code from query parameter
 	authCode := c.Query("code")
@@ -151,7 +152,7 @@ func (s *Server) pageRequestEmail(c *fiber.Ctx) error {
 	}
 
 	// Check if the organization is already registered
-	email, contractForm, _, err := s.db.GetRegistration(certData.OrganizationID)
+	email, _, _, err := s.db.GetRegistration(certData.OrganizationID)
 	if err != nil {
 		return errl.Errorf("error retrieving registration email: %w", err)
 	}
@@ -170,7 +171,6 @@ func (s *Server) pageRequestEmail(c *fiber.Ctx) error {
 
 		// Store email of the user in the authProcess struct
 		authProcess.Email = email
-		authProcess.SignedAnnex = contractForm.Annex
 		authProcess.Powers = powers
 
 		redirectURL := fmt.Sprintf("%s?code=%s", authProcess.RedirectURI, authProcess.Code)
@@ -293,7 +293,7 @@ func VerifyCertificate(data string, url string) ([]byte, error) {
 }
 
 // sendEmailVerification handles the email verification form submission
-func (s *Server) sendEmailVerification(c *fiber.Ctx) error {
+func (s *CertAuthServer) sendEmailVerification(c *fiber.Ctx) error {
 	isEnglish := strings.HasSuffix(c.Path(), "/en")
 	// Get form data
 	email := utils.CopyString(c.FormValue("email"))
@@ -409,7 +409,7 @@ func generateRandomCode() string {
 
 // verifyEmailCodeAndPresentContractForm handles the email verification code verification,
 // and presents the contract form to the user.
-func (s *Server) verifyEmailCodeAndPresentContractForm(c *fiber.Ctx) error {
+func (s *CertAuthServer) verifyEmailCodeAndPresentContractForm(c *fiber.Ctx) error {
 	isEnglish := strings.HasSuffix(c.Path(), "/en")
 	// Get form data
 	emailVerificationCode := utils.CopyString(c.FormValue("verification_code"))
@@ -508,7 +508,7 @@ func (s *Server) verifyEmailCodeAndPresentContractForm(c *fiber.Ctx) error {
 	})
 }
 
-func (s *Server) pagePresentContractForAcceptance(c *fiber.Ctx) error {
+func (s *CertAuthServer) pagePresentContractForAcceptance(c *fiber.Ctx) error {
 	isEnglish := strings.HasSuffix(c.Path(), "/en")
 
 	// Data for checking the form is valid, before we do anything else
@@ -584,7 +584,7 @@ func (s *Server) pagePresentContractForAcceptance(c *fiber.Ctx) error {
 // handleContractAccepted is the last step, after the user has given consent to proceed.
 // We then generate the SSO cookie and redirect to the RP with the auth code.
 // The RP will eventually exchange the auth code for ID and access tokens, which will contain user and certificate data.
-func (s *Server) handleContractAccepted(c *fiber.Ctx) error {
+func (s *CertAuthServer) handleContractAccepted(c *fiber.Ctx) error {
 	isEnglish := strings.HasSuffix(c.Path(), "/en")
 
 	// Data for checking the form is valid, before we do anything else
@@ -615,6 +615,11 @@ func (s *Server) handleContractAccepted(c *fiber.Ctx) error {
 	if err := c.BodyParser(&formData); err != nil {
 		slog.Error("Failed to parse form", "error", err)
 		return errl.Errorf("failed to parse form: %w", err)
+	}
+
+	// Acondition the VATID. Make sure that it has the prefix 'VATXX-', where XX is the country code.
+	if !strings.HasPrefix(formData.OrganizationNif, "VAT") {
+		formData.OrganizationNif = "VAT" + strings.ToUpper(formData.OrganizationCountry) + "-" + formData.OrganizationNif
 	}
 
 	// Check that we have the email of the representative
@@ -648,9 +653,35 @@ func (s *Server) handleContractAccepted(c *fiber.Ctx) error {
 
 	}
 
-	// Update the auth process with the signed annex
-	// TODO: check if we can delete the SignedAnnex field
-	authProcess.SignedAnnex = formData.Annex
+	// Register in the TMF server the new Organization
+	request := tmfservice.RegistrationRequest{
+		FirstName:     formData.RepresentativeName,
+		LastName:      "",
+		CompanyName:   formData.OrganizationName,
+		Country:       formData.OrganizationCountry,
+		VatId:         formData.OrganizationNif,
+		StreetAddress: formData.OrganizationAddress,
+		PostalCode:    "",
+		Email:         formData.RepresentativeEmail,
+	}
+
+	createOrg := tmfservice.TMFOrganizationFromRequest(request)
+
+	// If we are not in Production, delete all existing organizations
+	if s.profile != "production" {
+		slog.Info("Deleting TMF organizations", "auth_code", authCode, "vat_id", request.VatId)
+		err := s.tmfService.TMFDeleteAllOrganizationsByELSI("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", request.VatId)
+		if err != nil {
+			err = errl.Errorf("deleting TMF organizations: %w", err)
+			slog.Error(err.Error(), "auth_code", authCode)
+		}
+	}
+
+	_, err = s.tmfService.TMFCreateOrganization("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", createOrg)
+	if err != nil {
+		err = errl.Errorf("creating TMF organization: %w", err)
+		slog.Error(err.Error(), "auth_code", authCode)
+	}
 
 	fileToSend := []byte(contrato)
 
@@ -704,7 +735,7 @@ func (s *Server) handleContractAccepted(c *fiber.Ctx) error {
 
 }
 
-func (s *Server) notifyManagement(certData *models.CertificateData, email string, contractForm *models.ContractForm, fileToSend []byte) (string, error) {
+func (s *CertAuthServer) notifyManagement(certData *models.CertificateData, email string, contractForm *models.ContractForm, fileToSend []byte) (string, error) {
 
 	organizationIdentifier := contractForm.OrganizationNif
 
@@ -868,7 +899,7 @@ func (s *Server) notifyManagement(certData *models.CertificateData, email string
 	return receivedPowersString, nil
 }
 
-func (s *Server) retrieveManagementPowers(certData *models.CertificateData) (string, error) {
+func (s *CertAuthServer) retrieveManagementPowers(certData *models.CertificateData) (string, error) {
 
 	organizationIdentifier := certData.OrganizationID
 

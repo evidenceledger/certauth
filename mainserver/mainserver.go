@@ -32,8 +32,8 @@ const (
 // Server manages the CertAuth, CertSec and Onboard servers
 type Server struct {
 	cfg            Config
-	certauthServer *certauth.Server
-	certsecServer  *certsec.Server
+	certauthServer *certauth.CertAuthServer
+	certsecServer  *certsec.CertSecServer
 	onboardServer  *onboard.Server
 	db             *database.Database
 	adminPW        string
@@ -41,7 +41,7 @@ type Server struct {
 
 // New creates a new server instance.
 // It initializes the database, cache, CertAuth, CertSec and Onboard servers.
-func New(adminPassword string, cfg Config, profile string) (*Server, error) {
+func New(adminPassword string, cfg Config) (*Server, error) {
 
 	// Create a global in-memory cache for authentication processes with a default expiration time of 10 minutes
 	// TODO(hesusruiz): make this configurable
@@ -68,7 +68,8 @@ func New(adminPassword string, cfg Config, profile string) (*Server, error) {
 	// Create the authentication and authorization servers.
 	// They share the same database and authentication process cache.
 
-	certauthServer, err := certauth.New(db, authprocCache, ssoCache, adminPassword, cfg.CertAuthConfig)
+	cfg.CertAuthConfig.TMFServerURL = cfg.TMFServerURL
+	certauthServer, err := certauth.NewCertAuth(db, authprocCache, ssoCache, adminPassword, cfg.CertAuthConfig)
 	if err != nil {
 		return nil, errl.Errorf("failed to create certauth server: %w", err)
 	}

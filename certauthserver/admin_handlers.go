@@ -6,7 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/basicauth"
 )
 
-func (s *Server) registerAdminHandlers(adminPassword string) {
+func (s *CertAuthServer) registerAdminHandlers(adminPassword string) {
 
 	admin := s.httpServer.Group("/admin")
 
@@ -30,13 +30,13 @@ func (s *Server) registerAdminHandlers(adminPassword string) {
 }
 
 // AdminDashboard handles admin dashboard
-func (s *Server) AdminDashboard(c *fiber.Ctx) error {
+func (s *CertAuthServer) AdminDashboard(c *fiber.Ctx) error {
 	// TODO: Implement admin dashboard
 	return c.SendStatus(fiber.StatusNotImplemented)
 }
 
 // ListRP lists all relying parties
-func (s *Server) ListRP(c *fiber.Ctx) error {
+func (s *CertAuthServer) ListRP(c *fiber.Ctx) error {
 	rps, err := s.db.ListRelyingParties()
 	if err != nil {
 		return errl.Errorf("failed to list relying parties: %w", err)
@@ -46,19 +46,19 @@ func (s *Server) ListRP(c *fiber.Ctx) error {
 }
 
 // CreateRP creates a new relying party
-func (s *Server) CreateRP(c *fiber.Ctx) error {
+func (s *CertAuthServer) CreateRP(c *fiber.Ctx) error {
 	// TODO: Implement RP creation
 	return c.SendStatus(fiber.StatusNotImplemented)
 }
 
 // UpdateRP updates an existing relying party
-func (s *Server) UpdateRP(c *fiber.Ctx) error {
+func (s *CertAuthServer) UpdateRP(c *fiber.Ctx) error {
 	// TODO: Implement RP update
 	return c.SendStatus(fiber.StatusNotImplemented)
 }
 
 // DeleteRP deletes a relying party
-func (s *Server) DeleteRP(c *fiber.Ctx) error {
+func (s *CertAuthServer) DeleteRP(c *fiber.Ctx) error {
 	// TODO: Implement RP deletion
 	return c.SendStatus(fiber.StatusNotImplemented)
 }

@@ -48,8 +48,8 @@ type Config struct {
 	CertificateBackEndpoint string
 }
 
-// Server represents the CertSec certificate authentication server
-type Server struct {
+// CertSecServer represents the CertSec certificate authentication server
+type CertSecServer struct {
 	// Development mode
 	Development bool
 
@@ -79,7 +79,7 @@ type Server struct {
 	htmlRender *html.RendererFiber
 
 	// The TMF client
-	tmfClient *tmfservice.TMFClient
+	tmfClient *tmfservice.TMFService
 }
 
 //go:embed views/*
@@ -95,7 +95,7 @@ func New(
 	db *database.Database,
 	authprocCache *cache.GenericCache[string, *models.AuthProcess],
 	ssoCache *cache.GenericCache[string, *models.SSOSession],
-	cfg *Config) (*Server, error) {
+	cfg *Config) (*CertSecServer, error) {
 
 	// The engine to display the HTML screens to the users
 	htmlrender, err := html.NewRendererFiber(cfg.Development, viewsfs, templateDirectory, templateExtension)
@@ -103,7 +103,7 @@ func New(
 		return nil, errl.Errorf("failed to initialize template engine: %w", err)
 	}
 
-	tmfClient, err := tmfservice.NewClient(&tmfservice.TMFClientConfig{
+	tmfClient, err := tmfservice.NewTMFService(&tmfservice.TMFClientConfig{
 		BaseURL: "https://tmf.evidenceledger.eu",
 		Timeout: 30,
 	})
@@ -120,7 +120,7 @@ func New(
 
 	app.Static("/static", templateStaticResources)
 
-	s := &Server{
+	s := &CertSecServer{
 		app:                     app,
 		db:                      db,
 		authprocCache:           authprocCache,
@@ -163,7 +163,7 @@ type RelyingPartyCUDRequest struct {
 }
 
 // adminPages handles the admin pages
-func (s *Server) adminPages(c *fiber.Ctx) error {
+func (s *CertSecServer) adminPages(c *fiber.Ctx) error {
 
 	subject, err := s.checkAdminAuthentication(c)
 	if err != nil {
@@ -189,7 +189,7 @@ func (s *Server) adminPages(c *fiber.Ctx) error {
 
 }
 
-func (s *Server) relyingpartiesPage(c *fiber.Ctx, subject *x509util.ELSIName) error {
+func (s *CertSecServer) relyingpartiesPage(c *fiber.Ctx, subject *x509util.ELSIName) error {
 
 	switch c.Method() {
 	case "GET":
@@ -261,7 +261,7 @@ func (s *Server) relyingpartiesPage(c *fiber.Ctx, subject *x509util.ELSIName) er
 
 }
 
-func (s *Server) organizationsPage(c *fiber.Ctx, subject *x509util.ELSIName) error {
+func (s *CertSecServer) organizationsPage(c *fiber.Ctx, subject *x509util.ELSIName) error {
 
 	orgsPath := "/tmf-api/party/v4/organization"
 
@@ -315,7 +315,7 @@ func isAdmin(issuer *x509util.ELSIName, subject *x509util.ELSIName) bool {
 	return slices.Contains(adminIssuerOrganizationIdentifiers, issuer.OrganizationIdentifier) || slices.Contains(adminSubjectSerialNumbers, subject.SerialNumber)
 }
 
-func (s *Server) checkAdminAuthentication(c *fiber.Ctx) (*x509util.ELSIName, error) {
+func (s *CertSecServer) checkAdminAuthentication(c *fiber.Ctx) (*x509util.ELSIName, error) {
 
 	_, issuer, subject, _, err := s.retrieveCertificate(c)
 	if err != nil {
@@ -330,7 +330,7 @@ func (s *Server) checkAdminAuthentication(c *fiber.Ctx) (*x509util.ELSIName, err
 	return subject, nil
 }
 
-func (s *Server) retrieveCertificate(c *fiber.Ctx) (
+func (s *CertSecServer) retrieveCertificate(c *fiber.Ctx) (
 	cert *x509.Certificate,
 	issuer *x509util.ELSIName,
 	subject *x509util.ELSIName,
@@ -398,7 +398,7 @@ func (s *Server) retrieveCertificate(c *fiber.Ctx) (
 // handleCertificateAuth handles the certificate authentication endpoint.
 // This endpoint receives the certificate from the browser and sends it to the CertAuth server
 // via the global cache. Both CertAuth and CerSec must be running in the same process.
-func (s *Server) handleCertificateAuth(c *fiber.Ctx) error {
+func (s *CertSecServer) handleCertificateAuth(c *fiber.Ctx) error {
 	// Get auth code from query parameter
 	authCode := c.Query("code")
 	if authCode == "" {
@@ -492,7 +492,7 @@ func (s *Server) handleCertificateAuth(c *fiber.Ctx) error {
 }
 
 // Start starts the server
-func (s *Server) Start(ctx context.Context) error {
+func (s *CertSecServer) Start(ctx context.Context) error {
 
 	addr := net.JoinHostPort("0.0.0.0", s.CertSecPort)
 
