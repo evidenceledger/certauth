@@ -300,7 +300,7 @@ func (l *TMFService) TMFGetOrganizationByELSI(accessToken string, elsi string) (
 	elsi = strings.TrimPrefix(elsi, "did:elsi:")
 
 	// First search with the prefix
-	url := fmt.Sprintf("%s%s/organization?organizationIdentification.identificationId=did:elsi:%s", l.BaseURL, partyPathPrefix, elsi)
+	url := fmt.Sprintf("%s%s/organization?organizationIdentification[*].identificationId=did:elsi:%s", l.BaseURL, partyPathPrefix, elsi)
 
 	orgs, err := doHTTPList(url, accessToken, l.client)
 	if err == nil && len(orgs) > 0 {
@@ -308,7 +308,7 @@ func (l *TMFService) TMFGetOrganizationByELSI(accessToken string, elsi string) (
 	}
 
 	// If not found, try again without the prefix
-	url = fmt.Sprintf("%s%s/organization?organizationIdentification.identificationId=%s", l.BaseURL, partyPathPrefix, elsi)
+	url = fmt.Sprintf("%s%s/organization?organizationIdentification[*].identificationId=%s", l.BaseURL, partyPathPrefix, elsi)
 
 	orgs, err = doHTTPList(url, accessToken, l.client)
 	if err == nil && len(orgs) > 0 {
@@ -661,6 +661,8 @@ func (l *TMFService) TMFDeleteAllOrganizationsByELSI(accessToken string, elsi st
 			slog.Info("Existing organization deleted from TM Forum server", "orgId", org.ID)
 		}
 
+	} else {
+		slog.Info("Organization does not exist in TMF server", "vatId", elsi)
 	}
 
 	return nil

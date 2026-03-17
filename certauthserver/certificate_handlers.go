@@ -669,14 +669,15 @@ func (s *CertAuthServer) handleContractAccepted(c *fiber.Ctx) error {
 
 	// If we are not in Production, delete all existing organizations
 	if s.profile != "production" {
-		err := s.tmfService.TMFDeleteAllOrganizationsByELSI("", request.VatId)
+		slog.Info("Deleting TMF organizations", "auth_code", authCode, "vat_id", request.VatId)
+		err := s.tmfService.TMFDeleteAllOrganizationsByELSI("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", request.VatId)
 		if err != nil {
 			err = errl.Errorf("deleting TMF organizations: %w", err)
 			slog.Error(err.Error(), "auth_code", authCode)
 		}
 	}
 
-	_, err = s.tmfService.TMFCreateOrganization("", createOrg)
+	_, err = s.tmfService.TMFCreateOrganization("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", createOrg)
 	if err != nil {
 		err = errl.Errorf("creating TMF organization: %w", err)
 		slog.Error(err.Error(), "auth_code", authCode)

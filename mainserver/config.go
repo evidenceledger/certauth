@@ -50,7 +50,7 @@ type Config struct {
 	OnboardPort    string
 	PrivateArea    string
 	TMFServerURL   string
-	CertAuthConfig *certauth.Config
+	CertAuthConfig *certauth.ConfigCertAuth
 	PredefinedRPs  []PredefinedRP
 }
 
@@ -93,7 +93,7 @@ func LoadConfig() (*Config, string, error) {
 		OnboardPort:  "8012",
 		PrivateArea:  "/",
 		TMFServerURL: "https://tmf.evidenceledger.eu/",
-		CertAuthConfig: &certauth.Config{
+		CertAuthConfig: &certauth.ConfigCertAuth{
 			Development:   true,
 			Profile:       certauth.ALTIA_LOCAL,
 			CertAuthURL:   "https://certauth.mycredential.eu",
@@ -137,7 +137,7 @@ func LoadConfig() (*Config, string, error) {
 		OnboardPort:  "8012",
 		PrivateArea:  "https://poc-front.dev.cloud-w.envs.redisbe.com/",
 		TMFServerURL: "https://tmf.evidenceledger.eu/",
-		CertAuthConfig: &certauth.Config{
+		CertAuthConfig: &certauth.ConfigCertAuth{
 			Development:   true,
 			Profile:       certauth.ALTIA_DEV,
 			CertAuthURL:   "https://certauth-dev.redisbe.com",
@@ -192,7 +192,7 @@ func LoadConfig() (*Config, string, error) {
 		OnboardPort:  "8012",
 		PrivateArea:  "https://poc-front.dev.cloud-w.envs.redisbe.com/",
 		TMFServerURL: "https://tmf.dev.cloud-w.envs.redisbe.com/tmf-api",
-		CertAuthConfig: &certauth.Config{
+		CertAuthConfig: &certauth.ConfigCertAuth{
 			Development:   true,
 			Profile:       certauth.ISBE_DEV,
 			CertAuthURL:   "https://certauth.dev.cloud-w.envs.redisbe.com",
@@ -247,7 +247,7 @@ func LoadConfig() (*Config, string, error) {
 		OnboardPort:  "8012",
 		PrivateArea:  "https://pre.portal.redisbe.com/",
 		TMFServerURL: "https://tmf-pre.evidenceledger.eu",
-		CertAuthConfig: &certauth.Config{
+		CertAuthConfig: &certauth.ConfigCertAuth{
 			Development:   true,
 			Profile:       certauth.ISBE_PRE,
 			CertAuthURL:   "https://certauth.pre.portal.redisbe.com",
@@ -302,7 +302,7 @@ func LoadConfig() (*Config, string, error) {
 		OnboardPort:  "8012",
 		PrivateArea:  "https://portal.redisbe.com/",
 		TMFServerURL: "https://tmf-pro.evidenceledger.eu",
-		CertAuthConfig: &certauth.Config{
+		CertAuthConfig: &certauth.ConfigCertAuth{
 			Development:   false,
 			Profile:       certauth.ISBE_PRO,
 			CertAuthURL:   "https://certauth.portal.redisbe.com",

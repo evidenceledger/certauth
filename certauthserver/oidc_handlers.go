@@ -265,7 +265,7 @@ func (s *CertAuthServer) APITokenExchange(c *fiber.Ctx) error {
 
 	if tokenReq.ClientID == "" {
 		// We reject immediately RPs which are not authorized
-		username, err := s.validateTokenAuthorization(c)
+		username, err := s.validateClientTokenAuthorization(c)
 		if err != nil {
 			return errl.Errorf("invalid authorization: %w", err)
 		}
@@ -310,8 +310,8 @@ func (s *CertAuthServer) APITokenExchange(c *fiber.Ctx) error {
 	return c.JSON(tokens)
 }
 
-// UserInfo handles OpenID Connect userinfo endpoint
-func (s *CertAuthServer) UserInfo(c *fiber.Ctx) error {
+// APIUserInfo handles OpenID Connect userinfo endpoint
+func (s *CertAuthServer) APIUserInfo(c *fiber.Ctx) error {
 	// TODO: Implement userinfo with token validation
 	return c.SendStatus(fiber.StatusNotImplemented)
 }
@@ -340,7 +340,9 @@ func (s *CertAuthServer) validateAuthorizationRequest(req *models.AuthorizationR
 	return "", ""
 }
 
-func (s *CertAuthServer) validateTokenAuthorization(c *fiber.Ctx) (clientid string, err error) {
+// validateClientTokenAuthorization validates the authorization header for the token endpoint, for a registered RP.
+// It returns the client ID and an error if the authorization is invalid.
+func (s *CertAuthServer) validateClientTokenAuthorization(c *fiber.Ctx) (clientid string, err error) {
 
 	// Get authorization header
 	authHeader := c.Get(fiber.HeaderAuthorization)

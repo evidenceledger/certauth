@@ -60,11 +60,10 @@ func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certifi
 			country,
 			contract_form,
 			eidas_cert,
-			signed_annex,
 			timestamp,
 			created_at,
 			updated_at
-		) VALUES (?, ?, ?, ?, jsonb(?), ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, jsonb(?), ?, ?, ?, ?)
 	`
 
 	// Create a new registration

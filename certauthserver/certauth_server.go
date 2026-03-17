@@ -39,7 +39,7 @@ const (
 )
 
 // Configuration for the CertAuth server
-type Config struct {
+type ConfigCertAuth struct {
 	// If Development is true, we log more and use some default configuration options
 	Development bool
 
@@ -127,13 +127,13 @@ const templateStaticResources = "certauthserver/views/assets"
 //go:embed views/*
 var viewsfs embed.FS
 
-// New creates a new CertAuth server
-func New(
+// NewCertAuth creates a new CertAuth server
+func NewCertAuth(
 	db *database.Database,
 	authprocCache *cache.GenericCache[string, *models.AuthProcess],
 	ssoCache *cache.GenericCache[string, *models.SSOSession],
 	adminPassword string,
-	cfg *Config) (*CertAuthServer, error) {
+	cfg *ConfigCertAuth) (*CertAuthServer, error) {
 
 	// The engine to display the screens HTML screens to the users
 	htmlrender, err := html.NewRendererFiber(templateDebug, viewsfs, templateDirectory, templateExtension)
@@ -190,6 +190,7 @@ func New(
 	}
 
 	// Initialize the tmfservice
+	slog.Info("TMF server URL", "url", cfg.TMFServerURL)
 	tmfservice, err := tmfservice.NewTMFService(&tmfservice.TMFClientConfig{
 		BaseURL: cfg.TMFServerURL,
 		Timeout: 30,
