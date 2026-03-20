@@ -120,6 +120,10 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 		isEnglish = true
 	}
 
+	slog.Info("======== PROFILE ========")
+	slog.Info("======== PROFILE ========", "profile", s.profile)
+	slog.Info("======== PROFILE ========")
+
 	// Check if CertSec returned some error
 	certError := c.Query("error")
 	if certError != "" || authProcess.ErrorInProcess != nil {
@@ -190,6 +194,8 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 			} else {
 				slog.Info("TMF organizations deleted successfully", "auth_code", authCode)
 			}
+		} else {
+			slog.Info("TMF organizations not deleted (production mode)", "auth_code", authCode)
 		}
 
 		_, err = s.tmfService.TMFCreateOrganization("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", createOrg)
