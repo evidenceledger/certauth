@@ -152,7 +152,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 	}
 
 	// Check if the organization is already registered
-	email, _, _, err := s.db.GetRegistration(certData.OrganizationID)
+	email, formData, _, err := s.db.GetRegistration(certData.OrganizationID)
 	if err != nil {
 		return errl.Errorf("error retrieving registration email: %w", err)
 	}
@@ -164,6 +164,40 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 		powers, err := s.retrieveManagementPowers(certData)
 		if err != nil {
 			return errl.Errorf("error retrieving powers: %w", err)
+		}
+
+		// Register in the TMF server the new Organization
+		request := tmfservice.RegistrationRequest{
+			FirstName:     formData.RepresentativeName,
+			LastName:      "",
+			CompanyName:   formData.OrganizationName,
+			Country:       formData.OrganizationCountry,
+			VatId:         formData.OrganizationNif,
+			StreetAddress: formData.OrganizationAddress,
+			PostalCode:    "",
+			Email:         formData.RepresentativeEmail,
+		}
+
+		createOrg := tmfservice.TMFOrganizationFromRequest(request)
+
+		// If we are not in Production, delete all existing organizations
+		if s.profile != "production" {
+			slog.Info("Deleting TMF organizations", "auth_code", authCode, "vat_id", request.VatId)
+			err := s.tmfService.TMFDeleteAllOrganizationsByELSI("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", request.VatId)
+			if err != nil {
+				err = errl.Errorf("deleting TMF organizations: %w", err)
+				slog.Error(err.Error(), "auth_code", authCode)
+			} else {
+				slog.Info("TMF organizations deleted successfully", "auth_code", authCode)
+			}
+		}
+
+		_, err = s.tmfService.TMFCreateOrganization("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", createOrg)
+		if err != nil {
+			err = errl.Errorf("creating TMF organization: %w", err)
+			slog.Error(err.Error(), "auth_code", authCode)
+		} else {
+			slog.Info("TMF organization created successfully", "auth_code", authCode)
 		}
 
 		// Bypass certificate selection and return directly to caller
