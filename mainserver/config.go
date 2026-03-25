@@ -241,9 +241,10 @@ func LoadConfig() (*Config, string, error) {
 		},
 	}
 
+	// ISBE Pre-Production environment
 	var ISBE_PRE_CFG = Config{
 		Development:  true,
-		OnboardURL:   "https://onboard.pre.portal.redisbe.com",
+		OnboardURL:   "https://onboard-pre.evidenceledger.eu",
 		OnboardPort:  "8012",
 		PrivateArea:  "https://pre.portal.redisbe.com/",
 		TMFServerURL: "https://tmf-pre.evidenceledger.eu",
@@ -265,8 +266,8 @@ func LoadConfig() (*Config, string, error) {
 			RelyingParty: &models.RelyingParty{
 				Name:        "ISBE Keycloak in PRE",
 				Description: "The ISBE Keycloak in PRE application",
-				ClientID:    "https://idp.pre.cloud-w.envs.redisbe.com",
-				RedirectURL: "https://idp.pre.cloud-w.envs.redisbe.com/auth/realms/pre-isbe/broker/certificado-representante/endpoint",
+				ClientID:    "https://idp.pre.portal.redisbe.com",
+				RedirectURL: "https://idp.pre.portal.redisbe.com/auth/realms/pre-isbe/broker/certificado-representante/endpoint",
 				Scopes:      "openid eidas",
 				TokenExpiry: 3600,
 			},
@@ -277,7 +278,7 @@ func LoadConfig() (*Config, string, error) {
 				Name:        "ISBE Catalog PRE",
 				Description: "The ISBE Catalog application in PRE",
 				ClientID:    "https://catalog.isbeonboard.com",
-				RedirectURL: "https://catalog.pre.cloud-w.envs.redisbe.com/",
+				RedirectURL: "https://pre.catalog.redisbe.com/",
 				Scopes:      "openid eidas",
 				TokenExpiry: 3600,
 			},
