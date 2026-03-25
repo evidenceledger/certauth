@@ -244,7 +244,7 @@ func LoadConfig() (*Config, string, error) {
 	// ISBE Pre-Production environment
 	var ISBE_PRE_CFG = Config{
 		Development:  true,
-		OnboardURL:   "https://onboard-pre.evidenceledger.eu",
+		OnboardURL:   "https://onboard.pre.portal.redisbe.com",
 		OnboardPort:  "8012",
 		PrivateArea:  "https://pre.portal.redisbe.com/",
 		TMFServerURL: "https://tmf-pre.evidenceledger.eu",
