@@ -302,7 +302,7 @@ func LoadConfig() (*Config, string, error) {
 		OnboardURL:   "https://onboard.portal.redisbe.com",
 		OnboardPort:  "8012",
 		PrivateArea:  "https://portal.redisbe.com/",
-		TMFServerURL: "https://tmf-pro.evidenceledger.eu",
+		TMFServerURL: "https://tmf.portal.redisbe.com",
 		CertAuthConfig: &certauth.ConfigCertAuth{
 			Development:   false,
 			Profile:       certauth.ISBE_PRO,
@@ -316,6 +316,8 @@ func LoadConfig() (*Config, string, error) {
 			EUDSSURL:      defaultEUDSSURL,
 		},
 	}
+
+	// Set the predefined Relying Parties for ISBE PRO
 	ISBE_PRO_CFG.PredefinedRPs = []PredefinedRP{
 		{
 			RelyingParty: &models.RelyingParty{
