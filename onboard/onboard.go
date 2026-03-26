@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/evidenceledger/certauth/internal/cache"
 	"github.com/evidenceledger/certauth/internal/errl"
 	"github.com/evidenceledger/certauth/internal/html"
 	"github.com/evidenceledger/certauth/internal/models"
@@ -37,6 +38,12 @@ type Server struct {
 	verifier      *oidc.IDTokenVerifier
 	html          *html.RendererStd
 	privateArea   string
+	loginCache    *cache.GenericCache[string, *SSOSession]
+}
+
+type SSOSession struct {
+	State string `json:"state"`
+	Nonce string `json:"nonce"`
 }
 
 // isSecure checks if the server URL uses HTTPS
@@ -68,6 +75,9 @@ func New(internalPort, ourURL, providerURL, clientID, clientSecret, privateArea 
 		panic(err)
 	}
 
+	// Initialize the session cache
+	loginCache := cache.NewGeneric[string, *SSOSession](30 * time.Minute)
+
 	// Initialize the server
 	return &Server{
 		internalPort: internalPort,
@@ -78,6 +88,7 @@ func New(internalPort, ourURL, providerURL, clientID, clientSecret, privateArea 
 		clientSecret: clientSecret,
 		html:         htmlrender,
 		privateArea:  privateArea,
+		loginCache:   loginCache,
 	}
 }
 
@@ -234,16 +245,22 @@ func (s *Server) handleLoginOrRegister(w http.ResponseWriter, r *http.Request, l
 	// Generate nonce for replay protection
 	nonce := s.generateRandomString(32)
 
-	// Store state in session (in a real app, you'd use proper session management)
-	http.SetCookie(w, &http.Cookie{
-		Name:     "oauth_state",
-		Value:    state,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   s.isSecure(), // Only use Secure flag when using HTTPS
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   300, // 5 minutes
-	})
+	// Store state in the login cache
+	s.loginCache.Set(state, &SSOSession{
+		State: state,
+		Nonce: nonce,
+	}, 0)
+
+	// // Store state in session (in a real app, you'd use proper session management)
+	// http.SetCookie(w, &http.Cookie{
+	// 	Name:     "oauth_state",
+	// 	Value:    state,
+	// 	Path:     "/",
+	// 	HttpOnly: true,
+	// 	Secure:   s.isSecure(), // Only use Secure flag when using HTTPS
+	// 	SameSite: http.SameSiteLaxMode,
+	// 	MaxAge:   300, // 5 minutes
+	// })
 
 	// Redirect to the OP for authentication
 	if login {
@@ -274,24 +291,37 @@ func (s *Server) handleCallback(w http.ResponseWriter, r *http.Request) {
 	autherror := r.URL.Query().Get("error")
 	errorDescription := r.URL.Query().Get("error_description")
 
-	// Validate that the state we received is the same as the one we sent
-	cookieState, err := r.Cookie("oauth_state")
-	if err != nil || cookieState.Value != state {
-		slog.Error("Invalid state parameter", "error", err)
+	// Check that the state exists in our login cache
+	loginSession, found := s.loginCache.Get(state)
+	if !found {
+		slog.Error("Invalid state parameter", "error", "state not found in login cache")
+		http.Error(w, "Invalid state parameter", http.StatusBadRequest)
+		return
+	}
+	if loginSession.State != state {
+		slog.Error("Invalid state parameter", "error", "state not found in login cache")
 		http.Error(w, "Invalid state parameter", http.StatusBadRequest)
 		return
 	}
 
-	// Clear state cookie, as the authentication flow has finished
-	http.SetCookie(w, &http.Cookie{
-		Name:     "oauth_state",
-		Value:    "",
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   s.isSecure(), // Only use Secure flag when using HTTPS
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   -1,
-	})
+	// // Validate that the state we received is the same as the one we sent
+	// cookieState, err := r.Cookie("oauth_state")
+	// if err != nil || cookieState.Value != state {
+	// 	slog.Error("Invalid state parameter", "error", err)
+	// 	http.Error(w, "Invalid state parameter", http.StatusBadRequest)
+	// 	return
+	// }
+
+	// // Clear state cookie, as the authentication flow has finished
+	// http.SetCookie(w, &http.Cookie{
+	// 	Name:     "oauth_state",
+	// 	Value:    "",
+	// 	Path:     "/",
+	// 	HttpOnly: true,
+	// 	Secure:   s.isSecure(), // Only use Secure flag when using HTTPS
+	// 	SameSite: http.SameSiteLaxMode,
+	// 	MaxAge:   -1,
+	// })
 
 	if autherror != "" {
 		slog.Error("RP OIDC error received", "error", autherror, "description", errorDescription)
@@ -306,7 +336,7 @@ func (s *Server) handleCallback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// Exchange the authorization code for an access_token and an ID_token
-	oauth2Token, err = s.oauth2Config.Exchange(ctx, code)
+	oauth2Token, err := s.oauth2Config.Exchange(ctx, code)
 	if err != nil {
 		slog.Error("RP token exchange error received", "error", autherror, "description", errorDescription)
 		s.renderErrorPage(w, r, autherror, errorDescription)
