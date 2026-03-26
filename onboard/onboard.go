@@ -360,8 +360,8 @@ func (s *Server) handleCallback(w http.ResponseWriter, r *http.Request) {
 	// Redirect to home page
 	// http.Redirect(w, r, "/", http.StatusFound)
 
-	slog.Info("Redirecting to private area", "path", s.ourURL, "state", state)
-	redirectPath := s.ourURL
+	slog.Info("Redirecting to private area", "path", s.privateArea, "state", state)
+	redirectPath := s.privateArea
 	if strings.HasPrefix(state, "en_") {
 		redirectPath = redirectPath + "/en"
 	}
