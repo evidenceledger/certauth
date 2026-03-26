@@ -43,13 +43,13 @@ type Server struct {
 // It initializes the database, cache, CertAuth, CertSec and Onboard servers.
 func New(adminPassword string, cfg Config) (*Server, error) {
 
-	// Create a global in-memory cache for authentication processes with a default expiration time of 10 minutes
+	// Create a global in-memory cache for authentication processes with a default expiration time of 30 minutes
 	// TODO(hesusruiz): make this configurable
-	authprocCache := cache.NewGeneric[string, *models.AuthProcess](10 * time.Minute)
+	authprocCache := cache.NewGeneric[string, *models.AuthProcess](30 * time.Minute)
 
-	// Create a global in-memory cache for SSO sessions with a default expiration time of 10 minutes
+	// Create a global in-memory cache for SSO sessions with a default expiration time of 30 minutes
 	// TODO(hesusruiz): make this configurable
-	ssoCache := cache.NewGeneric[string, *models.SSOSession](10 * time.Minute)
+	ssoCache := cache.NewGeneric[string, *models.SSOSession](30 * time.Minute)
 
 	// Initialize database with the default name
 	db, err := database.New("")
