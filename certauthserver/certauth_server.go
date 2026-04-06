@@ -68,6 +68,9 @@ type ConfigCertAuth struct {
 
 	// The URL for the TM Forum server
 	TMFServerURL string
+
+	// The admin token used to authenticate the superadmin to the TMF server
+	AdminToken string
 }
 
 // CertAuthServer represents the CertAuth server
@@ -117,6 +120,9 @@ type CertAuthServer struct {
 
 	// The TMF service
 	tmfService *tmfservice.TMFService
+
+	// The admin token used to authenticate the superadmin in the TMF server
+	adminToken string
 }
 
 const templateDebug = true

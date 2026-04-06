@@ -399,6 +399,10 @@ func LoadConfig() (*Config, string, error) {
 		return nil, "", errl.Errorf("admin password required")
 	}
 
+	// Get the ISBETMF_ADMIN_TOKEN from environment variable. This is used to authenticate with the TMF server.
+	adminToken := GetStringEnvOrDefault("ISBETMF_ADMIN_TOKEN", "eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX")
+	cfg.CertAuthConfig.AdminToken = adminToken
+
 	// Check for override of the CertAuth server URL and port
 	cfg.CertAuthConfig.CertAuthURL = GetStringEnvOrDefault("CERTAUTH_URL", cfg.CertAuthConfig.CertAuthURL)
 	cfg.CertAuthConfig.CertAuthPort = GetStringEnvOrDefault("CERTAUTH_PORT", cfg.CertAuthConfig.CertAuthPort)

@@ -163,7 +163,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 
 	if email != "" {
 
-		// The organization is already registered, bypass certificate and email validation
+		// The organization is already registered, bypass email validation
 		//But first we have to retrieve the powers of the user
 		powers, err := s.retrieveManagementPowers(certData)
 		if err != nil {
@@ -206,8 +206,8 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 			slog.Info("TMF organization created successfully", "auth_code", authCode)
 		}
 
-		// Bypass certificate selection and return directly to caller
-		slog.Debug("bypass certificate selection", "code", authProcess.Code, "redirect_uri", authProcess.RedirectURI)
+		// Bypass email validation and return directly to caller
+		slog.Debug("bypass email validation", "code", authProcess.Code, "redirect_uri", authProcess.RedirectURI)
 
 		// Store email of the user in the authProcess struct
 		authProcess.Email = email
