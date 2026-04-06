@@ -64,7 +64,7 @@ func NewService(cfg *EmailConfig) (*Service, error) {
 		smtpPort:     cfg.SMTPPort,
 		smtpUsername: cfg.User,
 		smtpPassword: cfg.Password,
-		fromEmail:    cfg.Email,
+		fromEmail:    "hello@redisbe.com",
 		fromName:     cfg.User,
 		htmlrender:   htmlrender,
 	}, nil
@@ -92,11 +92,7 @@ func (s *Service) SendVerificationEmail(toEmail string, verificationCode string)
 
 	// Send the email
 	subject := "Verificación de correo electrónico - Red ISBE"
-	if s.smtpUsername == "api.postmarkapp.com" {
-		return s.sendPostmarkEmail(toEmail, subject, body.String())
-	} else {
-		return s.sendEmail(toEmail, subject, body.String())
-	}
+	return s.sendPostmarkEmail(toEmail, subject, body.String())
 }
 
 func (s *Service) sendPostmarkEmail(toEmail string, subject string, body string) error {
@@ -125,6 +121,8 @@ func (s *Service) sendPostmarkEmail(toEmail string, subject string, body string)
 		"HtmlBody":      body,
 		"MessageStream": "outbound",
 	}
+	slog.Debug("Postmark payload", "from", s.fromEmail, "to", toEmail, "subject", subject)
+	slog.Debug("Postmark token", "token", s.smtpPassword)
 
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
