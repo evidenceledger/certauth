@@ -47,7 +47,7 @@ func TestEmailService_ValidateEmail(t *testing.T) {
 func TestEmailService_SendVerificationEmail(t *testing.T) {
 	cfg := &EmailConfig{
 		User:     "api.postmarkapp.com",
-		Password: "62229006-89c6-403a-82ee-66bb08ea520e",
+		Password: "62329006-89d6-403a-82ee-66bc08ea520e",
 		Email:    "hello@redisbe.com",
 		SMTP:     "smtp.serviciodecorreo.es",
 	}
