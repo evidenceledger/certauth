@@ -2,10 +2,13 @@
 package email
 
 import (
+	"bytes"
 	"crypto/tls"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"net/smtp"
 	"strings"
 	"time"
@@ -89,7 +92,65 @@ func (s *Service) SendVerificationEmail(toEmail string, verificationCode string)
 
 	// Send the email
 	subject := "Verificación de correo electrónico - Red ISBE"
-	return s.sendEmail(toEmail, subject, body.String())
+	if s.smtpUsername == "api.postmarkapp.com" {
+		return s.sendPostmarkEmail(toEmail, subject, body.String())
+	} else {
+		return s.sendEmail(toEmail, subject, body.String())
+	}
+}
+
+func (s *Service) sendPostmarkEmail(toEmail string, subject string, body string) error {
+
+	// Send a POST to the Postmark API to send an email.
+	// The POST is like this below, where the 'X-Postmark-Server-Token' is the 'smtpPassword' in the config.
+	//
+	// POST https://api.postmarkapp.com/email
+	// X-Postmark-Server-Token: uwewe23nn8dn2d2b2n22
+	// Accept: application/json
+	// Content-Type: application/json
+	//
+	// {
+	//   "From": "hello@redisbe.com",
+	//   "To": "jesus@alastria.io",
+	//   "Subject": "Postmark test",
+	//   "TextBody": "Hello dear Postmark user.",
+	//   "HtmlBody": "<html><body><strong>Hello</strong> dear Postmark user.</body></html>",
+	//   "MessageStream": "outbound"
+	// }
+
+	payload := map[string]string{
+		"From":          s.fromEmail,
+		"To":            toEmail,
+		"Subject":       subject,
+		"HtmlBody":      body,
+		"MessageStream": "outbound",
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return errl.Errorf("failed to marshal postmark payload: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, "https://api.postmarkapp.com/email", bytes.NewReader(payloadBytes))
+	if err != nil {
+		return errl.Errorf("failed to create postmark request: %w", err)
+	}
+	req.Header.Set("X-Postmark-Server-Token", s.smtpPassword)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return errl.Errorf("failed to send postmark request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return errl.Errorf("postmark API returned non-2xx status: %d", resp.StatusCode)
+	}
+
+	slog.Info("Postmark email sent", "to", toEmail)
+	return nil
 }
 
 // sendEmail sends an email using SMTP

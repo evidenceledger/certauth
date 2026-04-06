@@ -46,12 +46,10 @@ func TestEmailService_ValidateEmail(t *testing.T) {
 
 func TestEmailService_SendVerificationEmail(t *testing.T) {
 	cfg := &EmailConfig{
-		User:     "register@redisbe.com",
-		Password: "RegisterRedIsbe@2025",
-		Email:    "register@redisbe.com",
+		User:     "api.postmarkapp.com",
+		Password: "62229006-89c6-403a-82ee-66bb08ea520e",
+		Email:    "hello@redisbe.com",
 		SMTP:     "smtp.serviciodecorreo.es",
-		SMTPPort: "465",
-		IMAP:     "imap.serviciodecorreo.es",
 	}
 
 	service, err := NewService(cfg)
