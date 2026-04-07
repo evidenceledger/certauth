@@ -135,8 +135,8 @@ func LoadConfig() (*Config, string, error) {
 		Development:  true,
 		OnboardURL:   "https://onboard-dev.redisbe.com",
 		OnboardPort:  "8012",
-		PrivateArea:  "https://poc-front.dev.cloud-w.envs.redisbe.com/",
-		TMFServerURL: "https://tmf.evidenceledger.eu/",
+		PrivateArea:  "https://poc-front.dev.cloud-w.envs.redisbe.com",
+		TMFServerURL: "https://tmf.dev.portal.redisbe.com",
 		CertAuthConfig: &certauth.ConfigCertAuth{
 			Development:   true,
 			Profile:       certauth.ALTIA_DEV,
@@ -188,16 +188,16 @@ func LoadConfig() (*Config, string, error) {
 
 	var ISBE_DEV_CFG = Config{
 		Development:  true,
-		OnboardURL:   "https://onboard.dev.cloud-w.envs.redisbe.com",
+		OnboardURL:   "https://onboard-dev.redisbe.com",
 		OnboardPort:  "8012",
-		PrivateArea:  "https://poc-front.dev.cloud-w.envs.redisbe.com/",
-		TMFServerURL: "https://tmf.dev.cloud-w.envs.redisbe.com/tmf-api",
+		PrivateArea:  "https://poc-front.dev.cloud-w.envs.redisbe.com",
+		TMFServerURL: "https://tmf.dev.portal.redisbe.com",
 		CertAuthConfig: &certauth.ConfigCertAuth{
 			Development:   true,
 			Profile:       certauth.ISBE_DEV,
-			CertAuthURL:   "https://certauth.dev.cloud-w.envs.redisbe.com",
+			CertAuthURL:   "https://certauth-dev.redisbe.com",
 			CertAuthPort:  "8010",
-			CertSecURL:    "https://certsec.dev.cloud-w.envs.redisbe.com",
+			CertSecURL:    "https://certsec.evidenceledger.eu",
 			CertSecPort:   "8011",
 			TSAConfig:     defaultTsaConfig,
 			EmailConfig:   defaultEmailConfig,
