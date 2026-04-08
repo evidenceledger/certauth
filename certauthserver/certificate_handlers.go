@@ -153,6 +153,24 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 		slog.Warn("Certificate validation failed (proceeding in test/demo mode)", "error", err, "subject", certData.Subject)
 		// In test/demo mode, we allow non-eIDAS certificates to proceed
 		// The UI will show a warning that the certificate is not eIDAS compliant
+		if s.profile == ISBE_PRO || s.profile == ISBE_PRE {
+			// Present the screen
+			templateName := "cert_received_error"
+			postAction := sendEmailVerificationEndpoint
+			if isEnglish {
+				templateName = "cert_received_error_n"
+				postAction += "/en"
+			}
+			return s.htmlRender.Render(c, templateName, fiber.Map{
+				"authCode":    authCode,
+				"authCodeObj": authProcess,
+				"certData":    certData,
+				"certType":    certData.CertificateType,
+				"subject":     certData.Subject,
+				"postAction":  postAction,
+				"production":  s.profile == ISBE_PRO,
+			})
+		}
 	}
 
 	// Check if the organization is already registered
@@ -239,6 +257,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 		"certType":    certData.CertificateType,
 		"subject":     certData.Subject,
 		"postAction":  postAction,
+		"production":  s.profile == ISBE_PRO,
 	})
 
 }
@@ -296,6 +315,12 @@ func VerifyCertificate(data string, url string) ([]byte, error) {
 	simpleCertificateReport := jpath.GetMap(respMap, "simpleCertificateReport")
 	if simpleCertificateReport == nil {
 		return nil, errl.Errorf("simpleCertificateReport not found in EUDSS response")
+	}
+
+	// Get the indication from the simpleCertificateReport object
+	indication := jpath.GetString(simpleCertificateReport, "Certificate.Indication")
+	if indication != "PASSED" {
+		return nil, errl.Errorf("certificate is not eIDAS compliant")
 	}
 
 	// Get the ChainItem array
