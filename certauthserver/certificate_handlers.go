@@ -23,6 +23,9 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+
+	"github.com/carlos7ags/folio/document"
+	"github.com/carlos7ags/folio/html"
 )
 
 const (
@@ -153,7 +156,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 		slog.Warn("Certificate validation failed (proceeding in test/demo mode)", "error", err, "subject", certData.Subject)
 		// In test/demo mode, we allow non-eIDAS certificates to proceed
 		// The UI will show a warning that the certificate is not eIDAS compliant
-		if s.profile == ISBE_PRO || s.profile == ISBE_PRE {
+		if s.profile == ISBE_PRO {
 			// Present the screen
 			templateName := "cert_received_error"
 			postAction := sendEmailVerificationEndpoint
@@ -646,6 +649,44 @@ func (s *CertAuthServer) pagePresentContractForAcceptance(c *fiber.Ctx) error {
 
 }
 
+func (s *CertAuthServer) getContract(authCode string, authProcess *models.AuthProcess, formData *models.ContractForm, isEnglish bool) ([]byte, error) {
+
+	// Render the certificate consent template
+	templateName := "contract_download"
+	postAction := contractAcceptedEndpoint
+	if isEnglish {
+		templateName = "contract_download_en"
+		postAction += "/en"
+	}
+	b, err := s.htmlRender.RenderToBuffer(templateName, fiber.Map{
+		"authCode":    authCode,
+		"authCodeObj": authProcess,
+		"formData":    formData,
+		"postAction":  postAction,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Save the html to a file for debugging
+	err = os.WriteFile("contract.html", b.Bytes(), 0644)
+	if err != nil {
+		return nil, err
+	}
+
+	doc := document.NewDocument(document.PageSizeA4)
+	elems, _ := html.Convert(b.String(), nil)
+	for _, e := range elems {
+		doc.Add(e)
+	}
+	pdf, err := doc.ToBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	return pdf, nil
+}
+
 // handleContractAccepted is the last step, after the user has given consent to proceed.
 // We then generate the SSO cookie and redirect to the RP with the auth code.
 // The RP will eventually exchange the auth code for ID and access tokens, which will contain user and certificate data.
@@ -747,6 +788,12 @@ func (s *CertAuthServer) handleContractAccepted(c *fiber.Ctx) error {
 		err = errl.Errorf("creating TMF organization: %w", err)
 		slog.Error(err.Error(), "auth_code", authCode)
 	}
+
+	// fileToSend, err := s.getContract(authCode, authProcess, &formData, isEnglish)
+	// if err != nil {
+	// 	err = errl.Errorf("getting contract: %w", err)
+	// 	slog.Error(err.Error(), "auth_code", authCode)
+	// }
 
 	fileToSend := []byte(contrato)
 
