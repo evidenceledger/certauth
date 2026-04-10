@@ -20,6 +20,14 @@ RUN go build -ldflags="-w -s" -o /certauth .
 # Final stage
 FROM alpine/curl:latest
 
+# Install weasyprint and a basic font set (required for text rendering)
+RUN apk add --no-cache \
+    weasyprint \
+    ttf-dejavu
+
+# Verify installation
+RUN weasyprint --version
+
 WORKDIR /
 COPY --from=builder /certauth /certauth
 RUN chmod +x /certauth
