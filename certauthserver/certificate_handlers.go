@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/evidenceledger/certauth/contract"
 	"github.com/evidenceledger/certauth/internal/errl"
 	"github.com/evidenceledger/certauth/internal/jpath"
 	"github.com/evidenceledger/certauth/internal/models"
@@ -203,7 +204,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 			Email:         formData.RepresentativeEmail,
 		}
 
-		createOrg := tmfservice.TMFOrganizationFromRequest(request)
+		createOrg := tmfservice.TMFOrganizationFromRequest(request, nil)
 
 		// If we are not in Production, delete all existing organizations
 		if s.profile != "production" {
@@ -759,6 +760,16 @@ func (s *CertAuthServer) handleContractAccepted(c *fiber.Ctx) error {
 
 	}
 
+	// Generate the PDF contract
+	fileToSend, err := contract.Generate(&formData)
+	if err != nil {
+		err = errl.Errorf("generating contract: %w", err)
+		slog.Error(err.Error(), "auth_code", authCode)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
 	// Register in the TMF server the new Organization
 	request := tmfservice.RegistrationRequest{
 		FirstName:     formData.RepresentativeName,
@@ -771,7 +782,9 @@ func (s *CertAuthServer) handleContractAccepted(c *fiber.Ctx) error {
 		Email:         formData.RepresentativeEmail,
 	}
 
-	createOrg := tmfservice.TMFOrganizationFromRequest(request)
+	createOrg := tmfservice.TMFOrganizationFromRequest(request, fileToSend)
+
+	// Set the atachment in the identification section
 
 	// If we are not in Production, delete all existing organizations
 	if s.profile != "production" {
@@ -789,16 +802,8 @@ func (s *CertAuthServer) handleContractAccepted(c *fiber.Ctx) error {
 		slog.Error(err.Error(), "auth_code", authCode)
 	}
 
-	// fileToSend, err := s.getContract(authCode, authProcess, &formData, isEnglish)
-	// if err != nil {
-	// 	err = errl.Errorf("getting contract: %w", err)
-	// 	slog.Error(err.Error(), "auth_code", authCode)
-	// }
-
-	fileToSend := []byte(contrato)
-
 	// Notify the contract management system that the registration is complete
-	if powers, err := s.notifyManagement(authProcess.CertificateData, storedEmail, &formData, fileToSend); err != nil {
+	if powers, err := s.notifyManagement(&formData, fileToSend); err != nil {
 		err = errl.Errorf("notifying management: %w", err)
 		slog.Error(err.Error(), "auth_code", authCode)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -847,7 +852,7 @@ func (s *CertAuthServer) handleContractAccepted(c *fiber.Ctx) error {
 
 }
 
-func (s *CertAuthServer) notifyManagement(certData *models.CertificateData, email string, contractForm *models.ContractForm, fileToSend []byte) (string, error) {
+func (s *CertAuthServer) notifyManagement(contractForm *models.ContractForm, fileToSend []byte) (string, error) {
 
 	organizationIdentifier := contractForm.OrganizationNif
 
@@ -905,11 +910,11 @@ func (s *CertAuthServer) notifyManagement(certData *models.CertificateData, emai
 		return "", fmt.Errorf("failed to write selected_role: %w", err)
 	}
 
-	// 3. Add Contract File (fileToSend). The file is an HTML file.
-	// Using "contract" as the field name and "contract.html" as the filename
+	// 3. Add Contract File (fileToSend). The file is a PDF file.
+	// Using "contract" as the field name and "contract.pdf" as the filename
 	h := make(textproto.MIMEHeader)
-	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "contract", "contract.html"))
-	h.Set("Content-Type", "text/html")
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "contract", "contract.pdf"))
+	h.Set("Content-Type", "application/pdf")
 	part, err := writer.CreatePart(h)
 	if err != nil {
 		return "", fmt.Errorf("failed to create form part: %w", err)
