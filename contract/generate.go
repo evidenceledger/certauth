@@ -2,6 +2,7 @@ package contract
 
 import (
 	"bytes"
+	"embed"
 	_ "embed"
 	"html/template"
 	"log"
@@ -14,13 +15,13 @@ import (
 // Use embed to process the templates
 
 //go:embed html/templates/*.hbs
-var templates string
+var templates embed.FS
 
 var tmpl *template.Template
 
 func init() {
 	var err error
-	tmpl, err = template.New("contract").Parse(templates)
+	tmpl, err = template.New("contract").ParseFS(templates, "html/templates/*.hbs")
 	if err != nil {
 		log.Fatalf("error parsing templates: %v", err)
 	}
