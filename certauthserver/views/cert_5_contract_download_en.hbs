@@ -1,4 +1,4 @@
-{{define "contract_print"}}
+{{define "contract_download_en"}}
 {{template "preamble"}}
 {{template "logobar"}}
 
@@ -69,32 +69,32 @@
         <div class="ui five ordered stackable steps">
             <div class="completed step">
                 <div class="content">
-                    <div class="title">Certificado</div>
-                    <div class="description">Seleccionar certificado</div>
+                    <div class="title">Certificate</div>
+                    <div class="description">Select certificate</div>
                 </div>
             </div>
             <div class="completed step">
                 <div class="content">
                     <div class="title">Email</div>
-                    <div class="description">Proporcionar email</div>
+                    <div class="description">Provide email</div>
                 </div>
             </div>
             <div class="completed step">
                 <div class="content">
-                    <div class="title">Verificar Email</div>
-                    <div class="description">Introducir código</div>
+                    <div class="title">Verify Email</div>
+                    <div class="description">Enter code</div>
                 </div>
             </div>
             <div class="completed step">
                 <div class="content">
-                    <div class="title">Contrato</div>
-                    <div class="description">Completar datos</div>
+                    <div class="title">Contract</div>
+                    <div class="description">Fill out data</div>
                 </div>
             </div>
             <div class="active step">
                 <div class="content">
-                    <div class="title">Completado</div>
-                    <div class="description">Revisar y aceptar contrato</div>
+                    <div class="title">Completed</div>
+                    <div class="description">Review and accept contract</div>
                 </div>
             </div>
         </div>
@@ -107,50 +107,51 @@
 
         <div class="ui raised segment" style="border-radius:1rem">
 
-            <h1 id="contrato-marco-de-adhesión-a-la-red-isbe"><strong>CONTRATO MARCO DE ADHESIÓN A LA RED ISBE</strong>
+            <h1 id="contrato-marco-de-adhesión-a-la-red-isbe"><strong>MASTER AGREEMENT FOR ACCESSION TO THE ISBE
+                    NETWORK</strong>
             </h1>
 
-            <p>En Madrid, a {{ .TodayDay }} de {{ .TodayMonth }} de {{ .TodayYear }}</p>
+            <p>In Madrid, on {{ .TodayDay }} of {{ .TodayMonth }} of {{ .TodayYear }}</p>
             <input type="hidden" name="today_day" value="{{ .TodayDay }}">
             <input type="hidden" name="today_month" value="{{ .TodayMonth }}">
             <input type="hidden" name="today_year" value="{{ .TodayYear }}">
 
-            <h2 class="text-center"><strong>REUNIDOS</strong></h2>
+            <h2 class="text-center"><strong>BY AND BETWEEN</strong></h2>
 
             <!-- IDENTIFICACION ALASTRIA -->
-            <p>De una parte, Asociación Consorcio Red Alastria, con domicilio social en
+            <p>On one part, Asociación Consorcio Red Alastria, with registered office at
                 C/ Alberto Aguilera, 23 (Universidad Pontificia de Comillas-ICADE), 28015-Madrid
-                (España), y con N.I.F. número G87936159, inscrita en la Sección Primera del Registro
-                Nacional de Asociaciones con el número 616096, y teléfono +34 683 49 37 48
-                (en adelante “Alastria” o la “Asociación”).
+                (Spain), and with N.I.F. number G87936159, registered in the First Section of the National
+                Register of Associations with number 616096, and phone +34 683 49 37 48
+                (hereinafter "Alastria" or the "Association").
             </p>
 
             <!-- IDENTIFICACION PARTICIPANTE -->
-            <p>Y de otra parte, {{ .OrganizationName }},
-                persona jurídica constituida conforme a las leyes de
-                {{ $.countryName }},
-                con domicilio social en
+            <p>And on the other part, {{ .OrganizationName }},
+                legal entity incorporated in accordance with the laws of
+                {{ .OrganizationCountry }},
+                with registered office at
                 {{ .OrganizationAddress }}
-                y N.I.F. número
+                and N.I.F. number
                 {{ .OrganizationNif }},
-                inscrita en el Registro Mercantil de
+                registered in the Mercantile Registry of
                 {{ .RegistryName }}
-                al tomo
+                volume
                 {{ .RegistryVolume }}, folio
-                {{ .RegistryFolio }}, hoja
+                {{ .RegistryFolio }}, sheet
                 {{ .RegistrySheet }},
-                representada en este acto por
+                represented in this act by
                 {{ .RepresentativeTitle }}
                 {{ .RepresentativeName }},
-                con correo electrónico
+                with email address
                 {{ .RepresentativeEmail }},
-                según acredita mediante escritura otorgada ante el Notario de
+                as accredited by deed executed before the Notary of
                 {{ .NotaryCity }},
-                {{ .NotaryTitle }} {{ .NotaryName }}, el {{ .NotaryDay }} de
+                {{ .NotaryTitle }} {{ .NotaryName }}, on the {{ .NotaryDay }} of
                 {{ .NotaryMonth }},
-                {{ .NotaryYear }}, con el número
-                {{ .NotaryProtocolNumber }} de su protocolo
-                (en adelante, el “<strong>Participante</strong>”).
+                {{ .NotaryYear }}, with number
+                {{ .NotaryProtocolNumber }} of their protocol
+                (hereinafter, the "<strong>Participant</strong>").
                 <input type="hidden" name="organization_name" value="{{ .OrganizationName }}">
                 <input type="hidden" name="organization_country" value="{{ .OrganizationCountry }}">
                 <input type="hidden" name="organization_address" value="{{ .OrganizationAddress }}">
@@ -171,97 +172,97 @@
                 <input type="hidden" name="notary_protocol_number" value="{{ .NotaryProtocolNumber }}">
             </p>
 
-            <p>Ambas partes, en adelante denominadas conjuntamente como “<strong>las Partes</strong>”,
-                reconocen tener la capacidad jurídica y de obrar necesaria y suficiente para
-                contratar y obligarse en la representación que ostentan, en especial para
-                formalizar el presente Contrato Marco de Adhesión a la red ISBE. Reconociéndose
-                mutuamente tal capacidad, los comparecientes,
+            <p>Both parties, hereinafter jointly referred to as "<strong>the Parties</strong>",
+                acknowledge having the legal capacity to act necessary and sufficient to
+                contract and bind themselves in the representation they hold, especially to
+                formalize this Master Agreement for Accession to the ISBE network. Mutually acknowledging
+                such capacity, the appearing parties,
             </p>
 
             <!-- EXPOSICION DE LOS MOTIVOS DEL CONTRATO -->
 
-            <h2 class="text-center"><strong>EXPONEN</strong></h2>
+            <h2 class="text-center"><strong>STATE</strong></h2>
 
             <ol type="I">
                 <li>
-                    <p>Que ISBE es una infraestructura de blockchain
-                        público-permisionada de ámbito nacional, cuya gobernanza explícita y
-                        sistema de niveles de participación garantizan un equilibrio entre la
-                        apertura del ecosistema y los requisitos de seguridad, resiliencia y
-                        cumplimiento jurídico.</p>
+                    <p>That ISBE is a public-permissioned blockchain infrastructure
+                        of national scope, whose explicit governance and
+                        participation tier system guarantee a balance between the
+                        openness of the ecosystem and the requirements for security, resilience and
+                        legal compliance.</p>
                 </li>
                 <li>
-                    <p>Que la red ISBE opera bajo un modelo público-permisionado, lo que
-                        significa que, si bien se trata de una infraestructura abierta y
-                        colaborativa, el acceso a ciertas funcionalidades está restringido a
-                        participantes autorizados según su nivel de participación (el
-                        “<strong>Nivel de Participación</strong>”). El ecosistema se estructura
-                        en los siguientes Niveles de Participación :</p>
+                    <p>That the ISBE network operates under a public-permissioned model, which
+                        means that, although it is an open and
+                        collaborative infrastructure, access to certain functionalities is restricted to
+                        authorized participants according to their level of participation (the
+                        "<strong>Participation Level</strong>"). The ecosystem is structured
+                        in the following Participation Levels:</p>
 
                     <ol type="a">
                         <li>
-                            <p>Nivel 0: Participante Básico.</p>
+                            <p>Level 0: Basic Participant.</p>
                         </li>
                         <li>
-                            <p>Nivel 1: Observador.</p>
+                            <p>Level 1: Observer.</p>
                         </li>
                         <li>
-                            <p>Nivel 2: Proveedor de Servicios.</p>
+                            <p>Level 2: Service Provider.</p>
                         </li>
                         <li>
-                            <p>Nivel 3: Validador.</p>
+                            <p>Level 3: Validator.</p>
                         </li>
                     </ol>
                 </li>
                 <li>
-                    <p>Que cada uno de los referidos Niveles de Participación tiene unas
-                        capacidades operativas y responsabilidades específicas dentro de la red
-                        ISBE, siendo acumulativos y evolutivos, pudiendo el Participante
-                        ostentar simultáneamente más de un Nivel de Participación, de acuerdo
-                        con las funciones que desempeñe en la red y las capacidades operativas y
-                        responsabilidades asociadas a cada Nivel de Participación. Por ejemplo,
-                        un Participante puede actuar simultáneamente como Validador y Proveedor
-                        de Servicios, cumpliendo las obligaciones correspondientes a ambos
-                        Niveles de Participación.</p>
+                    <p>That each of the referred Participation Levels has specific
+                        operational capabilities and responsibilities within the ISBE
+                        network, being cumulative and evolutionary, the Participant being able to
+                        simultaneously hold more than one Participation Level, in accordance
+                        with the functions it performs in the network and the operational capabilities and
+                        responsibilities associated with each Participation Level. For example,
+                        a Participant can simultaneously act as a Validator and Service Provider,
+                        complying with the obligations corresponding to both
+                        Participation Levels.</p>
                 </li>
                 <li>
-                    <p>Que la relación jurídica entre el Participante y la Entidad
-                        Gestora (según dicho término queda definido más adelante) se articula a
-                        través de la siguiente estructura contractual:</p>
+                    <p>That the legal relationship between the Participant and the Managing
+                        Entity (as such term is defined below) is articulated through
+                        the following contractual structure:</p>
 
                     <ul>
                         <li>
-                            <p>Mediante la suscripción del presente Contrato Marco, el
-                                Participante adquiere la condición de Participante Básico y acepta las
-                                condiciones generales y políticas de ISBE aplicables a todos los
-                                miembros de la red ISBE.</p>
+                            <p>Through the subscription of this Master Agreement, the
+                                Participant acquires the status of Basic Participant and accepts the
+                                general conditions and ISBE policies applicable to all
+                                members of the ISBE network.</p>
                         </li>
                         <li>
-                            <p>Para optar a cualquier otro Nivel de Participación superior
-                                (<em>i.e.</em> Observador, Proveedor de Servicios y/o Validador), el
-                                Participante deberá suscribir el anexo correspondiente a dicho Nivel de
-                                Participación que acompaña el presente Contrato Marco. Cada anexo
-                                detallará las facultades, obligaciones y limitaciones propias de ese
-                                Nivel de Participación, evitando la necesidad de firmar nuevos contratos
-                                independientes en caso de que el Participante quiera modificar su Nivel
-                                de Participación.</p>
+                            <p>To opt for any other higher Participation Level
+                                (<em>i.e.</em> Observer, Service Provider and/or Validator), the
+                                Participant must sign the annex corresponding to said Participation Level
+                                that accompanies this Master Agreement. Each annex
+                                will detail the powers, obligations and limitations specific to that
+                                Participation Level, avoiding the need to sign new independent contracts
+                                in case the Participant wants to modify their Participation
+                                Level.</p>
 
-                            <p>La adhesión del Participante a un anexo se realizará únicamente una
-                                vez cumplidos los requisitos aplicables al Nivel de Participación
-                                correspondiente y seguirá los procedimientos de solicitud establecidos
-                                por la gobernanza de ISBE.</p>
+                            <p>The accession of the Participant to an annex will be made only
+                                once the requirements applicable to the corresponding Participation Level are met
+                                and will follow the application procedures established
+                                by ISBE governance.</p>
 
                         </li>
                     </ul>
 
                 </li>
                 <li>
-                    <p>Que, habiendo llegado ambas partes a un acuerdo respecto a la
-                        colaboración del Participante en la red ISBE conforme a lo indicado en
-                        los expositivos anteriores, las Partes formalizan el presente
-                        <strong>CONTRATO MARCO DE ADHESIÓN A LA RED ISBE</strong> (el
-                        “<strong>Contrato Marco</strong>”), que se regirá con arreglo y sujeción
-                        a las siguientes,
+                    <p>That, both parties having reached an agreement regarding the
+                        collaboration of the Participant in the ISBE network according to the foregoing
+                        recitals, the Parties formalize this
+                        <strong>MASTER AGREEMENT FOR ACCESSION TO THE ISBE NETWORK</strong> (the
+                        "<strong>Master Agreement</strong>"), which will be governed in accordance with and subject
+                        to the following,
                     </p>
                 </li>
             </ol>
@@ -269,12 +270,12 @@
             <!-- ESTIPULACIONES -->
             <div class="ui blue segment">
 
-                {{template "estipulaciones" .}}
+                {{template "estipulaciones_en" .}}
 
                 <div class="ui positive message">
                     <div class="ui large checkbox">
                         <input type="checkbox" disabled {{if .ContractCheckBase}}checked{{end}}>
-                        <label>Acepto las estipulaciones del contrato marco</label>
+                        <label>I accept the stipulations of the master agreement</label>
                         <input type="hidden" name="contract_base" value="{{ .ContractCheckBase }}">
                     </div>
                 </div>
@@ -285,26 +286,26 @@
 
         <div class="ui raised segment" style="border-radius:1rem">
 
-            <h1><strong>ANEXOS DEL CONTRATO MARCO</strong></h1>
+            <h1><strong>MASTER AGREEMENT ANNEXES</strong></h1>
 
-            <p>En Madrid, a {{ .TodayDay }} de {{ .TodayMonth }} de {{ .TodayYear }}</p>
+            <p>In Madrid, on {{ .TodayDay }} of {{ .TodayMonth }} of {{ .TodayYear }}</p>
 
             {{if eq .ContractCheckBasic "on"}}
             <!-- ANEXO I -->
             <div class="ui blue segment">
 
-                {{template "anexo_1" .}}
+                {{template "anexo_1_en" .}}
 
                 <div class="ui positive message">
                     <div class="ui large checkbox">
                         <input type="checkbox" disabled checked>
-                        <label>Acepto los términos y condiciones del Anexo I</label>
+                        <label>I accept the terms and conditions of Annex I</label>
                         <input type="hidden" name="contract_basic" value="on">
                     </div>
                 </div>
 
-                <p><em>(Las cláusulas generales del Contrato Marco continúan aplicando
-                        en todo lo no modificado expresamente por este Anexo I.)</em></p>
+                <p><em>(The general clauses of the Master Agreement continue to apply
+                        in everything not expressly modified by this Annex I.)</em></p>
 
             </div>
             {{end}}
@@ -315,18 +316,18 @@
             <!-- ANEXO II -->
             <div class="ui blue segment">
 
-                {{template "anexo_2" .}}
+                {{template "anexo_2_en" .}}
 
                 <div class="ui positive message">
                     <div class="ui large checkbox">
                         <input type="checkbox" disabled checked>
-                        <label>Acepto los términos y condiciones del Anexo II</label>
+                        <label>I accept the terms and conditions of Annex II</label>
                         <input type="hidden" name="contract_developer" value="on">
                     </div>
                 </div>
 
-                <p><em>(Las cláusulas generales del Contrato Marco continúan aplicando
-                        en todo lo no modificado expresamente por este Anexo II.)</em></p>
+                <p><em>(The general clauses of the Master Agreement continue to apply
+                        in everything not expressly modified by this Annex II.)</em></p>
 
             </div>
             {{end}}
@@ -340,16 +341,16 @@
 
         <div class="ui raised segment" style="border-radius:1rem">
 
-            <h2><strong>ACEPTACIÓN Y FIRMA</strong></h2>
+            <h2><strong>ACCEPTANCE AND SIGNATURE</strong></h2>
 
             <div class="ui segment">
-                <p>Aceptar y firmar el contrato</p>
+                <p>Accept and sign the contract</p>
                 <div class="ui two spaced buttons">
                     <button id="generate-button" class="ui large black circular button">
-                        <i class="check icon"></i> Aceptar y firmar
+                        <i class="check icon"></i> Accept and sign
                     </button>
                     <a id="back-button" href="" class="ui large circular button">
-                        <i class="arrow left icon"></i> Volver atrás
+                        <i class="arrow left icon"></i> Go back
                     </a>
                 </div>
             </div>

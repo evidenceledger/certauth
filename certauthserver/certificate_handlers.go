@@ -11,10 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/evidenceledger/certauth/contract"
 	"github.com/evidenceledger/certauth/internal/errl"
 	"github.com/evidenceledger/certauth/internal/jpath"
 	"github.com/evidenceledger/certauth/internal/models"
 	"github.com/evidenceledger/certauth/internal/tmfservice"
+	"github.com/evidenceledger/certauth/types"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/utils"
 
@@ -23,6 +25,9 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+
+	"github.com/carlos7ags/folio/document"
+	"github.com/carlos7ags/folio/html"
 )
 
 const (
@@ -151,8 +156,26 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 	} else {
 		// Log the validation error with certificate details for debugging
 		slog.Warn("Certificate validation failed (proceeding in test/demo mode)", "error", err, "subject", certData.Subject)
-		// In test/demo mode, we allow non-eIDAS certificates to proceed
+		// In ISBE_PRO we do not allow non-eIDAS certificates to proceed
 		// The UI will show a warning that the certificate is not eIDAS compliant
+		if s.profile == types.ISBE_PRO {
+			// Present the screen
+			templateName := "cert_received_error"
+			postAction := sendEmailVerificationEndpoint
+			if isEnglish {
+				templateName = "cert_received_error_n"
+				postAction += "/en"
+			}
+			return s.htmlRender.Render(c, templateName, fiber.Map{
+				"authCode":    authCode,
+				"authCodeObj": authProcess,
+				"certData":    certData,
+				"certType":    certData.CertificateType,
+				"subject":     certData.Subject,
+				"postAction":  postAction,
+				"production":  s.profile == types.ISBE_PRO,
+			})
+		}
 	}
 
 	// Check if the organization is already registered
@@ -182,10 +205,10 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 			Email:         formData.RepresentativeEmail,
 		}
 
-		createOrg := tmfservice.TMFOrganizationFromRequest(request)
+		createOrg := tmfservice.TMFOrganizationFromRequest(request, nil)
 
 		// If we are not in Production, delete all existing organizations
-		if s.profile != "production" {
+		if s.profile != types.ISBE_PRO {
 			slog.Info("Deleting TMF organizations", "auth_code", authCode, "vat_id", request.VatId)
 			err := s.tmfService.TMFDeleteAllOrganizationsByELSI("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", request.VatId)
 			if err != nil {
@@ -239,6 +262,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 		"certType":    certData.CertificateType,
 		"subject":     certData.Subject,
 		"postAction":  postAction,
+		"production":  s.profile == types.ISBE_PRO,
 	})
 
 }
@@ -296,6 +320,12 @@ func VerifyCertificate(data string, url string) ([]byte, error) {
 	simpleCertificateReport := jpath.GetMap(respMap, "simpleCertificateReport")
 	if simpleCertificateReport == nil {
 		return nil, errl.Errorf("simpleCertificateReport not found in EUDSS response")
+	}
+
+	// Get the indication from the simpleCertificateReport object
+	indication := jpath.GetString(simpleCertificateReport, "Certificate.Indication")
+	if indication != "PASSED" {
+		return nil, errl.Errorf("certificate is not eIDAS compliant")
 	}
 
 	// Get the ChainItem array
@@ -398,7 +428,7 @@ func (s *CertAuthServer) sendEmailVerification(c *fiber.Ctx) error {
 	err = s.emailService.SendVerificationEmail(email, emailVerificationCode)
 	if err != nil {
 		// In local profile, we allow the process to continue even if email sending fails
-		if s.profile == "local" {
+		if s.profile == types.LOCAL {
 			slog.Warn("Failed to send verification email (proceeding in local mode)", "error", err, "auth_code", authCode, "email", email)
 			// Continue with the flow and show the verification code on screen
 		} else {
@@ -422,9 +452,9 @@ func (s *CertAuthServer) sendEmailVerification(c *fiber.Ctx) error {
 	return s.htmlRender.Render(c, templateName, fiber.Map{
 		"email":            email,
 		"authCode":         authCode,
-		"verificationCode": emailVerificationCode, // For testing in local mode
-		"emailSendFailed":  err != nil,            // Flag to show warning message
-		"isLocalProfile":   s.profile == "local",  // Flag to show verification code only in local mode
+		"verificationCode": emailVerificationCode,    // For testing in local mode
+		"emailSendFailed":  err != nil,               // Flag to show warning message
+		"isLocalProfile":   s.profile == types.LOCAL, // Flag to show verification code only in local mode
 		"subject":          certData.Subject,
 		"postAction":       postAction,
 	})
@@ -545,6 +575,7 @@ func (s *CertAuthServer) verifyEmailCodeAndPresentContractForm(c *fiber.Ctx) err
 		"subject":     certData.Subject,
 		"formData":    formData,
 		"postAction":  postAction,
+		"countryName": s.countryName(formData.OrganizationCountry),
 	})
 }
 
@@ -600,12 +631,48 @@ func (s *CertAuthServer) pagePresentContractForAcceptance(c *fiber.Ctx) error {
 		})
 	}
 
+	// For some fields, if they are empty replace them with "N/A"
+	if formData.NotaryCity == "" {
+		formData.NotaryCity = "N/A"
+	}
+	if formData.NotaryTitle == "" {
+		formData.NotaryTitle = "N/A"
+	}
+	if formData.NotaryName == "" {
+		formData.NotaryName = "N/A"
+	}
+	if formData.NotaryDay == "" {
+		formData.NotaryDay = "N/A"
+	}
+	if formData.NotaryMonth == "" {
+		formData.NotaryMonth = "N/A"
+	}
+	if formData.NotaryYear == "" {
+		formData.NotaryYear = "N/A"
+	}
+	if formData.NotaryProtocolNumber == "" {
+		formData.NotaryProtocolNumber = "N/A"
+	}
+
+	if formData.RegistryName == "" {
+		formData.RegistryName = "N/A"
+	}
+	if formData.RegistryVolume == "" {
+		formData.RegistryVolume = "N/A"
+	}
+	if formData.RegistryFolio == "" {
+		formData.RegistryFolio = "N/A"
+	}
+	if formData.RegistrySheet == "" {
+		formData.RegistrySheet = "N/A"
+	}
+
 	certData := authProcess.CertificateData
 
 	// Update the email field in the certificate data
 	certData.Subject.EmailAddress = storedEmail
 
-	// Render the certificate consent template
+	// Render the contract acceptance template
 	templateName := "contract_print"
 	postAction := contractAcceptedEndpoint
 	if isEnglish {
@@ -617,8 +684,86 @@ func (s *CertAuthServer) pagePresentContractForAcceptance(c *fiber.Ctx) error {
 		"authCodeObj": authProcess,
 		"formData":    formData,
 		"postAction":  postAction,
+		"countryName": s.countryName(formData.OrganizationCountry),
 	})
 
+}
+
+// countryName returns the real country name (EU/EEA only) fromn the two-letter country code
+func (s *CertAuthServer) countryName(countryCode string) string {
+	countries := map[string]string{
+		"ES": "España",
+		"FR": "Francia",
+		"DE": "Alemania",
+		"IT": "Italia",
+		"PT": "Portugal",
+		"NL": "Países Bajos",
+		"BE": "Bélgica",
+		"LU": "Luxemburgo",
+		"AT": "Austria",
+		"SE": "Suecia",
+		"FI": "Finlandia",
+		"DK": "Dinamarca",
+		"IE": "Irlanda",
+		"EL": "Grecia",
+		"CY": "Chipre",
+		"MT": "Malta",
+		"EE": "Estonia",
+		"LV": "Letonia",
+		"LT": "Lituania",
+		"PL": "Polonia",
+		"CZ": "República Checa",
+		"SK": "Eslovaquia",
+		"HU": "Hungría",
+		"RO": "Rumanía",
+		"BG": "Bulgaria",
+		"HR": "Croacia",
+		"SI": "Eslovenia",
+	}
+
+	country, ok := countries[strings.ToUpper(strings.TrimSpace(countryCode))]
+	if !ok {
+		return countryCode
+	}
+	return country
+}
+
+func (s *CertAuthServer) getContract(authCode string, authProcess *models.AuthProcess, formData *models.ContractForm, isEnglish bool) ([]byte, error) {
+
+	// Render the certificate consent template
+	templateName := "contract_download"
+	postAction := contractAcceptedEndpoint
+	if isEnglish {
+		templateName = "contract_download_en"
+		postAction += "/en"
+	}
+	b, err := s.htmlRender.RenderToBuffer(templateName, fiber.Map{
+		"authCode":    authCode,
+		"authCodeObj": authProcess,
+		"formData":    formData,
+		"postAction":  postAction,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Save the html to a file for debugging
+	err = os.WriteFile("contract.html", b.Bytes(), 0644)
+	if err != nil {
+		return nil, err
+	}
+
+	doc := document.NewDocument(document.PageSizeA4)
+	elems, _ := html.Convert(b.String(), nil)
+	for _, e := range elems {
+		doc.Add(e)
+	}
+	pdf, err := doc.ToBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	return pdf, nil
 }
 
 // handleContractAccepted is the last step, after the user has given consent to proceed.
@@ -683,8 +828,18 @@ func (s *CertAuthServer) handleContractAccepted(c *fiber.Ctx) error {
 
 	slog.Debug("Stored email", "email", storedEmail)
 
+	// Generate the PDF contract in memory
+	contractDocument, err := contract.Generate(&formData, s.profile, s.certAuthURL)
+	if err != nil {
+		err = errl.Errorf("generating contract: %w", err)
+		slog.Error(err.Error(), "auth_code", authCode)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
 	// Store the company data in the registrations table
-	if err := s.db.CreateRegistration(s.tsaService, authProcess.CertificateData, storedEmail, &formData); err != nil {
+	if err := s.db.CreateRegistration(s.tsaService, authProcess.CertificateData, storedEmail, &formData, contractDocument); err != nil {
 		err = errl.Errorf("creating registration: %w", err)
 		slog.Error(err.Error(), "auth_code", authCode)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -705,10 +860,10 @@ func (s *CertAuthServer) handleContractAccepted(c *fiber.Ctx) error {
 		Email:         formData.RepresentativeEmail,
 	}
 
-	createOrg := tmfservice.TMFOrganizationFromRequest(request)
+	createOrg := tmfservice.TMFOrganizationFromRequest(request, contractDocument)
 
 	// If we are not in Production, delete all existing organizations
-	if s.profile != "production" {
+	if s.profile != types.ISBE_PRO {
 		slog.Info("Deleting TMF organizations", "auth_code", authCode, "vat_id", request.VatId)
 		err := s.tmfService.TMFDeleteAllOrganizationsByELSI("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", request.VatId)
 		if err != nil {
@@ -723,10 +878,8 @@ func (s *CertAuthServer) handleContractAccepted(c *fiber.Ctx) error {
 		slog.Error(err.Error(), "auth_code", authCode)
 	}
 
-	fileToSend := []byte(contrato)
-
 	// Notify the contract management system that the registration is complete
-	if powers, err := s.notifyManagement(authProcess.CertificateData, storedEmail, &formData, fileToSend); err != nil {
+	if powers, err := s.notifyManagement(&formData, contractDocument); err != nil {
 		err = errl.Errorf("notifying management: %w", err)
 		slog.Error(err.Error(), "auth_code", authCode)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -775,7 +928,7 @@ func (s *CertAuthServer) handleContractAccepted(c *fiber.Ctx) error {
 
 }
 
-func (s *CertAuthServer) notifyManagement(certData *models.CertificateData, email string, contractForm *models.ContractForm, fileToSend []byte) (string, error) {
+func (s *CertAuthServer) notifyManagement(contractForm *models.ContractForm, fileToSend []byte) (string, error) {
 
 	organizationIdentifier := contractForm.OrganizationNif
 
@@ -833,11 +986,11 @@ func (s *CertAuthServer) notifyManagement(certData *models.CertificateData, emai
 		return "", fmt.Errorf("failed to write selected_role: %w", err)
 	}
 
-	// 3. Add Contract File (fileToSend). The file is an HTML file.
-	// Using "contract" as the field name and "contract.html" as the filename
+	// 3. Add Contract File (fileToSend). The file is a PDF file.
+	// Using "contract" as the field name and "contract.pdf" as the filename
 	h := make(textproto.MIMEHeader)
-	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "contract", "contract.html"))
-	h.Set("Content-Type", "text/html")
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, "contract", "contract.pdf"))
+	h.Set("Content-Type", "application/pdf")
 	part, err := writer.CreatePart(h)
 	if err != nil {
 		return "", fmt.Errorf("failed to create form part: %w", err)

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"os"
 	"time"
 
 	"github.com/ansrivas/fiberprometheus/v2"
@@ -20,31 +21,19 @@ import (
 	"github.com/evidenceledger/certauth/internal/models"
 	"github.com/evidenceledger/certauth/internal/tmfservice"
 	"github.com/evidenceledger/certauth/tsaservice"
+	"github.com/evidenceledger/certauth/types"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/favicon"
 	"github.com/gofiber/fiber/v2/middleware/helmet"
-	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-)
-
-type Profile string
-
-const (
-	ALTIA_LOCAL Profile = "local"
-	ALTIA_DEV   Profile = "altia-dev"
-	ISBE_DEV    Profile = "isbe-dev"
-	ISBE_PRE    Profile = "isbe-pre"
-	ISBE_PRO    Profile = "isbe-pro"
 )
 
 // Configuration for the CertAuth server
 type ConfigCertAuth struct {
-	// If Development is true, we log more and use some default configuration options
-	Development bool
 
 	// The profile that we are running with
-	Profile Profile
+	Profile types.Profile
 
 	// The URL and internal port for the CertAuth server, the one acting as an IdP
 	CertAuthURL  string
@@ -81,9 +70,8 @@ type CertAuthServer struct {
 	// The HTTP server (using Fiber)
 	httpServer *fiber.App
 
-	// Configuration flags
-	development bool
-	profile     Profile
+	// The environment where we are running
+	profile types.Profile
 
 	// The URL and internal port for the CertAuth server, the one acting as an IdP
 	certAuthURL  string
@@ -109,6 +97,7 @@ type CertAuthServer struct {
 
 	// The single session cache
 	ssoCache *cache.GenericCache[string, *models.SSOSession]
+
 	// The authentication process cache
 	authprocCache *cache.GenericCache[string, *models.AuthProcess]
 
@@ -141,6 +130,11 @@ func NewCertAuth(
 	adminPassword string,
 	cfg *ConfigCertAuth) (*CertAuthServer, error) {
 
+	// Ensure the contracts directory exists
+	if err := os.MkdirAll("data/contracts", 0755); err != nil {
+		return nil, errl.Errorf("failed to create contracts directory: %v", err)
+	}
+
 	// The engine to display the screens HTML screens to the users
 	htmlrender, err := html.NewRendererFiber(templateDebug, viewsfs, templateDirectory, templateExtension)
 	if err != nil {
@@ -170,7 +164,7 @@ func NewCertAuth(
 	httpServer.Use(favicon.New())
 
 	// Logs HTTP request/response details
-	httpServer.Use(logger.New())
+	httpServer.Use(FiberRequestLogger)
 
 	// Enable CORS for all origins
 	httpServer.Use(cors.New())
@@ -207,7 +201,6 @@ func NewCertAuth(
 
 	// Put everything together in a server
 	s := &CertAuthServer{
-		development:   cfg.Development,
 		profile:       cfg.Profile,
 		certAuthURL:   cfg.CertAuthURL,
 		certAuthPort:  cfg.CertAuthPort,
@@ -271,5 +264,46 @@ func (s *CertAuthServer) Start(ctx context.Context) error {
 	case <-ctx.Done():
 		return s.httpServer.Shutdown()
 	}
+
+}
+
+var noLoggingFor = map[string]bool{
+	"/health":      true,
+	"/favicon.ico": true,
+}
+
+// FiberRequestLogger logs HTTP requests on entry and exit
+func FiberRequestLogger(c *fiber.Ctx) error {
+
+	// Log entry, except the /health request, to keep logs clean
+	if _, found := noLoggingFor[c.Path()]; !found {
+		slog.Debug("=> "+c.Method()+" "+c.Path(), slog.String("ip", c.IP()))
+	}
+
+	// Go to next middleware
+	if err := c.Next(); err != nil {
+		return err
+	}
+
+	// Log exit
+	code := c.Response().StatusCode()
+
+	if code >= 500 {
+		// Internal server errors
+		meth := fmt.Sprintf("<= %s %d %s", c.Method(), code, c.Path())
+		slog.Error(meth, slog.Int("status", code), slog.String("ip", c.IP()))
+	} else if code >= 400 {
+		// Caller errors
+		meth := fmt.Sprintf("<= %s %d %s", c.Method(), code, c.Path())
+		slog.Warn(meth, slog.Int("status", code), slog.String("ip", c.IP()))
+	} else {
+		// The rest
+		if _, found := noLoggingFor[c.Path()]; !found {
+			meth := fmt.Sprintf("<= %s %d %s", c.Method(), code, c.Path())
+			slog.Debug(meth, slog.Int("status", code), slog.String("ip", c.IP()))
+		}
+	}
+
+	return nil
 
 }

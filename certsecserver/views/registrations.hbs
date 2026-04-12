@@ -2,51 +2,65 @@
 {{template "preamble" .}}
 
 <div class="w3-container" style="margin-bottom: 40px;">
+
     <h2>CertAuth: Registrations</h2>
 
     <div class="w3-responsive w3-card-4">
         <table class="w3-table-all">
             <tr>
-                <th>Name</th>
-                <th>Client ID</th>
-                <th>RedirectURL</th>
-                <th>Scopes</th>
-                <th>Actions</th>
+                <th>Date</th>
+                <th>Organization</th>
+                <th>Legal Representative</th>
+                <th>Contract</th>
+                <th>Action</th>
 
             </tr>
 
-            {{range .rps}}
+            {{range .registrations}}
             <tr>
-                <td>{{.Name}}</td>
-                <td>{{.ClientID}}</td>
-                <td>{{.RedirectURL}}</td>
-                <td>{{.Scopes}}</td>
+                <td>{{.ContractForm.TodayYear}}/{{.ContractForm.TodayMonth}}/{{.ContractForm.TodayDay}}</td>
                 <td>
                     <div>
-                        <button onclick="openEditModal(
-                {
-                    id: '{{.ID}}',
-                    client_id: '{{.ClientID}}',
-                    name: '{{.Name}}',
-                    description: '{{.Description}}',
-                    redirect_url: '{{.RedirectURL}}',
-                    scopes: '{{.Scopes}}'
-                })" class="w3-btn w3-blue w3-padding-small margin-bottom-small w3-round-large w3-small w3-block">
-                            <b>Edit</b>
-                        </button>
-                        <button type="submit" class="w3-btn w3-red w3-padding-small w3-round-large w3-small w3-block"
-                            onclick="openDeleteModal(
-                {
-                    id: '{{.ID}}',
-                    client_id: '{{.ClientID}}',
-                    name: '{{.Name}}',
-                    description: '{{.Description}}',
-                    redirect_url: '{{.RedirectURL}}',
-                    scopes: '{{.Scopes}}'
-                })">
-                            <b>Delete</b>
-                        </button>
+                        {{.ContractForm.OrganizationName}} - {{.ContractForm.OrganizationNif}}
                     </div>
+                    <div>
+                        {{.ContractForm.OrganizationAddress}}
+                    </div>
+                    <div>
+                        {{.ContractForm.OrganizationCountry}}
+                    </div>
+                </td>
+                <td>
+                    <div>
+                        {{.ContractForm.RepresentativeName}}
+                    </div>
+                    <div>
+                        {{.ContractForm.RepresentativeEmail}}
+                    </div>
+                </td>
+                <td>
+                    <div>
+                        {{ if .ContractForm.ContractCheckBasic }}
+                        <span class="w3-tag w3-small w3-blue w3-margin-bottom-small">Basic</span>
+                        {{ else }}
+                        <span class="w3-tag w3-small w3-grey w3-margin-bottom-small">Basic</span>
+                        {{ end }}
+                    </div>
+                    <div>
+                        {{ if .ContractForm.ContractCheckDeveloper }}
+                        <span class="w3-tag w3-small w3-blue">Developer</span>
+                        {{ else }}
+                        <span class="w3-tag w3-small w3-grey">Developer</span>
+                        {{ end }}
+                    </div>
+                </td>
+                <td>
+                    {{ if .ContractDocumentName }}
+                    <a class="w3-btn w3-blue w3-padding-small w3-round w3-small w3-block" download
+                        href="/admin/contract?orgid={{.ContractForm.OrganizationNif}}">Download</a>
+                    {{ else }}
+                    <span class="w3-tag w3-small w3-grey">No contract</span>
+                    {{ end }}
                 </td>
 
             </tr>
@@ -76,7 +90,7 @@
     }
 </script>
 
-<div id="editModal" class="w3-modal">
+<div id=" editModal" class="w3-modal">
     <div class="w3-modal-content w3-card-4" style="max-width:800px">
 
         <div class="w3-center"><br>
@@ -110,7 +124,8 @@
             </div>
 
             <div class="w3-section w3-bar">
-                <button class="w3-button w3-round-large w3-blue" type="submit">Save Changes</button>
+                <button class="w3-button w3-round-large w3-blue" type="submit">Save
+                    Changes</button>
                 <button onclick="document.getElementById('editModal').style.display='none'" type="button"
                     class="w3-right w3-button w3-round-large w3-red">Cancel</button>
             </div>

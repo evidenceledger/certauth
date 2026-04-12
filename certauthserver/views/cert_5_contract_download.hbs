@@ -1,119 +1,133 @@
-{{define "contract_print"}}
-{{template "preamble"}}
-{{template "logobar"}}
+{{define "contract_download"}}
 
-<style>
-    .contract-input {
-        border: none;
-        border-bottom: 1px solid #555;
-        background-color: #f4f7fa;
-        padding: 4px 6px;
-        margin: 0 2px;
-        font-family: inherit;
-        font-size: 0.95em;
-        color: #222;
-        border-radius: 2px;
-        transition: all 0.2s ease;
-    }
+<!DOCTYPE html>
+<html>
 
-    .contract-input:focus {
-        outline: none;
-        border-bottom: 2px solid #2185d0;
-        background-color: #e0e7ff;
-    }
+<head>
+    <!-- Standard Meta -->
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    select.contract-input {
-        padding-right: 20px;
-        cursor: pointer;
-    }
+    <title>ISBE Onboarding</title>
+    <link rel="stylesheet" href="/static/semantic.css">
 
-    .text-center {
-        text-align: center;
-    }
+    <script src="/static/semantic.js"></script>
 
-    summary {
-        font-size: 1.2em;
-        font-weight: bold;
-        cursor: pointer;
-    }
+</head>
 
-    .contract-text li {
-        font-size: 1.2rem;
-        line-height: 1.4285em;
-    }
+<body style="background-image: url('/static/images/isbe_background.png')">
 
-    p {
-        font-size: 1.2rem;
-    }
 
-    p:last-child,
-    p:first-child {
-        margin-bottom: 1rem;
-    }
+    <style>
+        .contract-input {
+            border: none;
+            border-bottom: 1px solid #555;
+            background-color: #f4f7fa;
+            padding: 4px 6px;
+            margin: 0 2px;
+            font-family: inherit;
+            font-size: 0.95em;
+            color: #222;
+            border-radius: 2px;
+            transition: all 0.2s ease;
+        }
 
-    input:invalid {
-        border: 1px dashed red;
-    }
+        .contract-input:focus {
+            outline: none;
+            border-bottom: 2px solid #2185d0;
+            background-color: #e0e7ff;
+        }
 
-    input:valid {
-        border: 1px solid black;
-    }
-</style>
+        select.contract-input {
+            padding-right: 20px;
+            cursor: pointer;
+        }
 
-<div class="ui hidden divider"></div>
+        .text-center {
+            text-align: center;
+        }
 
-<div class="ui container">
+        summary {
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+        }
 
-    <div class="ui raised segment" style="border-radius:1rem">
+        .contract-text li {
+            font-size: 1.2rem;
+            line-height: 1.4285em;
+        }
 
-        <div class="ui five ordered stackable steps">
-            <div class="completed step">
-                <div class="content">
-                    <div class="title">Certificado</div>
-                    <div class="description">Seleccionar certificado</div>
+        p {
+            font-size: 1.2rem;
+        }
+
+        p:last-child,
+        p:first-child {
+            margin-bottom: 1rem;
+        }
+
+        input:invalid {
+            border: 1px dashed red;
+        }
+
+        input:valid {
+            border: 1px solid black;
+        }
+    </style>
+
+    <div class="ui hidden divider"></div>
+
+    <div class="ui container">
+
+        <div class="ui raised segment" style="border-radius:1rem">
+
+            <div class="ui five ordered stackable steps">
+                <div class="completed step">
+                    <div class="content">
+                        <div class="title">Certificado</div>
+                        <div class="description">Seleccionar certificado</div>
+                    </div>
+                </div>
+                <div class="completed step">
+                    <div class="content">
+                        <div class="title">Email</div>
+                        <div class="description">Proporcionar email</div>
+                    </div>
+                </div>
+                <div class="completed step">
+                    <div class="content">
+                        <div class="title">Verificar Email</div>
+                        <div class="description">Introducir código</div>
+                    </div>
+                </div>
+                <div class="completed step">
+                    <div class="content">
+                        <div class="title">Contrato</div>
+                        <div class="description">Completar datos</div>
+                    </div>
+                </div>
+                <div class="active step">
+                    <div class="content">
+                        <div class="title">Completado</div>
+                        <div class="description">Revisar y aceptar contrato</div>
+                    </div>
                 </div>
             </div>
-            <div class="completed step">
-                <div class="content">
-                    <div class="title">Email</div>
-                    <div class="description">Proporcionar email</div>
-                </div>
-            </div>
-            <div class="completed step">
-                <div class="content">
-                    <div class="title">Verificar Email</div>
-                    <div class="description">Introducir código</div>
-                </div>
-            </div>
-            <div class="completed step">
-                <div class="content">
-                    <div class="title">Contrato</div>
-                    <div class="description">Completar datos</div>
-                </div>
-            </div>
-            <div class="active step">
-                <div class="content">
-                    <div class="title">Completado</div>
-                    <div class="description">Revisar y aceptar contrato</div>
-                </div>
-            </div>
+
         </div>
 
-    </div>
 
-
-    <form id="contract_form" class="contract-text" name="contract_form" method="POST" action="{{ .postAction }}">
         {{with .formData}}
 
         <div class="ui raised segment" style="border-radius:1rem">
 
-            <h1 id="contrato-marco-de-adhesión-a-la-red-isbe"><strong>CONTRATO MARCO DE ADHESIÓN A LA RED ISBE</strong>
+            <h1 id="contrato-marco-de-adhesión-a-la-red-isbe"><strong>CONTRATO MARCO DE ADHESIÓN A LA RED
+                    ISBE</strong>
             </h1>
 
             <p>En Madrid, a {{ .TodayDay }} de {{ .TodayMonth }} de {{ .TodayYear }}</p>
-            <input type="hidden" name="today_day" value="{{ .TodayDay }}">
-            <input type="hidden" name="today_month" value="{{ .TodayMonth }}">
-            <input type="hidden" name="today_year" value="{{ .TodayYear }}">
 
             <h2 class="text-center"><strong>REUNIDOS</strong></h2>
 
@@ -128,7 +142,7 @@
             <!-- IDENTIFICACION PARTICIPANTE -->
             <p>Y de otra parte, {{ .OrganizationName }},
                 persona jurídica constituida conforme a las leyes de
-                {{ $.countryName }},
+                {{ .OrganizationCountry }},
                 con domicilio social en
                 {{ .OrganizationAddress }}
                 y N.I.F. número
@@ -151,24 +165,6 @@
                 {{ .NotaryYear }}, con el número
                 {{ .NotaryProtocolNumber }} de su protocolo
                 (en adelante, el “<strong>Participante</strong>”).
-                <input type="hidden" name="organization_name" value="{{ .OrganizationName }}">
-                <input type="hidden" name="organization_country" value="{{ .OrganizationCountry }}">
-                <input type="hidden" name="organization_address" value="{{ .OrganizationAddress }}">
-                <input type="hidden" name="organization_nif" value="{{ .OrganizationNif }}">
-                <input type="hidden" name="registry_name" value="{{ .RegistryName }}">
-                <input type="hidden" name="registry_volume" value="{{ .RegistryVolume }}">
-                <input type="hidden" name="registry_folio" value="{{ .RegistryFolio }}">
-                <input type="hidden" name="registry_sheet" value="{{ .RegistrySheet }}">
-                <input type="hidden" name="representative_title" value="{{ .RepresentativeTitle }}">
-                <input type="hidden" name="representative_name" value="{{ .RepresentativeName }}">
-                <input type="hidden" name="representative_email" value="{{ .RepresentativeEmail }}">
-                <input type="hidden" name="notary_city" value="{{ .NotaryCity }}">
-                <input type="hidden" name="notary_title" value="{{ .NotaryTitle }}">
-                <input type="hidden" name="notary_name" value="{{ .NotaryName }}">
-                <input type="hidden" name="notary_day" value="{{ .NotaryDay }}">
-                <input type="hidden" name="notary_month" value="{{ .NotaryMonth }}">
-                <input type="hidden" name="notary_year" value="{{ .NotaryYear }}">
-                <input type="hidden" name="notary_protocol_number" value="{{ .NotaryProtocolNumber }}">
             </p>
 
             <p>Ambas partes, en adelante denominadas conjuntamente como “<strong>las Partes</strong>”,
@@ -335,9 +331,6 @@
 
         </div>
 
-        <input type="hidden" name="auth_code" value="{{ $.authCode }}">
-        <input type="hidden" name="state" value="{{ $.authCodeObj.State }}">
-
         <div class="ui raised segment" style="border-radius:1rem">
 
             <h2><strong>ACEPTACIÓN Y FIRMA</strong></h2>
@@ -357,32 +350,10 @@
         </div>
         {{end}}
 
-    </form>
 
-</div>
-<script>
-    $(document).ready(function () {
-        $('#generate-button').on('click', function (e) {
-            e.preventDefault();
-            debugger;
+    </div>
 
-            var contract_form = document.forms["contract_form"];
-            var part = contract_form.elements["participant_name"];
+</body>
 
-            const data = new FormData(contract_form);
-            for (const pair of data.entries()) {
-                console.log(pair[0], pair[1]);
-            }
-
-            contract_form.submit();
-        });
-
-        $('#back-button').on('click', function (e) {
-            e.preventDefault();
-            window.history.back();
-        });
-    });
-</script>
-
-{{template "postamble"}}
+</html>
 {{end}}

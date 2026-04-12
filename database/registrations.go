@@ -4,14 +4,18 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log/slog"
+	"os"
+	"time"
 
+	"github.com/evidenceledger/certauth/contract"
 	"github.com/evidenceledger/certauth/internal/errl"
 	"github.com/evidenceledger/certauth/internal/models"
 	"github.com/evidenceledger/certauth/tsaservice"
 )
 
-func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certificateData *models.CertificateData, email string, formData *models.ContractForm) error {
+func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certificateData *models.CertificateData, email string, formData *models.ContractForm, contractDocument []byte) error {
 
 	// Convert form data into JSON, which will be stored in the database
 	formDataJSON, err := json.Marshal(formData)
@@ -20,8 +24,9 @@ func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certifi
 	}
 
 	// Create a timestamp using the configured TSA Trust Service Provider
+	// The data to be timestamped is the contract document and the certificate
 	buf := bytes.Buffer{}
-	buf.Write(formDataJSON)
+	buf.Write(contractDocument)
 	buf.WriteString(certificateData.CertificateDER)
 	tstDataToTimestamp := buf.Bytes()
 
@@ -38,6 +43,16 @@ func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certifi
 	}
 
 	slog.Info("Timestamp verified", "genTime", genTime)
+
+	// Save the contract in a file in the /data/contracts directory
+	// First we assign a unique name based in the date and the organization id
+	contractFileName := fmt.Sprintf("%s_%s.pdf", time.Now().Format("20060102150405"), formData.OrganizationNif)
+	contractFilePath := fmt.Sprintf("data/contracts/%s", contractFileName)
+	if err := os.WriteFile(contractFilePath, contractDocument, 0644); err != nil {
+		err = errl.Errorf("writing contract file: %w", err)
+		slog.Error(err.Error())
+		return err
+	}
 
 	// This is the data model for the registration table:
 	//
@@ -59,11 +74,12 @@ func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certifi
 			email,
 			country,
 			contract_form,
+			contract_document,
 			eidas_cert,
 			timestamp,
 			created_at,
 			updated_at
-		) VALUES (?, ?, ?, ?, jsonb(?), ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, jsonb(?), ?, ?, ?, ?, ?)
 	`
 
 	// Create a new registration
@@ -73,6 +89,7 @@ func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certifi
 		email,
 		certificateData.Subject.Country,
 		formDataJSON,
+		contractFilePath,
 		certificateData.CertificateDER,
 		timestamp,
 		genTime,
@@ -80,6 +97,12 @@ func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certifi
 	)
 
 	if err != nil {
+		// Delete the file
+		if err := os.Remove(contractFilePath); err != nil {
+			err = errl.Errorf("removing contract file: %w", err)
+			slog.Error(err.Error())
+		}
+
 		return errl.Errorf("failed to create registration for %s: %w", email, err)
 	}
 
@@ -87,22 +110,88 @@ func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certifi
 	return nil
 }
 
+func (d *Database) UpdateRegistration(tsaService *tsaservice.TSAService, certificateDER string, formData *models.ContractForm, certUrl string) error {
+	// For a registration with a contract_document fiels empty, we generate the document and set the field
+
+	// Generate the PDF contract in memory
+	contractDocument, err := contract.Generate(formData, d.profile, certUrl)
+	if err != nil {
+		err = errl.Errorf("generating contract: %w", err)
+		slog.Error(err.Error())
+		return err
+	}
+
+	// Create a timestamp using the configured TSA Trust Service Provider
+	// The data to be timestamped is the contract document and the certificate
+	buf := bytes.Buffer{}
+	buf.Write(contractDocument)
+	buf.WriteString(certificateDER)
+	tstDataToTimestamp := buf.Bytes()
+
+	timestamp, err := tsaService.Timestamp(tstDataToTimestamp)
+	if err != nil {
+		return errl.Errorf("failed to timestamp data: %w", err)
+	}
+
+	// Verify the timestamp and retrieve the actual time according to the TSA Service Provider
+	// This is the official time that we will record, instead of our own time
+	genTime, err := tsaService.Verify(timestamp, tstDataToTimestamp)
+	if err != nil {
+		return errl.Errorf("failed to verify timestamp: %w", err)
+	}
+
+	slog.Info("Timestamp verified", "genTime", genTime)
+
+	// Save the contract in a file in the /data/contracts directory
+	// First we assign a unique name based in the date and the organization id
+	contractFileName := fmt.Sprintf("%s_%s.pdf", time.Now().Format("20060102150405"), formData.OrganizationNif)
+	contractFilePath := fmt.Sprintf("data/contracts/%s", contractFileName)
+	if err := os.WriteFile(contractFilePath, contractDocument, 0644); err != nil {
+		err = errl.Errorf("writing contract file: %w", err)
+		slog.Error(err.Error())
+		return err
+	}
+
+	updateQuery := `
+		UPDATE registrations 
+		SET contract_document = ?,
+			timestamp = ?
+		WHERE organization_identifier = ?
+	`
+
+	// Update the registration
+	_, err = d.db.Exec(updateQuery, contractFilePath, timestamp, formData.OrganizationNif)
+	if err != nil {
+		return errl.Errorf("failed to update registration for %s: %w", formData.OrganizationNif, err)
+	}
+
+	return nil
+
+}
+
+type Registration struct {
+	Email                string
+	ContractForm         *models.ContractForm
+	EidasCert            string
+	ContractDocumentName string
+}
+
 // GetRegistration retrieves a registration by organization identifier.
-// Returns the email, form data, and EIDAS certificate.
+// Returns the email, form data, and contract document name.
 func (d *Database) GetRegistration(organizationIdentifier string) (string, *models.ContractForm, string, error) {
 	query := `
-		SELECT email, json(contract_form), eidas_cert
+		SELECT email, json(contract_form), eidas_cert, contract_document
 		FROM registrations
 		WHERE organization_identifier = ? 
 	`
 
-	var email string
-	var formData string
-	var eidasCert string
+	var email, formData, eidasCert string
+	var contractDocumentName []byte
 	err := d.db.QueryRow(query, organizationIdentifier).Scan(
 		&email,
 		&formData,
 		&eidasCert,
+		&contractDocumentName,
 	)
 
 	if err != nil {
@@ -117,18 +206,16 @@ func (d *Database) GetRegistration(organizationIdentifier string) (string, *mode
 		return "", nil, "", errl.Errorf("failed to unmarshal form data: %w", err)
 	}
 
-	return email, &form, eidasCert, nil
-}
+	if len(contractDocumentName) == 0 {
+		slog.Warn("Contract document name is empty", "email", email, "org_id", organizationIdentifier)
+	}
 
-type Registration struct {
-	Email     string
-	FormData  string
-	EidasCert string
+	return email, &form, string(contractDocumentName), nil
 }
 
 func (d *Database) GetRegistrations() ([]Registration, error) {
 	query := `
-		SELECT email, json(contract_form), eidas_cert
+		SELECT email, json(contract_form), eidas_cert, contract_document
 		FROM registrations 
 	`
 
@@ -140,11 +227,30 @@ func (d *Database) GetRegistrations() ([]Registration, error) {
 
 	var registrations []Registration
 	for rows.Next() {
-		var registration Registration
-		if err := rows.Scan(&registration.Email, &registration.FormData, &registration.EidasCert); err != nil {
+		var email, formData, eidasCert string
+		var contractDocumentName []byte
+		if err := rows.Scan(
+			&email,
+			&formData,
+			&eidasCert,
+			&contractDocumentName,
+		); err != nil {
 			return nil, errl.Errorf("failed to scan registration: %w", err)
 		}
-		registrations = append(registrations, registration)
+
+		var contractForm models.ContractForm
+		if err := json.Unmarshal([]byte(formData), &contractForm); err != nil {
+			return nil, errl.Errorf("failed to unmarshal form data: %w", err)
+		}
+
+		if len(contractDocumentName) == 0 {
+			slog.Warn("Contract document name is empty", "email", email, "org_id", contractForm.OrganizationNif)
+		}
+		registrations = append(registrations, Registration{
+			Email:                email,
+			ContractForm:         &contractForm,
+			ContractDocumentName: string(contractDocumentName),
+		})
 	}
 
 	if err := rows.Err(); err != nil {
@@ -152,4 +258,14 @@ func (d *Database) GetRegistrations() ([]Registration, error) {
 	}
 
 	return registrations, nil
+}
+
+func (d *Database) GetRegistrationContract(contractDocumentName string) ([]byte, error) {
+	// Read the contract document from the file system
+	contractDocument, err := os.ReadFile(contractDocumentName)
+	if err != nil {
+		return nil, errl.Errorf("failed to read contract document: %w", err)
+	}
+
+	return contractDocument, nil
 }

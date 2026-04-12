@@ -11,6 +11,9 @@ import (
 	"github.com/evidenceledger/certauth/internal/errl"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/template/html/v2"
+
+	"github.com/go-sprout/sprout"
+	"github.com/go-sprout/sprout/group/all"
 )
 
 type RendererFiber struct {
@@ -77,11 +80,21 @@ func newEngine(reload bool, viewsfs embed.FS, extDir string, extension string) (
 		exists = true
 	}
 
+	// 1. Initialize Sprout handler
+	sproutHandler := sprout.New()
+
+	// Add all built-in registries to the handler
+	sproutHandler.AddGroups(all.RegistryGroup())
+
+	// 2. Build the Sprout function map
+	funcs := sproutHandler.Build()
+
 	if exists {
 
 		// Use the user-provided templates in the external directory
 		engine := html.NewFileSystem(http.Dir(extDir), extension)
 		engine.Reload(reload)
+		engine.AddFuncMap(funcs)
 
 		err = engine.Load()
 		if err != nil {
@@ -95,6 +108,7 @@ func newEngine(reload bool, viewsfs embed.FS, extDir string, extension string) (
 
 	engine := html.NewFileSystem(http.FS(viewsfs), extension)
 	engine.Reload(reload)
+	engine.AddFuncMap(funcs)
 
 	err = engine.Load()
 	if err != nil {
@@ -157,6 +171,21 @@ func (h *RendererFiber) Render(c *fiber.Ctx, templateName string, data map[strin
 
 	c.Send(out.Bytes())
 	return nil
+
+}
+
+func (h *RendererFiber) RenderToBuffer(templateName string, data any) (*bytes.Buffer, error) {
+
+	out := &bytes.Buffer{}
+
+	if err := h.engine.Render(out, templateName, data); err != nil {
+		slog.Error("Error rendering template",
+			slog.String("error", err.Error()),
+		)
+		return nil, errl.Errorf("Error rendering template: %w", err)
+	}
+
+	return out, nil
 
 }
 

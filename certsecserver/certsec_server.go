@@ -25,6 +25,7 @@ import (
 	"github.com/evidenceledger/certauth/internal/models"
 	"github.com/evidenceledger/certauth/internal/tmfservice"
 	"github.com/evidenceledger/certauth/internal/util/x509util"
+	"github.com/evidenceledger/certauth/types"
 )
 
 const stdCertHeader = "tls-client-certificate"
@@ -36,8 +37,9 @@ const templateStaticResources = "certsecserver/views/assets"
 
 // Config is the configuration for the CertSecserver.
 type Config struct {
-	// Development mode
-	Development bool
+
+	// The environment where we are running
+	Profile types.Profile
 
 	// The URL and internal port of the CertSec server
 	CertSecURL  string
@@ -50,8 +52,8 @@ type Config struct {
 
 // CertSecServer represents the CertSec certificate authentication server
 type CertSecServer struct {
-	// Development mode
-	Development bool
+	// The environment where we are running
+	Profile types.Profile
 
 	// The URL of the CertAuth server, used to redirect the user back to the CertAuth server
 	CertSecURL  string
@@ -98,7 +100,7 @@ func New(
 	cfg *Config) (*CertSecServer, error) {
 
 	// The engine to display the HTML screens to the users
-	htmlrender, err := html.NewRendererFiber(cfg.Development, viewsfs, templateDirectory, templateExtension)
+	htmlrender, err := html.NewRendererFiber(cfg.Profile == types.LOCAL, viewsfs, templateDirectory, templateExtension)
 	if err != nil {
 		return nil, errl.Errorf("failed to initialize template engine: %w", err)
 	}
@@ -125,7 +127,7 @@ func New(
 		db:                      db,
 		authprocCache:           authprocCache,
 		ssoCache:                ssoCache,
-		Development:             cfg.Development,
+		Profile:                 cfg.Profile,
 		CertAuthURL:             cfg.CertAuthURL,
 		CertificateBackEndpoint: cfg.CertificateBackEndpoint,
 		CertSecURL:              cfg.CertSecURL,
@@ -165,7 +167,7 @@ type RelyingPartyCUDRequest struct {
 // adminPages handles the admin pages
 func (s *CertSecServer) adminPages(c *fiber.Ctx) error {
 
-	subject, err := s.checkAdminAuthentication(c)
+	adminSubject, err := s.checkAdminAuthentication(c)
 	if err != nil {
 		return s.htmlRender.Render(c, "error", fiber.Map{
 			"message": err.Error(),
@@ -177,10 +179,14 @@ func (s *CertSecServer) adminPages(c *fiber.Ctx) error {
 
 	// Switch based on the page
 	switch page {
-	case "", "relyingparties":
-		return s.relyingpartiesPage(c, subject)
+	case "", "registrations":
+		return s.registrationsPage(c, adminSubject)
 	case "organizations":
-		return s.organizationsPage(c, subject)
+		return s.organizationsPage(c, adminSubject)
+	case "relyingparties":
+		return s.relyingpartiesPage(c, adminSubject)
+	case "contract":
+		return s.contractDocument(c, adminSubject)
 	default:
 		return s.htmlRender.Render(c, "error", fiber.Map{
 			"message": "Invalid page: " + page,
@@ -189,7 +195,7 @@ func (s *CertSecServer) adminPages(c *fiber.Ctx) error {
 
 }
 
-func (s *CertSecServer) relyingpartiesPage(c *fiber.Ctx, subject *x509util.ELSIName) error {
+func (s *CertSecServer) relyingpartiesPage(c *fiber.Ctx, adminSubject *x509util.ELSIName) error {
 
 	switch c.Method() {
 	case "GET":
@@ -199,13 +205,13 @@ func (s *CertSecServer) relyingpartiesPage(c *fiber.Ctx, subject *x509util.ELSIN
 		if err != nil {
 			return s.htmlRender.Render(c, "error", fiber.Map{
 				"message": "Failed to retrieve relying parties: " + err.Error(),
-				"subject": subject,
+				"subject": adminSubject,
 			})
 		}
 
 		return s.htmlRender.Render(c, "relyingparties", fiber.Map{
 			"rps":     rps,
-			"subject": subject,
+			"subject": adminSubject,
 		})
 
 	case "POST":
@@ -231,21 +237,21 @@ func (s *CertSecServer) relyingpartiesPage(c *fiber.Ctx, subject *x509util.ELSIN
 			if err := s.db.CreateRelyingParty(&rp, request.ClientSecret); err != nil {
 				return s.htmlRender.Render(c, "error", fiber.Map{
 					"message": "Failed to create relying party: " + err.Error(),
-					"subject": subject,
+					"subject": adminSubject,
 				})
 			}
 		case "update":
 			if err := s.db.UpdateRelyingParty(&rp, request.ClientSecret); err != nil {
 				return s.htmlRender.Render(c, "error", fiber.Map{
 					"message": "Failed to update relying party: " + err.Error(),
-					"subject": subject,
+					"subject": adminSubject,
 				})
 			}
 		case "delete":
 			if err := s.db.DeleteRelyingParty(request.ID); err != nil {
 				return s.htmlRender.Render(c, "error", fiber.Map{
 					"message": "Failed to delete relying party: " + err.Error(),
-					"subject": subject,
+					"subject": adminSubject,
 				})
 			}
 		}
@@ -255,13 +261,13 @@ func (s *CertSecServer) relyingpartiesPage(c *fiber.Ctx, subject *x509util.ELSIN
 	default:
 		return s.htmlRender.Render(c, "error", fiber.Map{
 			"message": "Invalid action: " + c.Method(),
-			"subject": subject,
+			"subject": adminSubject,
 		})
 	}
 
 }
 
-func (s *CertSecServer) organizationsPage(c *fiber.Ctx, subject *x509util.ELSIName) error {
+func (s *CertSecServer) organizationsPage(c *fiber.Ctx, adminSubject *x509util.ELSIName) error {
 
 	orgsPath := "/tmf-api/party/v4/organization"
 
@@ -273,7 +279,7 @@ func (s *CertSecServer) organizationsPage(c *fiber.Ctx, subject *x509util.ELSINa
 		if err != nil {
 			return s.htmlRender.Render(c, "error", fiber.Map{
 				"message": "Failed to retrieve organizations: " + err.Error(),
-				"subject": subject,
+				"subject": adminSubject,
 			})
 		}
 
@@ -281,21 +287,86 @@ func (s *CertSecServer) organizationsPage(c *fiber.Ctx, subject *x509util.ELSINa
 		if err != nil {
 			return s.htmlRender.Render(c, "error", fiber.Map{
 				"message": "Failed to marshal organizations: " + err.Error(),
-				"subject": subject,
+				"subject": adminSubject,
 			})
 		}
 
 		return s.htmlRender.Render(c, "organizations", fiber.Map{
 			"File":    string(out),
-			"subject": subject,
+			"subject": adminSubject,
 		})
 
 	default:
 		return s.htmlRender.Render(c, "error", fiber.Map{
 			"message": "Invalid action: " + c.Method(),
-			"subject": subject,
+			"subject": adminSubject,
 		})
 	}
+
+}
+
+// Retrieve the registrations
+func (s *CertSecServer) registrationsPage(c *fiber.Ctx, adminSubject *x509util.ELSIName) error {
+
+	switch c.Method() {
+	case "GET":
+
+		// Retrieve the registrations from the database
+		r, err := s.db.GetRegistrations()
+		if err != nil {
+			return s.htmlRender.Render(c, "error", fiber.Map{
+				"message": "Failed to retrieve registrations: " + err.Error(),
+				"subject": adminSubject,
+			})
+		}
+
+		return s.htmlRender.Render(c, "registrations", fiber.Map{
+			"registrations": r,
+			"subject":       adminSubject,
+		})
+
+	default:
+		return s.htmlRender.Render(c, "error", fiber.Map{
+			"message": "Invalid action: " + c.Method(),
+			"subject": adminSubject,
+		})
+	}
+
+}
+
+// Retrieve the PDF contract and return to the browser as a file
+func (s *CertSecServer) contractDocument(c *fiber.Ctx, adminSubject *x509util.ELSIName) error {
+
+	// Get the organization ID for the caller
+	orgid := c.Query("orgid")
+	if orgid == "" {
+		return s.htmlRender.Render(c, "error", fiber.Map{
+			"message": "Organization ID is required",
+			"subject": adminSubject,
+		})
+	}
+
+	slog.Info("Retrieving contract document", "orgid", orgid)
+
+	// Retrieve the registration for this organization
+	_, _, contractDocumentName, err := s.db.GetRegistration(orgid)
+	if err != nil {
+		return s.htmlRender.Render(c, "error", fiber.Map{
+			"message": "Failed to retrieve registration: " + err.Error(),
+			"subject": adminSubject,
+		})
+	}
+
+	if len(contractDocumentName) == 0 {
+		slog.Warn("Contract document name is empty", "orgid", orgid)
+		return s.htmlRender.Render(c, "error", fiber.Map{
+			"message": "Contract document name is empty",
+			"subject": adminSubject,
+		})
+	}
+
+	// Return the contract as a PDF file
+	return c.SendFile(contractDocumentName, true)
 
 }
 

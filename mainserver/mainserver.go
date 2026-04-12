@@ -17,18 +17,6 @@ import (
 	onboard "github.com/evidenceledger/certauth/onboard"
 )
 
-// We define several profiles, to facilitate configuration if an environment matches one of the profiles.
-// To run the server in a specific profile, use the -profile flag or the PROFILE environment variable,
-// with the value of the profile you want to use.
-// No other environment variables are required when using a profile, except for the TSA and email server credentials.
-const (
-	ALTIA_LOCAL = "local"
-	ALTIA_DEV   = "altia-dev"
-	ISBE_DEV    = "isbe-dev"
-	ISBE_PRE    = "isbe-pre"
-	ISBE_PRO    = "isbe-pro"
-)
-
 // Server manages the CertAuth, CertSec and Onboard servers
 type Server struct {
 	cfg            Config
@@ -52,7 +40,7 @@ func New(adminPassword string, cfg Config) (*Server, error) {
 	ssoCache := cache.NewGeneric[string, *models.SSOSession](30 * time.Minute)
 
 	// Initialize database with the default name
-	db, err := database.New("")
+	db, err := database.New("", cfg.Profile)
 	if err != nil {
 		slog.Error("Failed to initialize database", "error", err)
 		return nil, errl.Errorf("failed to initialize database: %w", err)
@@ -77,7 +65,7 @@ func New(adminPassword string, cfg Config) (*Server, error) {
 	// CertSec server requests the certificate from the user browser and passes it to the CerAuth server.
 	// It also implements admin functionalities, using a client certificate as authentication mechanism.
 	newCertSecConfig := &certsec.Config{
-		Development:             cfg.Development,
+		Profile:                 cfg.Profile,
 		CertAuthURL:             cfg.CertAuthConfig.CertAuthURL,
 		CertificateBackEndpoint: certauth.CertificateBackEndpoint,
 		CertSecURL:              cfg.CertAuthConfig.CertSecURL,

@@ -466,7 +466,7 @@ func MyTMFExampleOrganization() (*Organization, error) {
 
 }
 
-func TMFOrganizationFromRequest(requestData RegistrationRequest) *Organization_Create {
+func TMFOrganizationFromRequest(requestData RegistrationRequest, contract []byte) *Organization_Create {
 	// Acondition the VATID. Make sure that it has the prefix 'VATXX-', where XX is the country code.
 	if !strings.HasPrefix(requestData.VatId, "VAT") {
 		requestData.VatId = "VAT" + strings.ToUpper(requestData.Country) + "-" + requestData.VatId
@@ -485,12 +485,21 @@ func TMFOrganizationFromRequest(requestData RegistrationRequest) *Organization_C
 	org.TradingName = requestData.CompanyName
 	org.OrganizationType = "company"
 
+	attachment := &AttachmentRefOrValue{
+		AttachmentType: "contract",
+		Description:    "Customer contract justifying the organization account",
+		MimeType:       "application/pdf",
+		Name:           "contract.pdf",
+		Content:        string(contract),
+	}
+
 	org.OrganizationIdentification = []OrganizationIdentification{
 		{
 			Type:               "organizationIdentification",
 			IdentificationID:   elsiID,
 			IdentificationType: "did:elsi",
 			IssuingAuthority:   "eIDAS",
+			Attachment:         attachment,
 		},
 	}
 
