@@ -19,16 +19,12 @@
             "program": "cmd/pages/pages.go",
             "cwd": "."
         },
-
         {
             "name": "Server",
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": ".",
-            "args": [
-                "-dev",
-            ]
+            "program": "."
         }
     ]
 }

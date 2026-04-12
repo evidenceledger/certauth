@@ -6,10 +6,12 @@ import (
 	_ "embed"
 	"html/template"
 	"log"
+	"log/slog"
 	"os/exec"
 
 	"github.com/evidenceledger/certauth/internal/errl"
 	"github.com/evidenceledger/certauth/internal/models"
+	"github.com/evidenceledger/certauth/types"
 )
 
 // Use embed to process the templates
@@ -28,13 +30,15 @@ func init() {
 
 }
 
-func Generate(contractForm *models.ContractForm) ([]byte, error) {
+// Generate creates a PDF contract from the given contract form and profile
+func Generate(contractForm *models.ContractForm, profile types.Profile) ([]byte, error) {
 
 	contractData := map[string]any{
 		"formData": contractForm,
+		"profile":  profile,
 	}
 
-	// Execute the template, passing an empty data object and receiving the HTML
+	// Execute the template, passing the contract data
 	var renderedHTML bytes.Buffer
 	err := tmpl.ExecuteTemplate(&renderedHTML, "contract_main", contractData)
 	if err != nil {
@@ -44,6 +48,12 @@ func Generate(contractForm *models.ContractForm) ([]byte, error) {
 
 	// Run WeasyPrint as external process to generate PDF, using stdin and stdout
 	cmd := exec.Command("weasyprint", "-", "-")
+	if profile == types.LOCAL {
+		cmd = exec.Command("docker", "run", "--rm", "-i", "weasyprint", "-", "-")
+		slog.Info("using the docker container to run WeasyPrint")
+	} else {
+		slog.Info("using the local WeasyPrint installation")
+	}
 
 	// Set up stdin to send the HTML
 	cmd.Stdin = bytes.NewReader([]byte(htmlStr))

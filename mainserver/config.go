@@ -11,6 +11,7 @@ import (
 	"github.com/evidenceledger/certauth/internal/errl"
 	"github.com/evidenceledger/certauth/internal/models"
 	"github.com/evidenceledger/certauth/tsaservice"
+	"github.com/evidenceledger/certauth/types"
 	"github.com/goccy/go-yaml"
 )
 
@@ -45,7 +46,8 @@ type EmailCreds struct {
 // Config is the configuration for the server.
 // It contains the configuration for CertAuth, CertSec and Onboard servers.
 type Config struct {
-	Development    bool
+	// Development    bool
+	Profile        types.Profile
 	OnboardURL     string
 	OnboardPort    string
 	PrivateArea    string
@@ -73,29 +75,29 @@ var defaultEmailConfig = &email.EmailConfig{
 
 // LoadConfig parses flags, environment variables, and config files to return the server configuration.
 func LoadConfig() (*Config, string, error) {
-	var (
-		development   bool
-		adminPassword string
-	)
+	var adminPassword string
+	var profilestr string
 
-	// If we are in development environment or not
-	flag.BoolVar(&development, "dev", false, "Development mode")
-
-	// The password for admin screens
+	// Parse flags
+	flag.StringVar(&profilestr, "profile", string(types.LOCAL), "Profile to use: local, isbe-dev, isbe-pre or isbe-pro")
+	flag.StringVar(&profilestr, "p", string(types.LOCAL), "Profile to use (shorthand): local, isbe-dev, isbe-pre or isbe-pro")
 	flag.StringVar(&adminPassword, "admin-password", "", "Admin password for the server")
 
 	flag.Parse()
 
+	// Determine the configuration to use depending on the profile specified in the environment variable PROFILE
+	// If no profile specified, we use the LOCAL development profile
+	profilestr = GetStringEnvOrDefault("PROFILE", profilestr)
+	profile := types.Profile(strings.ToLower(profilestr))
+
 	// Local VPS development environment, which uses the domain mycredential.eu
 	var LOCAL_CFG = Config{
-		Development:  true,
 		OnboardURL:   "https://onboard.mycredential.eu",
 		OnboardPort:  "8012",
 		PrivateArea:  "/",
 		TMFServerURL: "https://tmf.evidenceledger.eu/",
 		CertAuthConfig: &certauth.ConfigCertAuth{
-			Development:   true,
-			Profile:       certauth.ALTIA_LOCAL,
+			Profile:       types.LOCAL,
 			CertAuthURL:   "https://certauth.mycredential.eu",
 			CertAuthPort:  "8010",
 			CertSecURL:    "https://certsec.mycredential.eu",
@@ -131,70 +133,13 @@ func LoadConfig() (*Config, string, error) {
 		},
 	}
 
-	var ALTIA_DEV_CFG = Config{
-		Development:  true,
-		OnboardURL:   "https://onboard-dev.redisbe.com",
-		OnboardPort:  "8012",
-		PrivateArea:  "https://poc-front.dev.cloud-w.envs.redisbe.com",
-		TMFServerURL: "https://tmf.dev.portal.redisbe.com",
-		CertAuthConfig: &certauth.ConfigCertAuth{
-			Development:   true,
-			Profile:       certauth.ALTIA_DEV,
-			CertAuthURL:   "https://certauth-dev.redisbe.com",
-			CertAuthPort:  "8010",
-			CertSecURL:    "https://certsec.evidenceledger.eu",
-			CertSecPort:   "8011",
-			TSAConfig:     defaultTsaConfig,
-			EmailConfig:   defaultEmailConfig,
-			ManagementURL: "https://poc-middleware-management.dev.cloud-w.envs.redisbe.com/api/managements",
-			EUDSSURL:      defaultEUDSSURL,
-		},
-	}
-	ALTIA_DEV_CFG.PredefinedRPs = []PredefinedRP{
-		{
-			RelyingParty: &models.RelyingParty{
-				Name:        "ISBE Catalog Netlify",
-				Description: "The ISBE Catalog application in Netlify",
-				ClientID:    "https://catalog.isbeonboard.com",
-				RedirectURL: "https://isbecatalog.netlify.app/",
-				Scopes:      "openid eidas",
-				TokenExpiry: 3600,
-			},
-			ClientSecret: "isbesecret",
-		},
-		{
-			RelyingParty: &models.RelyingParty{
-				Name:        "ISBE Onboarding DEV",
-				Description: "The ISBE Onboarding Application in DEV",
-				ClientID:    "isbeonboard",
-				RedirectURL: "https://onboard-dev.redisbe.com/callback",
-				Scopes:      "openid eidas",
-				TokenExpiry: 3600,
-			},
-			ClientSecret: "isbesecret",
-		},
-		{
-			RelyingParty: &models.RelyingParty{
-				Name:        "ALTIA Keycloak in DEV",
-				Description: "The ALTIA Keycloak in DEV application",
-				ClientID:    "https://idp.dev.cloud-w.envs.redisbe.com",
-				RedirectURL: "https://idp.dev.cloud-w.envs.redisbe.com/auth/realms/dev-isbe/broker/certificado-representante/endpoint",
-				Scopes:      "openid eidas",
-				TokenExpiry: 3600,
-			},
-			ClientSecret: "isbesecret",
-		},
-	}
-
 	var ISBE_DEV_CFG = Config{
-		Development:  true,
 		OnboardURL:   "https://onboard-dev.redisbe.com",
 		OnboardPort:  "8012",
 		PrivateArea:  "https://poc-front.dev.cloud-w.envs.redisbe.com",
 		TMFServerURL: "https://tmf.dev.portal.redisbe.com",
 		CertAuthConfig: &certauth.ConfigCertAuth{
-			Development:   true,
-			Profile:       certauth.ISBE_DEV,
+			Profile:       types.ISBE_DEV,
 			CertAuthURL:   "https://certauth-dev.redisbe.com",
 			CertAuthPort:  "8010",
 			CertSecURL:    "https://certsec.evidenceledger.eu",
@@ -243,14 +188,12 @@ func LoadConfig() (*Config, string, error) {
 
 	// ISBE Pre-Production environment
 	var ISBE_PRE_CFG = Config{
-		Development:  true,
 		OnboardURL:   "https://onboard-pre.evidenceledger.eu",
 		OnboardPort:  "8012",
 		PrivateArea:  "https://pre.portal.redisbe.com/",
 		TMFServerURL: "https://tmf-pre.evidenceledger.eu",
 		CertAuthConfig: &certauth.ConfigCertAuth{
-			Development:   true,
-			Profile:       certauth.ISBE_PRE,
+			Profile:       types.ISBE_PRE,
 			CertAuthURL:   "https://certauth.pre.portal.redisbe.com",
 			CertAuthPort:  "8010",
 			CertSecURL:    "https://certsec-pre.evidenceledger.eu",
@@ -298,14 +241,12 @@ func LoadConfig() (*Config, string, error) {
 	}
 
 	var ISBE_PRO_CFG = Config{
-		Development:  false,
 		OnboardURL:   "https://onboard.portal.redisbe.com",
 		OnboardPort:  "8012",
 		PrivateArea:  "https://portal.redisbe.com/",
 		TMFServerURL: "https://tmf.portal.redisbe.com",
 		CertAuthConfig: &certauth.ConfigCertAuth{
-			Development:   false,
-			Profile:       certauth.ISBE_PRO,
+			Profile:       types.ISBE_PRO,
 			CertAuthURL:   "https://certauth.portal.redisbe.com",
 			CertAuthPort:  "8010",
 			CertSecURL:    "https://certsec-pro.evidenceledger.eu",
@@ -354,53 +295,42 @@ func LoadConfig() (*Config, string, error) {
 		},
 	}
 
-	// By default, we get the local profile, and maybe we override it with environment variables
-	profile := ALTIA_LOCAL
-	cfg := LOCAL_CFG
-
-	// If a profile was specified, use it
-	if profile = GetStringEnvOrDefault("PROFILE", profile); profile != "" {
-		profile = strings.ToLower(profile)
-
-		switch profile {
-		case ALTIA_LOCAL:
-			cfg = LOCAL_CFG
-		case ALTIA_DEV:
-			cfg = ALTIA_DEV_CFG
-		case ISBE_DEV:
-			cfg = ISBE_DEV_CFG
-		case ISBE_PRE:
-			cfg = ISBE_PRE_CFG
-		case ISBE_PRO:
-			cfg = ISBE_PRO_CFG
-		default:
-			return nil, "", errl.Errorf("unknown profile: %s", profile)
-		}
-
+	var cfg Config
+	switch profile {
+	case types.LOCAL:
+		cfg = LOCAL_CFG
+	case types.ISBE_DEV:
+		cfg = ISBE_DEV_CFG
+	case types.ISBE_PRE:
+		cfg = ISBE_PRE_CFG
+	case types.ISBE_PRO:
+		cfg = ISBE_PRO_CFG
+	default:
+		return nil, "", errl.Errorf("unknown profile: %s", profile)
 	}
+	cfg.Profile = profile
 
-	// Override with the environment variable if it is set
-	cfg.Development = GetBoolEnvOrDefault("CERTAUTH_DEVELOPMENT", cfg.Development)
-
-	// Say if we are in development or not
-	if cfg.Development {
-		slog.Info("Running in development mode")
-	} else {
-		slog.Info("Running in production mode")
-	}
+	// Say in what environment we are running
+	slog.Info("Running in " + string(cfg.Profile) + " mode")
 
 	// Get admin password from command line or environment variable.
-	// In any environment except development, the admin password is required.
-	// In development, the admin password is optional, and if not provided, it will have a default value.
+	// In any environment except LOCAL development, the admin password is required.
+	// In LOCAL development, the admin password is optional, and if not provided, it will have a default value.
 	adminPassword = GetStringEnvOrDefault("CERTAUTH_ADMIN_PASSWORD", adminPassword)
-	if development && adminPassword == "" {
+	if cfg.Profile == types.LOCAL && adminPassword == "" {
 		adminPassword = "pepe"
 	} else if adminPassword == "" {
 		return nil, "", errl.Errorf("admin password required")
 	}
 
 	// Get the ISBETMF_ADMIN_TOKEN from environment variable. This is used to authenticate with the TMF server.
-	adminToken := GetStringEnvOrDefault("ISBETMF_ADMIN_TOKEN", "eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX")
+	// It is compulsory for any environment except LOCAL
+	adminToken := GetStringEnvOrDefault("ISBETMF_ADMIN_TOKEN", "")
+	if cfg.Profile == types.LOCAL && adminToken == "" {
+		adminToken = "eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX"
+	} else if adminToken == "" {
+		return nil, "", errl.Errorf("ISBETMF_ADMIN_TOKEN required")
+	}
 	cfg.CertAuthConfig.AdminToken = adminToken
 
 	// Check for override of the CertAuth server URL and port

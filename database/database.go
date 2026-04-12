@@ -5,12 +5,14 @@ import (
 	"database/sql"
 
 	"github.com/evidenceledger/certauth/internal/errl"
+	"github.com/evidenceledger/certauth/types"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 // Database manages SQLite operations
 type Database struct {
-	db *sql.DB
+	db      *sql.DB
+	profile types.Profile
 }
 
 // This is the data model for the registration table:
@@ -55,8 +57,9 @@ var tableCreateQueries = []string{
 }
 
 // New creates a new database instance
-func New(dbname string) (*Database, error) {
+func New(dbname string, profile types.Profile) (*Database, error) {
 	d := &Database{}
+	d.profile = profile
 
 	if dbname == "" {
 		dbname = "./data/onboard.db"
@@ -76,7 +79,7 @@ func New(dbname string) (*Database, error) {
 	}
 
 	// Run the migrations
-	if err := RunMigrationsUp(d.db); err != nil {
+	if err := d.RunMigrationsUp(); err != nil {
 		return nil, errl.Errorf("failed to run migrations: %w", err)
 	}
 

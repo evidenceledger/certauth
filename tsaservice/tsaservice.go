@@ -490,7 +490,12 @@ func createTSQ(data []byte) ([]byte, error) {
 		// Nonce is nil (optional omitted) -> -no_nonce
 	}
 
-	return asn1.Marshal(req)
+	tsq, err := asn1.Marshal(req)
+	if err != nil {
+		return nil, errl.Errorf("failed to marshal TSQ to asn1: %w", err)
+	}
+
+	return tsq, nil
 }
 
 func sendTSQToService(tsq []byte) ([]byte, error) {

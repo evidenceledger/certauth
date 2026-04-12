@@ -16,6 +16,7 @@ import (
 	"github.com/evidenceledger/certauth/internal/jpath"
 	"github.com/evidenceledger/certauth/internal/models"
 	"github.com/evidenceledger/certauth/internal/tmfservice"
+	"github.com/evidenceledger/certauth/types"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/utils"
 
@@ -155,9 +156,9 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 	} else {
 		// Log the validation error with certificate details for debugging
 		slog.Warn("Certificate validation failed (proceeding in test/demo mode)", "error", err, "subject", certData.Subject)
-		// In test/demo mode, we allow non-eIDAS certificates to proceed
+		// In ISBE_PRO we do not allow non-eIDAS certificates to proceed
 		// The UI will show a warning that the certificate is not eIDAS compliant
-		if s.profile == ISBE_PRO {
+		if s.profile == types.ISBE_PRO {
 			// Present the screen
 			templateName := "cert_received_error"
 			postAction := sendEmailVerificationEndpoint
@@ -172,7 +173,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 				"certType":    certData.CertificateType,
 				"subject":     certData.Subject,
 				"postAction":  postAction,
-				"production":  s.profile == ISBE_PRO,
+				"production":  s.profile == types.ISBE_PRO,
 			})
 		}
 	}
@@ -207,7 +208,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 		createOrg := tmfservice.TMFOrganizationFromRequest(request, nil)
 
 		// If we are not in Production, delete all existing organizations
-		if s.profile != "production" {
+		if s.profile != types.ISBE_PRO {
 			slog.Info("Deleting TMF organizations", "auth_code", authCode, "vat_id", request.VatId)
 			err := s.tmfService.TMFDeleteAllOrganizationsByELSI("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", request.VatId)
 			if err != nil {
@@ -261,7 +262,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 		"certType":    certData.CertificateType,
 		"subject":     certData.Subject,
 		"postAction":  postAction,
-		"production":  s.profile == ISBE_PRO,
+		"production":  s.profile == types.ISBE_PRO,
 	})
 
 }
@@ -427,7 +428,7 @@ func (s *CertAuthServer) sendEmailVerification(c *fiber.Ctx) error {
 	err = s.emailService.SendVerificationEmail(email, emailVerificationCode)
 	if err != nil {
 		// In local profile, we allow the process to continue even if email sending fails
-		if s.profile == "local" {
+		if s.profile == types.LOCAL {
 			slog.Warn("Failed to send verification email (proceeding in local mode)", "error", err, "auth_code", authCode, "email", email)
 			// Continue with the flow and show the verification code on screen
 		} else {
@@ -451,9 +452,9 @@ func (s *CertAuthServer) sendEmailVerification(c *fiber.Ctx) error {
 	return s.htmlRender.Render(c, templateName, fiber.Map{
 		"email":            email,
 		"authCode":         authCode,
-		"verificationCode": emailVerificationCode, // For testing in local mode
-		"emailSendFailed":  err != nil,            // Flag to show warning message
-		"isLocalProfile":   s.profile == "local",  // Flag to show verification code only in local mode
+		"verificationCode": emailVerificationCode,    // For testing in local mode
+		"emailSendFailed":  err != nil,               // Flag to show warning message
+		"isLocalProfile":   s.profile == types.LOCAL, // Flag to show verification code only in local mode
 		"subject":          certData.Subject,
 		"postAction":       postAction,
 	})
@@ -750,24 +751,24 @@ func (s *CertAuthServer) handleContractAccepted(c *fiber.Ctx) error {
 
 	slog.Debug("Stored email", "email", storedEmail)
 
-	// Store the company data in the registrations table
-	if err := s.db.CreateRegistration(s.tsaService, authProcess.CertificateData, storedEmail, &formData); err != nil {
-		err = errl.Errorf("creating registration: %w", err)
-		slog.Error(err.Error(), "auth_code", authCode)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
-		})
-
-	}
-
-	// Generate the PDF contract
-	fileToSend, err := contract.Generate(&formData)
+	// Generate the PDF contract in memory
+	contractDocument, err := contract.Generate(&formData, s.profile)
 	if err != nil {
 		err = errl.Errorf("generating contract: %w", err)
 		slog.Error(err.Error(), "auth_code", authCode)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
+	}
+
+	// Store the company data in the registrations table
+	if err := s.db.CreateRegistration(s.tsaService, authProcess.CertificateData, storedEmail, &formData, contractDocument); err != nil {
+		err = errl.Errorf("creating registration: %w", err)
+		slog.Error(err.Error(), "auth_code", authCode)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+
 	}
 
 	// Register in the TMF server the new Organization
@@ -782,12 +783,10 @@ func (s *CertAuthServer) handleContractAccepted(c *fiber.Ctx) error {
 		Email:         formData.RepresentativeEmail,
 	}
 
-	createOrg := tmfservice.TMFOrganizationFromRequest(request, fileToSend)
-
-	// Set the atachment in the identification section
+	createOrg := tmfservice.TMFOrganizationFromRequest(request, contractDocument)
 
 	// If we are not in Production, delete all existing organizations
-	if s.profile != "production" {
+	if s.profile != types.ISBE_PRO {
 		slog.Info("Deleting TMF organizations", "auth_code", authCode, "vat_id", request.VatId)
 		err := s.tmfService.TMFDeleteAllOrganizationsByELSI("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", request.VatId)
 		if err != nil {
@@ -803,7 +802,7 @@ func (s *CertAuthServer) handleContractAccepted(c *fiber.Ctx) error {
 	}
 
 	// Notify the contract management system that the registration is complete
-	if powers, err := s.notifyManagement(&formData, fileToSend); err != nil {
+	if powers, err := s.notifyManagement(&formData, contractDocument); err != nil {
 		err = errl.Errorf("notifying management: %w", err)
 		slog.Error(err.Error(), "auth_code", authCode)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
