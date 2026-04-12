@@ -31,11 +31,12 @@ func init() {
 }
 
 // Generate creates a PDF contract from the given contract form and profile
-func Generate(contractForm *models.ContractForm, profile types.Profile) ([]byte, error) {
+func Generate(contractForm *models.ContractForm, profile types.Profile, certUrl string) ([]byte, error) {
 
 	contractData := map[string]any{
 		"formData": contractForm,
 		"profile":  profile,
+		"certUrl":  certUrl,
 	}
 
 	// Execute the template, passing the contract data

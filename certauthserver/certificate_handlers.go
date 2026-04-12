@@ -829,7 +829,7 @@ func (s *CertAuthServer) handleContractAccepted(c *fiber.Ctx) error {
 	slog.Debug("Stored email", "email", storedEmail)
 
 	// Generate the PDF contract in memory
-	contractDocument, err := contract.Generate(&formData, s.profile)
+	contractDocument, err := contract.Generate(&formData, s.profile, s.certAuthURL)
 	if err != nil {
 		err = errl.Errorf("generating contract: %w", err)
 		slog.Error(err.Error(), "auth_code", authCode)

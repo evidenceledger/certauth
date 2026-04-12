@@ -88,7 +88,7 @@ func (s *CertAuthServer) UpdateRegistrations(c *fiber.Ctx) error {
 		}
 
 		slog.Info("Updating registration", "org_id", registration.ContractForm.OrganizationNif)
-		err := s.db.UpdateRegistration(s.tsaService, registration.EidasCert, registration.ContractForm)
+		err := s.db.UpdateRegistration(s.tsaService, registration.EidasCert, registration.ContractForm, s.certAuthURL)
 		if err != nil {
 			return errl.Errorf("failed to update registration: %w", err)
 		}

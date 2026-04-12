@@ -110,11 +110,11 @@ func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certifi
 	return nil
 }
 
-func (d *Database) UpdateRegistration(tsaService *tsaservice.TSAService, certificateDER string, formData *models.ContractForm) error {
+func (d *Database) UpdateRegistration(tsaService *tsaservice.TSAService, certificateDER string, formData *models.ContractForm, certUrl string) error {
 	// For a registration with a contract_document fiels empty, we generate the document and set the field
 
 	// Generate the PDF contract in memory
-	contractDocument, err := contract.Generate(formData, d.profile)
+	contractDocument, err := contract.Generate(formData, d.profile, certUrl)
 	if err != nil {
 		err = errl.Errorf("generating contract: %w", err)
 		slog.Error(err.Error())
