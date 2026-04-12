@@ -575,6 +575,7 @@ func (s *CertAuthServer) verifyEmailCodeAndPresentContractForm(c *fiber.Ctx) err
 		"subject":     certData.Subject,
 		"formData":    formData,
 		"postAction":  postAction,
+		"countryName": s.countryName(formData.OrganizationCountry),
 	})
 }
 
@@ -630,12 +631,48 @@ func (s *CertAuthServer) pagePresentContractForAcceptance(c *fiber.Ctx) error {
 		})
 	}
 
+	// For some fields, if they are empty replace them with "N/A"
+	if formData.NotaryCity == "" {
+		formData.NotaryCity = "N/A"
+	}
+	if formData.NotaryTitle == "" {
+		formData.NotaryTitle = "N/A"
+	}
+	if formData.NotaryName == "" {
+		formData.NotaryName = "N/A"
+	}
+	if formData.NotaryDay == "" {
+		formData.NotaryDay = "N/A"
+	}
+	if formData.NotaryMonth == "" {
+		formData.NotaryMonth = "N/A"
+	}
+	if formData.NotaryYear == "" {
+		formData.NotaryYear = "N/A"
+	}
+	if formData.NotaryProtocolNumber == "" {
+		formData.NotaryProtocolNumber = "N/A"
+	}
+
+	if formData.RegistryName == "" {
+		formData.RegistryName = "N/A"
+	}
+	if formData.RegistryVolume == "" {
+		formData.RegistryVolume = "N/A"
+	}
+	if formData.RegistryFolio == "" {
+		formData.RegistryFolio = "N/A"
+	}
+	if formData.RegistrySheet == "" {
+		formData.RegistrySheet = "N/A"
+	}
+
 	certData := authProcess.CertificateData
 
 	// Update the email field in the certificate data
 	certData.Subject.EmailAddress = storedEmail
 
-	// Render the certificate consent template
+	// Render the contract acceptance template
 	templateName := "contract_print"
 	postAction := contractAcceptedEndpoint
 	if isEnglish {
@@ -647,8 +684,48 @@ func (s *CertAuthServer) pagePresentContractForAcceptance(c *fiber.Ctx) error {
 		"authCodeObj": authProcess,
 		"formData":    formData,
 		"postAction":  postAction,
+		"countryName": s.countryName(formData.OrganizationCountry),
 	})
 
+}
+
+// countryName returns the real country name (EU/EEA only) fromn the two-letter country code
+func (s *CertAuthServer) countryName(countryCode string) string {
+	countries := map[string]string{
+		"ES": "España",
+		"FR": "Francia",
+		"DE": "Alemania",
+		"IT": "Italia",
+		"PT": "Portugal",
+		"NL": "Países Bajos",
+		"BE": "Bélgica",
+		"LU": "Luxemburgo",
+		"AT": "Austria",
+		"SE": "Suecia",
+		"FI": "Finlandia",
+		"DK": "Dinamarca",
+		"IE": "Irlanda",
+		"EL": "Grecia",
+		"CY": "Chipre",
+		"MT": "Malta",
+		"EE": "Estonia",
+		"LV": "Letonia",
+		"LT": "Lituania",
+		"PL": "Polonia",
+		"CZ": "República Checa",
+		"SK": "Eslovaquia",
+		"HU": "Hungría",
+		"RO": "Rumanía",
+		"BG": "Bulgaria",
+		"HR": "Croacia",
+		"SI": "Eslovenia",
+	}
+
+	country, ok := countries[strings.ToUpper(strings.TrimSpace(countryCode))]
+	if !ok {
+		return countryCode
+	}
+	return country
 }
 
 func (s *CertAuthServer) getContract(authCode string, authProcess *models.AuthProcess, formData *models.ContractForm, isEnglish bool) ([]byte, error) {

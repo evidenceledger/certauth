@@ -25,6 +25,10 @@
             size: A4;
             margin: 2.5cm 2cm;
 
+            @top-left {
+                content: url("https://onboard.mycredential.eu/static/images/alastria_logo.png");
+            }
+
             @bottom-center {
                 content: "Página " counter(page) " de " counter(pages);
                 font-family: 'DejaVu Sans', sans-serif;
@@ -34,6 +38,7 @@
         }
 
         @page :first {
+
             @bottom-center {
                 content: "";
             }
@@ -191,7 +196,6 @@
         /* --- Logo & Header --- */
         .first-page-header {
             margin-bottom: 3cm;
-            border-bottom: 2px solid var(--brand-primary);
             padding-bottom: 0.5cm;
             display: flex;
             align-items: flex-end;
@@ -199,9 +203,75 @@
         }
 
         .logo {
-            height: 1.4cm;
+            height: 0.8cm;
             /* Dimensioned properly for professional look */
             width: auto;
+        }
+
+        .myheader {
+            /* White background and shadow */
+            background-color: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+
+            /* Flex layout for horizontal alignment */
+            display: flex;
+            align-items: center;
+
+            /* Padding for left and right edge spacing (e.g., 20px) */
+            padding: 12px 20px;
+        }
+
+        /* 2. Company Logo Styling */
+        .company-logo img {
+            height: 30px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .center-group {
+            display: flex;
+            align-items: center;
+
+            margin-left: 100px;
+        }
+
+
+        /* 3. Right-Hand Group (Sponsors, Text, Button) */
+        .right-group {
+            display: flex;
+            align-items: center;
+
+            /* CRUCIAL: Pushes this group to the far right, creating the large gap */
+            margin-left: auto;
+        }
+
+        /* Sponsor Logos Container */
+        .sponsor-logos {
+            display: flex;
+            align-items: center;
+            /* Smaller gap between sponsor logos (12px) */
+            gap: 12px;
+            /* Margin to separate sponsors from the String/Button group */
+            margin-right: 32px;
+        }
+
+        .sponsor-logos img {
+            height: 24px;
+            width: auto;
+            border-radius: 4px;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+
+        .sponsor-logos img:hover {
+            opacity: 1;
+        }
+
+        .sponsor-text {
+            font-size: 10px;
+            color: #6b7280;
+            /* Gray-500 equivalent */
+            margin-right: 10px;
         }
     </style>
 
@@ -212,9 +282,6 @@
 
     {{with .formData}}
 
-    <div class="first-page-header">
-        <img src="alastria.png" class="logo" alt="Alastria Logo">
-    </div>
 
     <h1>CONTRATO MARCO DE ADHESIÓN A LA RED ISBE</h1>
 

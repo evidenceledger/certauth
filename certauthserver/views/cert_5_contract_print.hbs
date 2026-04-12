@@ -128,7 +128,7 @@
             <!-- IDENTIFICACION PARTICIPANTE -->
             <p>Y de otra parte, {{ .OrganizationName }},
                 persona jurídica constituida conforme a las leyes de
-                {{ .OrganizationCountry }},
+                {{ $.countryName }},
                 con domicilio social en
                 {{ .OrganizationAddress }}
                 y N.I.F. número
@@ -179,6 +179,7 @@
             </p>
 
             <!-- EXPOSICION DE LOS MOTIVOS DEL CONTRATO -->
+
             <h2 class="text-center"><strong>EXPONEN</strong></h2>
 
             <ol type="I">
