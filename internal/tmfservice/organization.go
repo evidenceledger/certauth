@@ -2,6 +2,7 @@ package tmfservice
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -485,12 +486,16 @@ func BuildTMFOrganizationFromRequest(requestData RegistrationRequest, derCertifi
 	org.TradingName = requestData.CompanyName
 	org.OrganizationType = "company"
 
+	// The derCertificate is a binary DER encoded X.509 certificate.
+	// It needs to be converted to a base64 encoded string to be included in the TMF Organization object.
+	base64Cert := base64.StdEncoding.EncodeToString([]byte(derCertificate))
+
 	eIDASAttachment := &AttachmentRefOrValue{
 		AttachmentType: "eIDAS",
 		Name:           "eIDAS_certificate",
 		Description:    "eIDAS certificate used for identification",
 		MimeType:       "application/pkix-cert",
-		Content:        derCertificate,
+		Content:        base64Cert,
 	}
 
 	org.OrganizationIdentification = []OrganizationIdentification{
