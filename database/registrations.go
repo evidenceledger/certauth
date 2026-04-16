@@ -15,6 +15,7 @@ import (
 	"github.com/evidenceledger/certauth/tsaservice"
 )
 
+// CreateRegistration creates a new registration in the database.
 func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certificateData *models.CertificateData, email string, formData *models.ContractForm, contractDocument []byte) error {
 
 	// Convert form data into JSON, which will be stored in the database
@@ -170,10 +171,11 @@ func (d *Database) UpdateRegistration(tsaService *tsaservice.TSAService, certifi
 }
 
 type Registration struct {
-	Email                string
-	ContractForm         *models.ContractForm
-	EidasCert            string
-	ContractDocumentName string
+	OrganizationIdentifier string
+	Email                  string
+	ContractForm           *models.ContractForm
+	EidasCert              string
+	ContractDocumentName   string
 }
 
 // GetRegistration retrieves a registration by organization identifier.
@@ -215,7 +217,7 @@ func (d *Database) GetRegistration(organizationIdentifier string) (string, *mode
 
 func (d *Database) GetRegistrations() ([]Registration, error) {
 	query := `
-		SELECT email, json(contract_form), eidas_cert, contract_document
+		SELECT organization_identifier, email, json(contract_form), eidas_cert, contract_document
 		FROM registrations 
 	`
 
@@ -229,7 +231,9 @@ func (d *Database) GetRegistrations() ([]Registration, error) {
 	for rows.Next() {
 		var email, formData, eidasCert string
 		var contractDocumentName []byte
+		var organizationIdentifier string
 		if err := rows.Scan(
+			&organizationIdentifier,
 			&email,
 			&formData,
 			&eidasCert,
@@ -247,9 +251,11 @@ func (d *Database) GetRegistrations() ([]Registration, error) {
 			slog.Warn("Contract document name is empty", "email", email, "org_id", contractForm.OrganizationNif)
 		}
 		registrations = append(registrations, Registration{
-			Email:                email,
-			ContractForm:         &contractForm,
-			ContractDocumentName: string(contractDocumentName),
+			OrganizationIdentifier: organizationIdentifier,
+			Email:                  email,
+			ContractForm:           &contractForm,
+			EidasCert:              eidasCert,
+			ContractDocumentName:   string(contractDocumentName),
 		})
 	}
 

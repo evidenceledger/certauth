@@ -16,10 +16,8 @@ import (
 
 const partyPathPrefix = "/tmf-api/party/v4"
 
-// Organization represents a group of people identified by shared interests or purpose.
-type Organization struct {
-	ID                             string                          `json:"id"`
-	Href                           string                          `json:"href,omitempty"`
+// Organization_Common contains the fields shared by Organization, Organization_Create and Organization_Update.
+type Organization_Common struct {
 	IsHeadOffice                   bool                            `json:"isHeadOffice,omitempty"`
 	IsLegalEntity                  bool                            `json:"isLegalEntity,omitempty"`
 	Name                           string                          `json:"name,omitempty"`
@@ -41,55 +39,24 @@ type Organization struct {
 	BaseType                       string                          `json:"@baseType,omitempty"`
 	SchemaLocation                 string                          `json:"@schemaLocation,omitempty"`
 	Type                           string                          `json:"@type,omitempty"`
+}
+
+// Organization represents a group of people identified by shared interests or purpose.
+type Organization struct {
+	ID   string `json:"id"`
+	Href string `json:"href,omitempty"`
+	Organization_Common
 }
 
 type Organization_Create struct {
-	IsHeadOffice                   bool                            `json:"isHeadOffice,omitempty"`
-	IsLegalEntity                  bool                            `json:"isLegalEntity,omitempty"`
-	Name                           string                          `json:"name,omitempty"`
-	NameType                       string                          `json:"nameType,omitempty"`
-	OrganizationType               string                          `json:"organizationType,omitempty"`
-	TradingName                    string                          `json:"tradingName" binding:"required"`
-	ContactMedium                  []ContactMedium                 `json:"contactMedium,omitempty"`
-	CreditRating                   []PartyCreditProfile            `json:"creditRating,omitempty"`
-	ExistsDuring                   *TimePeriod                     `json:"existsDuring,omitempty"`
-	ExternalReference              []ExternalReference             `json:"externalReference,omitempty"`
-	OrganizationChildRelationship  []OrganizationChildRelationship `json:"organizationChildRelationship,omitempty"`
-	OrganizationIdentification     []OrganizationIdentification    `json:"organizationIdentification,omitempty"`
-	OrganizationParentRelationship *OrganizationParentRelationship `json:"organizationParentRelationship,omitempty"`
-	OtherName                      []OtherNameOrganization         `json:"otherName,omitempty"`
-	PartyCharacteristic            []Characteristic                `json:"partyCharacteristic,omitempty"`
-	RelatedParty                   []RelatedParty                  `json:"relatedParty,omitempty"`
-	Status                         OrganizationStateType           `json:"status,omitempty"`
-	TaxExemptionCertificate        []TaxExemptionCertificate       `json:"taxExemptionCertificate,omitempty"`
-	BaseType                       string                          `json:"@baseType,omitempty"`
-	SchemaLocation                 string                          `json:"@schemaLocation,omitempty"`
-	Type                           string                          `json:"@type,omitempty"`
+	Organization_Common
+	TradingName string `json:"tradingName" binding:"required"`
 }
 
 type Organization_Update struct {
-	IsHeadOffice                   bool                            `json:"isHeadOffice,omitempty"`
-	IsLegalEntity                  bool                            `json:"isLegalEntity,omitempty"`
-	Name                           string                          `json:"name,omitempty"`
-	NameType                       string                          `json:"nameType,omitempty"`
-	OrganizationType               string                          `json:"organizationType,omitempty"`
-	TradingName                    string                          `json:"tradingName,omitempty"`
-	ContactMedium                  []ContactMedium                 `json:"contactMedium,omitempty"`
-	CreditRating                   []PartyCreditProfile            `json:"creditRating,omitempty"`
-	ExistsDuring                   *TimePeriod                     `json:"existsDuring,omitempty"`
-	ExternalReference              []ExternalReference             `json:"externalReference,omitempty"`
-	OrganizationChildRelationship  []OrganizationChildRelationship `json:"organizationChildRelationship,omitempty"`
-	OrganizationIdentification     []OrganizationIdentification    `json:"organizationIdentification,omitempty"`
-	OrganizationParentRelationship *OrganizationParentRelationship `json:"organizationParentRelationship,omitempty"`
-	OtherName                      []OtherNameOrganization         `json:"otherName,omitempty"`
-	PartyCharacteristic            []Characteristic                `json:"partyCharacteristic,omitempty"`
-	RelatedParty                   []RelatedParty                  `json:"relatedParty,omitempty"`
-	Status                         OrganizationStateType           `json:"status,omitempty"`
-	TaxExemptionCertificate        []TaxExemptionCertificate       `json:"taxExemptionCertificate,omitempty"`
-	BaseType                       string                          `json:"@baseType,omitempty"`
-	SchemaLocation                 string                          `json:"@schemaLocation,omitempty"`
-	Type                           string                          `json:"@type,omitempty"`
+	Organization_Common
 }
+
 
 type OrganizationChildRelationship struct {
 	RelationshipType string           `json:"relationshipType,omitempty"`
@@ -544,6 +511,25 @@ func BuildTMFOrganizationFromRequest(requestData RegistrationRequest, derCertifi
 	return &org
 }
 
+func OrgCreateFromOrg(org *Organization) *Organization_Create {
+	// Build Organization_Create copying all fields except ID and href.
+	// We copy the embedded common struct and explicitly copy TradingName because it is overridden.
+	orgCreate := &Organization_Create{
+		Organization_Common: org.Organization_Common,
+		TradingName:         org.TradingName,
+	}
+	return orgCreate
+}
+
+func OrgUpdateFromOrg(org *Organization) *Organization_Update {
+	// Build Organization_Update copying all fields except ID and href.
+	// We just copy the embedded common struct.
+	orgUpdate := &Organization_Update{
+		Organization_Common: org.Organization_Common,
+	}
+	return orgUpdate
+}
+
 // TMFCreateOrganization creates a Organization.
 func (l *TMFService) TMFCreateOrganization(accessToken string, org *Organization_Create) (*Organization, error) {
 	buf, err := json.Marshal(org)
@@ -581,7 +567,12 @@ func (l *TMFService) TMFCreateOrganization(accessToken string, org *Organization
 
 // TMFRetrieveOrganization retrieves a Organization by ID.
 func (l *TMFService) TMFRetrieveOrganization(accessToken string, id string, fields string) (*Organization, error) {
-	url := fmt.Sprintf("%s%s/organization/%s?fields=%s", l.BaseURL, partyPathPrefix, id, fields)
+
+	url := fmt.Sprintf("%s%s/organization/%s", l.BaseURL, partyPathPrefix, id)
+	if fields != "" {
+		url += "?fields=" + fields
+	}
+
 	req, _ := http.NewRequest("GET", url, nil)
 	if accessToken != "" {
 		req.Header.Add("Authorization", "Bearer "+accessToken)
@@ -594,7 +585,7 @@ func (l *TMFService) TMFRetrieveOrganization(accessToken string, id string, fiel
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, errl.Errorf("error calling RetrieveOrganization: %v", resp.Status)
+		return nil, errl.Errorf("error calling RetrieveOrganization: %v. URL: %s", resp.Status, url)
 	}
 
 	var org Organization

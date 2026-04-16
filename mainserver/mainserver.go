@@ -62,6 +62,11 @@ func New(adminPassword string, cfg Config) (*Server, error) {
 		return nil, errl.Errorf("failed to create certauth server: %w", err)
 	}
 
+	// Migrate TMF Organizations
+	if err := certauthServer.MigrateTMFOrganizations(); err != nil {
+		return nil, errl.Errorf("failed to migrate TMF organizations: %w", err)
+	}
+
 	// CertSec server requests the certificate from the user browser and passes it to the CerAuth server.
 	// It also implements admin functionalities, using a client certificate as authentication mechanism.
 	newCertSecConfig := &certsec.Config{
