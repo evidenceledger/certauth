@@ -2,6 +2,7 @@ package tmfservice
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -466,7 +467,7 @@ func MyTMFExampleOrganization() (*Organization, error) {
 
 }
 
-func TMFOrganizationFromRequest(requestData RegistrationRequest, contract []byte) *Organization_Create {
+func BuildTMFOrganizationFromRequest(requestData RegistrationRequest, derCertificate string) *Organization_Create {
 	// Acondition the VATID. Make sure that it has the prefix 'VATXX-', where XX is the country code.
 	if !strings.HasPrefix(requestData.VatId, "VAT") {
 		requestData.VatId = "VAT" + strings.ToUpper(requestData.Country) + "-" + requestData.VatId
@@ -485,12 +486,16 @@ func TMFOrganizationFromRequest(requestData RegistrationRequest, contract []byte
 	org.TradingName = requestData.CompanyName
 	org.OrganizationType = "company"
 
-	attachment := &AttachmentRefOrValue{
-		AttachmentType: "contract",
-		Description:    "Customer contract justifying the organization account",
-		MimeType:       "application/pdf",
-		Name:           "contract.pdf",
-		Content:        string(contract),
+	// The derCertificate is a binary DER encoded X.509 certificate.
+	// It needs to be converted to a base64 encoded string to be included in the TMF Organization object.
+	base64Cert := base64.StdEncoding.EncodeToString([]byte(derCertificate))
+
+	eIDASAttachment := &AttachmentRefOrValue{
+		AttachmentType: "eIDAS",
+		Name:           "eIDAS_certificate",
+		Description:    "eIDAS certificate used for identification",
+		MimeType:       "application/pkix-cert",
+		Content:        base64Cert,
 	}
 
 	org.OrganizationIdentification = []OrganizationIdentification{
@@ -499,7 +504,7 @@ func TMFOrganizationFromRequest(requestData RegistrationRequest, contract []byte
 			IdentificationID:   elsiID,
 			IdentificationType: "did:elsi",
 			IssuingAuthority:   "eIDAS",
-			Attachment:         attachment,
+			Attachment:         eIDASAttachment,
 		},
 	}
 
