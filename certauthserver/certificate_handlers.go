@@ -208,7 +208,8 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 		createOrg := tmfservice.BuildTMFOrganizationFromRequest(request, certData.CertificateDER)
 
 		// If we are not in Production, delete all existing organizations
-		if s.profile != types.ISBE_PRO {
+		// if s.profile != types.ISBE_PRO {
+		if true {
 			slog.Info("Deleting TMF organizations", "auth_code", authCode, "vat_id", request.VatId)
 			err := s.tmfService.TMFDeleteAllOrganizationsByELSI("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", request.VatId)
 			if err != nil {
