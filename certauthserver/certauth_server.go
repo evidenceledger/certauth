@@ -315,16 +315,24 @@ func (s *CertAuthServer) MigrateTMFOrganizations() error {
 			},
 		}
 
-		// Build an Organization_update object from the organization object
-		orgUpdate := tmfservice.OrgUpdateFromOrg(existingOrganization)
-
-		// Update the organization in the TMF server
-		_, err = s.tmfService.TMFPatchOrganization("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", organizationId, orgUpdate)
+		// Delete the existing Object
+		err = s.tmfService.TMFDeleteOrganization("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", organizationId)
 		if err != nil {
-			return errl.Errorf("failed to update organization: %w", err)
+			slog.Error("failed to delete organization", "error", err, "organizationId", organizationId)
+			continue
 		}
 
-		slog.Info("Updated organization", "organization", organizationId)
+		// Build an create object from the organization object
+		orgCreate := tmfservice.OrgCreateFromOrg(existingOrganization)
+
+		// Create the organization in the TMF server
+		_, err = s.tmfService.TMFCreateOrganization("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", orgCreate)
+		if err != nil {
+			slog.Error("failed to create organization", "error", err, "organizationId", organizationId)
+			continue
+		}
+
+		slog.Info("Created organization", "organization", organizationId)
 
 	}
 
