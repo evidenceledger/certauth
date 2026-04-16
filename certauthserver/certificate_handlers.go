@@ -205,7 +205,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 			Email:         formData.RepresentativeEmail,
 		}
 
-		createOrg := tmfservice.TMFOrganizationFromRequest(request, nil)
+		createOrg := tmfservice.BuildTMFOrganizationFromRequest(request, certData.CertificateDER)
 
 		// If we are not in Production, delete all existing organizations
 		if s.profile != types.ISBE_PRO {
@@ -860,7 +860,7 @@ func (s *CertAuthServer) handleContractAccepted(c *fiber.Ctx) error {
 		Email:         formData.RepresentativeEmail,
 	}
 
-	createOrg := tmfservice.TMFOrganizationFromRequest(request, contractDocument)
+	createOrg := tmfservice.BuildTMFOrganizationFromRequest(request, authProcess.CertificateData.CertificateDER)
 
 	// If we are not in Production, delete all existing organizations
 	if s.profile != types.ISBE_PRO {
