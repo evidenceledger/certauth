@@ -4,6 +4,7 @@ package certauth
 import (
 	"context"
 	"embed"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -265,6 +266,69 @@ func (s *CertAuthServer) Start(ctx context.Context) error {
 		return s.httpServer.Shutdown()
 	}
 
+}
+
+// MigrateTMFOrganizations updates the TMF Organization object for all registered organizations in our database,
+// with the eIDAS certificate used to register the organization
+func (s *CertAuthServer) MigrateTMFOrganizations() error {
+
+	// Get all registrations from the database
+	registrations, err := s.db.GetRegistrations()
+	if err != nil {
+		return errl.Errorf("failed to get registrations: %w", err)
+	}
+
+	// For each registration, update the TMF Organization object
+	for _, registration := range registrations {
+		// Build the organization objectid from the registration
+		organizationId := "urn:ngsi-ld:organization:did:elsi:" + registration.OrganizationIdentifier
+
+		organizationDID := "did:elsi:" + registration.OrganizationIdentifier
+
+		// Get the existingOrganization from the TMF server
+		existingOrganization, err := s.tmfService.TMFRetrieveOrganization("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", organizationId, "")
+		if err != nil {
+			slog.Error("failed to retrieve organization from TMF", "error", err, "organizationId", organizationId)
+			continue
+		}
+
+		// The derCertificate is a binary DER encoded X.509 certificate.
+		// It needs to be converted to a base64 encoded string to be included in the TMF Organization object.
+		base64Cert := base64.StdEncoding.EncodeToString([]byte(registration.EidasCert))
+
+		eIDASAttachment := &tmfservice.AttachmentRefOrValue{
+			AttachmentType: "eIDAS",
+			Name:           "eIDAS_certificate",
+			Description:    "eIDAS certificate used for identification",
+			MimeType:       "application/pkix-cert",
+			Content:        base64Cert,
+		}
+
+		// Replace the existing OrganizationIdentification with the new one
+		existingOrganization.OrganizationIdentification = []tmfservice.OrganizationIdentification{
+			{
+				Type:               "organizationIdentification",
+				IdentificationID:   organizationDID,
+				IdentificationType: "did:elsi",
+				IssuingAuthority:   "eIDAS",
+				Attachment:         eIDASAttachment,
+			},
+		}
+
+		// Build an Organization_update object from the organization object
+		orgUpdate := tmfservice.OrgUpdateFromOrg(existingOrganization)
+
+		// Update the organization in the TMF server
+		_, err = s.tmfService.TMFPatchOrganization("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", organizationId, orgUpdate)
+		if err != nil {
+			return errl.Errorf("failed to update organization: %w", err)
+		}
+
+		slog.Info("Updated organization", "organization", organizationId)
+
+	}
+
+	return nil
 }
 
 var noLoggingFor = map[string]bool{
