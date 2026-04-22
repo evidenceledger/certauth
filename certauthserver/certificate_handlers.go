@@ -150,12 +150,12 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 		return errl.Errorf("certificate data is nil")
 	}
 
-	_, err = VerifyCertificate(certData.CertificateDER, s.euDSSURL)
-	if err == nil {
+	_, errService, errValidation := VerifyCertificate(certData.CertificateDER, s.euDSSURL)
+	if errService == nil && errValidation == nil {
 		certData.EIDASCertificate = true
 	} else {
 		// Log the validation error with certificate details for debugging
-		slog.Warn("Certificate validation failed (proceeding in test/demo mode)", "error", err, "subject", certData.Subject)
+		slog.Warn("Certificate validation failed (proceeding in test/demo mode)", "serviceError", errService, "validationError", errValidation, "subject", certData.Subject)
 		// In ISBE_PRO we do not allow non-eIDAS certificates to proceed
 		// The UI will show a warning that the certificate is not eIDAS compliant
 		if s.profile == types.ISBE_PRO {
@@ -167,13 +167,15 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 				postAction += "/en"
 			}
 			return s.htmlRender.Render(c, templateName, fiber.Map{
-				"authCode":    authCode,
-				"authCodeObj": authProcess,
-				"certData":    certData,
-				"certType":    certData.CertificateType,
-				"subject":     certData.Subject,
-				"postAction":  postAction,
-				"production":  s.profile == types.ISBE_PRO,
+				"authCode":        authCode,
+				"authCodeObj":     authProcess,
+				"certData":        certData,
+				"certType":        certData.CertificateType,
+				"subject":         certData.Subject,
+				"postAction":      postAction,
+				"production":      s.profile == types.ISBE_PRO,
+				"serviceError":    errService != nil,
+				"validationError": errValidation != nil,
 			})
 		}
 	}
@@ -276,7 +278,11 @@ type EUDSSVerifyCertificateRequest struct {
 }
 
 // VerifyCertificate verifies a certificate using the EUDSS service.
-func VerifyCertificate(data string, url string) ([]byte, error) {
+// Returns:
+// - body: The raw response body from the service.
+// - errService: Error when the call to the service failed (HTTP failure, timeout, non-200 status).
+// - errValidation: Error when the service worked but returned validation errors.
+func VerifyCertificate(data string, url string) ([]byte, error, error) {
 	req := EUDSSVerifyCertificateRequest{
 		Certificate: struct {
 			EncodedCertificate string `json:"encodedCertificate"`
@@ -288,51 +294,77 @@ func VerifyCertificate(data string, url string) ([]byte, error) {
 
 	jsonReq, err := json.Marshal(req)
 	if err != nil {
-		return nil, errl.Errorf("failed to marshal EUDSS request: %w", err)
+		return nil, errl.Errorf("failed to marshal EUDSS request: %w", err), nil
 	}
 
-	// We use a timeout of 30 seconds
+	// We use a timeout of 30 seconds for the client
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
 
-	resp, err := client.Post(url, "application/json", bytes.NewBuffer(jsonReq))
-	if err != nil {
-		return nil, errl.Errorf("failed to send EUDSS request: %w", err)
-	}
-	defer resp.Body.Close()
+	var lastErrService error
+	var body []byte
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, errl.Errorf("EUDSS request failed with status code %d", resp.StatusCode)
+	// Retry up to two times (for a maximum total of three calls)
+	for i := range 3 {
+		switch i {
+		case 1:
+			time.Sleep(3 * time.Second)
+		case 2:
+			time.Sleep(5 * time.Second)
+		}
+
+		resp, err := client.Post(url, "application/json", bytes.NewBuffer(jsonReq))
+		if err != nil {
+			lastErrService = errl.Errorf("failed to send EUDSS request (attempt %d): %w", i+1, err)
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			lastErrService = errl.Errorf("EUDSS request failed (attempt %d) with status code %d", i+1, resp.StatusCode)
+			resp.Body.Close()
+			continue
+		}
+
+		body, err = io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			lastErrService = errl.Errorf("failed to read EUDSS response (attempt %d): %w", i+1, err)
+			continue
+		}
+
+		// If we reached here, the service call succeeded (HTTP 200 and body read)
+		// No more retries needed for service failure
+		lastErrService = nil
+		break
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, errl.Errorf("failed to read EUDSS response: %w", err)
+	if lastErrService != nil {
+		return nil, lastErrService, nil
 	}
 
 	// Parse response as a map[string]any
 	var respMap map[string]any
 	if err := json.Unmarshal(body, &respMap); err != nil {
-		return nil, errl.Errorf("failed to unmarshal EUDSS response: %w", err)
+		return nil, errl.Errorf("failed to unmarshal EUDSS response: %w", err), nil
 	}
 
 	// Get the simpleCertificateReport object
 	simpleCertificateReport := jpath.GetMap(respMap, "simpleCertificateReport")
 	if simpleCertificateReport == nil {
-		return nil, errl.Errorf("simpleCertificateReport not found in EUDSS response")
+		return nil, nil, errl.Errorf("simpleCertificateReport not found in EUDSS response")
 	}
 
 	// Get the indication from the simpleCertificateReport object
 	indication := jpath.GetString(simpleCertificateReport, "Certificate.Indication")
 	if indication != "PASSED" {
-		return nil, errl.Errorf("certificate is not eIDAS compliant")
+		return nil, nil, errl.Errorf("certificate is not eIDAS compliant")
 	}
 
 	// Get the ChainItem array
 	chainItemArray := jpath.GetList(simpleCertificateReport, "ChainItem")
 	if chainItemArray == nil {
-		return nil, errl.Errorf("ChainItem not found in EUDSS response")
+		return nil, nil, errl.Errorf("ChainItem not found in EUDSS response")
 	}
 
 	// All objects of the list must have a field "Indication": "PASSED"
@@ -354,13 +386,13 @@ func VerifyCertificate(data string, url string) ([]byte, error) {
 			// In test/demo mode, return an error to signal non-eIDAS certificate
 			// The caller will handle this by allowing the flow to continue with a warning
 			if subIndication != "" {
-				return nil, errl.Errorf("certificado en la cadena (posición %d) no pasó la validación. Indicación: %s, Sub-indicación: %s", i+1, indication, subIndication)
+				return nil, nil, errl.Errorf("certificado en la cadena (posición %d) no pasó la validación. Indicación: %s, Sub-indicación: %s", i+1, indication, subIndication)
 			}
-			return nil, errl.Errorf("certificado en la cadena (posición %d) no pasó la validación. Indicación: %s", i+1, indication)
+			return nil, nil, errl.Errorf("certificado en la cadena (posición %d) no pasó la validación. Indicación: %s", i+1, indication)
 		}
 	}
 
-	return body, nil
+	return body, nil, nil
 }
 
 // sendEmailVerification handles the email verification form submission
