@@ -14,9 +14,12 @@ func TestVerifyCertificate(t *testing.T) {
 	}
 
 	// 2. Call VerifyCertificate
-	resp, err := VerifyCertificate(string(cert), "https://ec.europa.eu/digital-building-blocks/DSS/webapp-demo/services/rest/certificate-validation/validateCertificate")
-	if err != nil {
-		t.Fatalf("VerifyCertificate failed: %v", err)
+	resp, errService, errValidation := VerifyCertificate(string(cert), "https://ec.europa.eu/digital-building-blocks/DSS/webapp-demo/services/rest/certificate-validation/validateCertificate")
+	if errService != nil {
+		t.Fatalf("VerifyCertificate service failure: %v", errService)
+	}
+	if errValidation != nil {
+		t.Fatalf("VerifyCertificate validation failure: %v", errValidation)
 	}
 
 	// 3. Validate response is JSON

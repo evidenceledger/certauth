@@ -48,7 +48,15 @@
 
         <h2 class="ui huge header">Certificado recibido</h2>
 
-        {{if not .certData.EIDASCertificate}}
+        {{ if .serviceError }}
+        <div class="ui red icon message">
+            <i class="exclamation triangle icon"></i>
+            <div class="content">
+                <div class="header">Nota</div>
+                Hemos tenido problemas temporales validando el certificado. Por favor, pruebe un poco más tarde.
+            </div>
+        </div>
+        {{ else if .validationError }}
         <div class="ui yellow icon message">
             <i class="exclamation triangle icon"></i>
             <div class="content">
