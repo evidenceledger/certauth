@@ -32,18 +32,23 @@ func init() {
 }
 
 // Generate creates a PDF contract from the given contract form and profile
-func Generate(contractForm *models.ContractForm, profile types.Profile, certUrl string) ([]byte, error) {
+func Generate(contractForm *models.ContractForm, profile types.Profile, certUrl string, isEnglish bool) ([]byte, error) {
+
+	templateName := "contract_main"
+	if isEnglish {
+		templateName = "contract_main_en"
+	}
 
 	contractData := map[string]any{
 		"formData":    contractForm,
 		"profile":     profile,
 		"certUrl":     certUrl,
-		"countryName": countryName(contractForm.OrganizationCountry),
+		"countryName": countryName(contractForm.OrganizationCountry, isEnglish),
 	}
 
 	// Execute the template, passing the contract data
 	var renderedHTML bytes.Buffer
-	err := tmpl.ExecuteTemplate(&renderedHTML, "contract_main", contractData)
+	err := tmpl.ExecuteTemplate(&renderedHTML, templateName, contractData)
 	if err != nil {
 		return nil, errl.Errorf("error executing template: %v", err)
 	}
@@ -74,7 +79,7 @@ func Generate(contractForm *models.ContractForm, profile types.Profile, certUrl 
 }
 
 // countryName returns the real country name (EU/EEA only) fromn the two-letter country code
-func countryName(countryCode string) string {
+func countryName(countryCode string, isEnglish bool) string {
 	countries := map[string]string{
 		"ES": "España",
 		"FR": "Francia",
@@ -105,9 +110,49 @@ func countryName(countryCode string) string {
 		"SI": "Eslovenia",
 	}
 
-	country, ok := countries[strings.ToUpper(strings.TrimSpace(countryCode))]
-	if !ok {
-		return countryCode
+	countries_en := map[string]string{
+		"ES": "Spain",
+		"FR": "France",
+		"DE": "Germany",
+		"IT": "Italy",
+		"PT": "Portugal",
+		"NL": "Netherlands",
+		"BE": "Belgium",
+		"LU": "Luxembourg",
+		"AT": "Austria",
+		"SE": "Sweden",
+		"FI": "Finland",
+		"DK": "Denmark",
+		"IE": "Ireland",
+		"EL": "Greece",
+		"CY": "Cyprus",
+		"MT": "Malta",
+		"EE": "Estonia",
+		"LV": "Latvia",
+		"LT": "Lithuania",
+		"PL": "Poland",
+		"CZ": "Czech Republic",
+		"SK": "Slovakia",
+		"HU": "Hungary",
+		"RO": "Romania",
+		"BG": "Bulgaria",
+		"HR": "Croatia",
+		"SI": "Slovenia",
 	}
-	return country
+
+	if isEnglish {
+		country, ok := countries_en[strings.ToUpper(strings.TrimSpace(countryCode))]
+		if !ok {
+			return countryCode
+		}
+		return country
+
+	} else {
+		country, ok := countries[strings.ToUpper(strings.TrimSpace(countryCode))]
+		if !ok {
+			return countryCode
+		}
+		return country
+
+	}
 }
