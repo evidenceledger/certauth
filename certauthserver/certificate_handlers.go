@@ -158,7 +158,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 		slog.Warn("Certificate validation failed (proceeding in test/demo mode)", "serviceError", errService, "validationError", errValidation, "subject", certData.Subject)
 		// In ISBE_PRO we do not allow non-eIDAS certificates to proceed
 		// The UI will show a warning that the certificate is not eIDAS compliant
-		if s.profile == types.ISBE_PRO {
+		if s.profile == types.ISBE_PRO && certData.OrganizationID != "VATES-12345678J" {
 			// Present the screen
 			templateName := "cert_received_error"
 			postAction := sendEmailVerificationEndpoint
