@@ -387,13 +387,10 @@ func (s *Server) handleCallback(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   3600, // 1 hour
 	})
 
-	// Redirect to home page
-	// http.Redirect(w, r, "/", http.StatusFound)
-
 	slog.Info("Redirecting to private area", "path", s.privateArea, "state", state)
 	redirectPath := s.privateArea
 	if strings.HasPrefix(state, "en_") {
-		redirectPath = redirectPath + "/en"
+		redirectPath = strings.TrimSuffix(redirectPath, "/") + "/en"
 	}
 	http.Redirect(w, r, redirectPath, http.StatusFound)
 }

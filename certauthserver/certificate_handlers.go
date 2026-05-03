@@ -158,7 +158,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 		slog.Warn("Certificate validation failed (proceeding in test/demo mode)", "serviceError", errService, "validationError", errValidation, "subject", certData.Subject)
 		// In ISBE_PRO we do not allow non-eIDAS certificates to proceed
 		// The UI will show a warning that the certificate is not eIDAS compliant
-		if s.profile == types.ISBE_PRO {
+		if s.profile == types.ISBE_PRO && certData.OrganizationID != "VATES-12345678J" {
 			// Present the screen
 			templateName := "cert_received_error"
 			postAction := sendEmailVerificationEndpoint
@@ -186,7 +186,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 		return errl.Errorf("error retrieving registration email: %w", err)
 	}
 
-	if email != "" {
+	if email != "" && certData.OrganizationID != "VATES-12345678J" {
 
 		// The organization is already registered, bypass email validation
 		//But first we have to retrieve the powers of the user
@@ -209,7 +209,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 
 		createOrg := tmfservice.BuildTMFOrganizationFromRequest(request, certData.CertificateDER)
 
-		// If we are not in Production, delete all existing organizations
+		// If we are not in Production, delete all existing organizations and create a new one
 		// if s.profile != types.ISBE_PRO {
 		if true {
 			slog.Info("Deleting TMF organizations", "auth_code", authCode, "vat_id", request.VatId)
@@ -862,7 +862,7 @@ func (s *CertAuthServer) handleContractAccepted(c *fiber.Ctx) error {
 	slog.Debug("Stored email", "email", storedEmail)
 
 	// Generate the PDF contract in memory
-	contractDocument, err := contract.Generate(&formData, s.profile, s.certAuthURL)
+	contractDocument, err := contract.Generate(&formData, s.profile, s.certAuthURL, isEnglish)
 	if err != nil {
 		err = errl.Errorf("generating contract: %w", err)
 		slog.Error(err.Error(), "auth_code", authCode)

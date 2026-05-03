@@ -129,28 +129,16 @@
             <!-- IDENTIFICACION PARTICIPANTE -->
             <p>And on the other part, {{ .OrganizationName }},
                 legal entity incorporated in accordance with the laws of
-                {{ .OrganizationCountry }},
+                {{ $.countryName }},
                 with registered office at
                 {{ .OrganizationAddress }}
-                and N.I.F. number
+                and VAT number
                 {{ .OrganizationNif }},
-                registered in the Mercantile Registry of
-                {{ .RegistryName }}
-                volume
-                {{ .RegistryVolume }}, folio
-                {{ .RegistryFolio }}, sheet
-                {{ .RegistrySheet }},
                 represented in this act by
                 {{ .RepresentativeTitle }}
                 {{ .RepresentativeName }},
                 with email address
-                {{ .RepresentativeEmail }},
-                as accredited by deed executed before the Notary of
-                {{ .NotaryCity }},
-                {{ .NotaryTitle }} {{ .NotaryName }}, on the {{ .NotaryDay }} of
-                {{ .NotaryMonth }},
-                {{ .NotaryYear }}, with number
-                {{ .NotaryProtocolNumber }} of their protocol
+                {{ .RepresentativeEmail }}
                 (hereinafter, the "<strong>Participant</strong>").
                 <input type="hidden" name="organization_name" value="{{ .OrganizationName }}">
                 <input type="hidden" name="organization_country" value="{{ .OrganizationCountry }}">

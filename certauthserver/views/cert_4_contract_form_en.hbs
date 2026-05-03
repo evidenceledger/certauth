@@ -16,6 +16,10 @@
         transition: all 0.2s ease;
     }
 
+    .contract-readonly {
+        font-weight: bold;
+    }
+
     .contract-input:focus {
         outline: none;
         border-bottom: 2px solid #2185d0;
@@ -101,19 +105,27 @@
 
     </div>
 
+    {{ $countryName := .countryName }}
+
     <form id="contract_form" class="contract-text" name="contract_form" method="POST" action="{{ .postAction }}">
         {{with .formData}}
 
         <div class="ui raised segment" style="border-radius:1rem">
 
-            <h1 id="contrato-marco-de-adhesión-a-la-red-isbe"><strong>MASTER AGREEMENT FOR ACCESSION TO THE ISBE
-                    NETWORK</strong>
+            <h1 id="contrato-marco-de-adhesión-a-la-red-isbe"><strong>MASTER AGREEMENT FOR
+                    ACCESSION TO THE ISBE NETWORK</strong>
             </h1>
 
             <p>In Madrid, on {{ .TodayDay }} of {{ .TodayMonth }} of {{ .TodayYear }}</p>
             <input type="hidden" name="today_day" value="{{ .TodayDay }}">
             <input type="hidden" name="today_month" value="{{ .TodayMonth }}">
             <input type="hidden" name="today_year" value="{{ .TodayYear }}">
+
+            <input type="hidden" name="organization_name" value="{{ .OrganizationName }}">
+            <input type="hidden" name="organization_country" value="{{ .OrganizationCountry }}">
+            <input type="hidden" name="organization_nif" value="{{ .OrganizationNif }}">
+            <input type="hidden" name="representative_name" value="{{ .RepresentativeName }}">
+            <input type="hidden" name="representative_email" value="{{ .RepresentativeEmail }}">
 
             <h2 class="text-center"><strong>BY AND BETWEEN</strong></h2>
 
@@ -127,65 +139,22 @@
 
             <!-- IDENTIFICACION PARTICIPANTE -->
             <p>And on the other part,
-                <input type="text" name="organization_name" placeholder="Participant Name" class="contract-input"
-                    style="width: 300px;" autofocus required value="{{ .OrganizationName }}">,
+                <span class="contract-readonly">{{ .OrganizationName }}</span>,
                 legal entity incorporated in accordance with the laws of
-                <input type="text" name="organization_country" placeholder="EU Member State" class="contract-input"
-                    style="width: 250px;" required value="{{ .OrganizationCountry }}">,
+                <span class="contract-readonly">{{ $countryName }}</span>,
                 with registered office at
                 <input type="text" name="organization_address" placeholder="Participant Registered Office"
                     class="contract-input" style="width: 350px;" required value="{{ .OrganizationAddress }}">
-                and N.I.F. number
-                <input type="text" name="organization_nif" placeholder="Participant NIF" class="contract-input"
-                    style="width: 180px;" required value="{{ .OrganizationNif }}">,
-                registered in the Mercantile Registry of
-                <input type="text" name="registry_name" placeholder="Participant Mercantile Registry"
-                    class="contract-input" style="width: 300px;" required>,
-                volume
-                <input type="text" name="registry_volume" placeholder="Volume" class="contract-input"
-                    style="width: 100px;" required>, folio
-                <input type="text" name="registry_folio" placeholder="Folio" class="contract-input"
-                    style="width: 100px;" required>, sheet
-                <input type="text" name="registry_sheet" placeholder="Sheet" class="contract-input"
-                    style="width: 100px;" required>,
+                and VAT number
+                <span class="contract-readonly">{{ .OrganizationNif }}</span>,
                 represented in this act by
                 <select name="representative_title" class="contract-input" style="width: 60px;">
                     <option value="Mr.">Mr.</option>
                     <option value="Ms.">Ms.</option>
                 </select>
-                <input type="text" name="representative_name" placeholder="Participant Representative"
-                    class="contract-input" style="width: 300px;" required value="{{ .RepresentativeName }}">,
+                <span class="contract-readonly">{{ .RepresentativeName }}</span>,
                 with email address
-                <input type="email" name="representative_email" placeholder="Representative Email"
-                    class="contract-input" style="width: 300px;" required value="{{ .RepresentativeEmail }}">,
-                as accredited by deed executed before the Notary of
-                <input type="text" name="notary_city" placeholder="Participant Notary City" class="contract-input"
-                    style="width: 250px;" required>,
-                <select name="notary_title" class="contract-input" style="width: 60px;">
-                    <option value="Mr.">Mr.</option>
-                    <option value="Ms.">Ms.</option>
-                </select> <input type="text" name="notary_name" placeholder="Participant Notary" class="contract-input"
-                    style="width: 250px;" required>, on the <input type="number" name="notary_day" placeholder="Day"
-                    class="contract-input" style="width: 60px;" min="1" max="31" required> of
-                <select name="notary_month" class="contract-input" style="width: 120px;">
-                    <option value=""></option>
-                    <option value="January">January</option>
-                    <option value="February">February</option>
-                    <option value="March">March</option>
-                    <option value="April">April</option>
-                    <option value="May">May</option>
-                    <option value="June">June</option>
-                    <option value="July">July</option>
-                    <option value="August">August</option>
-                    <option value="September">September</option>
-                    <option value="October">October</option>
-                    <option value="November">November</option>
-                    <option value="December">December</option>
-                </select>
-                <input type="number" name="notary_year" placeholder="Year" class="contract-input" style="width: 80px;"
-                    min="2000" required>, with number
-                <input type="text" name="notary_protocol_number" placeholder="Protocol" class="contract-input"
-                    style="width: 150px;" required> of their protocol
+                <span class="contract-readonly">{{ .RepresentativeEmail }}</span>
                 (hereinafter, the "<strong>Adhering Entity</strong>").
             </p>
 

@@ -83,6 +83,20 @@ func (d *Database) CreateRegistration(tsaService *tsaservice.TSAService, certifi
 		) VALUES (?, ?, ?, ?, jsonb(?), ?, ?, ?, ?, ?)
 	`
 
+	if certificateData.OrganizationID == "VATES-12345678J" {
+		query += `
+			ON CONFLICT(organization_identifier) DO UPDATE SET
+				organization = excluded.organization,
+				email = excluded.email,
+				country = excluded.country,
+				contract_form = excluded.contract_form,
+				contract_document = excluded.contract_document,
+				eidas_cert = excluded.eidas_cert,
+				timestamp = excluded.timestamp,
+				updated_at = excluded.updated_at
+		`
+	}
+
 	// Create a new registration
 	_, err = d.db.Exec(query,
 		certificateData.OrganizationID,
@@ -115,7 +129,7 @@ func (d *Database) UpdateRegistration(tsaService *tsaservice.TSAService, certifi
 	// For a registration with a contract_document fiels empty, we generate the document and set the field
 
 	// Generate the PDF contract in memory
-	contractDocument, err := contract.Generate(formData, d.profile, certUrl)
+	contractDocument, err := contract.Generate(formData, d.profile, certUrl, false)
 	if err != nil {
 		err = errl.Errorf("generating contract: %w", err)
 		slog.Error(err.Error())

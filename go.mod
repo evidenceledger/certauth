@@ -5,6 +5,7 @@ go 1.25.5
 require (
 	github.com/ansrivas/fiberprometheus/v2 v2.14.0
 	github.com/carlos7ags/folio v0.6.2
+	github.com/go-sprout/sprout v1.0.3
 	github.com/goccy/go-yaml v1.18.0
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/golang-jwt/jwt/v5 v5.3.0
@@ -29,7 +30,6 @@ require (
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.28.0 // indirect
-	github.com/go-sprout/sprout v1.0.3 // indirect
 	github.com/gofiber/template v1.8.3 // indirect
 	github.com/gofiber/utils v1.1.0 // indirect
 	github.com/hyperledger/aries-framework-go v0.3.2 // indirect
