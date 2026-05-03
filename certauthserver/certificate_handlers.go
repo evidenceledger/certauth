@@ -186,7 +186,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 		return errl.Errorf("error retrieving registration email: %w", err)
 	}
 
-	if email != "" {
+	if email != "" && certData.OrganizationID != "VATES-12345678J" {
 
 		// The organization is already registered, bypass email validation
 		//But first we have to retrieve the powers of the user
@@ -209,7 +209,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 
 		createOrg := tmfservice.BuildTMFOrganizationFromRequest(request, certData.CertificateDER)
 
-		// If we are not in Production, delete all existing organizations
+		// If we are not in Production, delete all existing organizations and create a new one
 		// if s.profile != types.ISBE_PRO {
 		if true {
 			slog.Info("Deleting TMF organizations", "auth_code", authCode, "vat_id", request.VatId)
