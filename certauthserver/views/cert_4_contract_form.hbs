@@ -146,16 +146,6 @@
                     class="contract-input" style="width: 350px;" required value="{{ .OrganizationAddress }}">
                 y N.I.F. número
                 <span class="contract-readonly">{{ .OrganizationNif }}</span>,
-                inscrita en el Registro Mercantil de
-                <input type="text" name="registry_name" placeholder="Registro Mercantil del Participante"
-                    class="contract-input" style="width: 300px;" required>,
-                al tomo
-                <input type="text" name="registry_volume" placeholder="Tomo" class="contract-input"
-                    style="width: 100px;" required>, folio
-                <input type="text" name="registry_folio" placeholder="Folio" class="contract-input"
-                    style="width: 100px;" required>, hoja
-                <input type="text" name="registry_sheet" placeholder="Hoja" class="contract-input" style="width: 100px;"
-                    required>,
                 representada en este acto por
                 <select name="representative_title" class="contract-input" style="width: 60px;">
                     <option value="D.">D.</option>
@@ -163,35 +153,7 @@
                 </select>
                 <span class="contract-readonly">{{ .RepresentativeName }}</span>,
                 con correo electrónico
-                <span class="contract-readonly">{{ .RepresentativeEmail }}</span>,
-                según acredita mediante escritura otorgada ante el Notario de
-                <input type="text" name="notary_city" placeholder="Ciudad Notario del Participante"
-                    class="contract-input" style="width: 250px;" required>,
-                <select name="notary_title" class="contract-input" style="width: 60px;">
-                    <option value="D.">D.</option>
-                    <option value="Dña.">Dña.</option>
-                </select> <input type="text" name="notary_name" placeholder="Notario del Participante"
-                    class="contract-input" style="width: 250px;" required>, el <input type="number" name="notary_day"
-                    placeholder="Día" class="contract-input" style="width: 60px;" min="1" max="31" required> de
-                <select name="notary_month" class="contract-input" style="width: 120px;">
-                    <option value=""></option>
-                    <option value="Enero">Enero</option>
-                    <option value="Febrero">Febrero</option>
-                    <option value="Marzo">Marzo</option>
-                    <option value="Abril">Abril</option>
-                    <option value="Mayo">Mayo</option>
-                    <option value="Junio">Junio</option>
-                    <option value="Julio">Julio</option>
-                    <option value="Agosto">Agosto</option>
-                    <option value="Septiembre">Septiembre</option>
-                    <option value="Octubre">Octubre</option>
-                    <option value="Noviembre">Noviembre</option>
-                    <option value="Diciembre">Diciembre</option>
-                </select>
-                <input type="number" name="notary_year" placeholder="Año" class="contract-input" style="width: 80px;"
-                    min="2000" required>, con el número
-                <input type="text" name="notary_protocol_number" placeholder="Protocolo" class="contract-input"
-                    style="width: 150px;" required> de su protocolo
+                <span class="contract-readonly">{{ .RepresentativeEmail }}</span>
                 (en adelante, la “<strong>Entidad Adherente</strong>”).
             </p>
 

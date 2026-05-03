@@ -300,28 +300,16 @@
     <!-- IDENTIFICACION PARTICIPANTE -->
     <p>Y de otra parte, {{ .OrganizationName }},
         persona jurídica constituida conforme a las leyes de
-        {{ .OrganizationCountry }},
+        {{ $.countryName }},
         con domicilio social en
         {{ .OrganizationAddress }}
         y N.I.F. número
         {{ .OrganizationNif }},
-        inscrita en el Registro Mercantil de
-        {{ .RegistryName }}
-        al tomo
-        {{ .RegistryVolume }}, folio
-        {{ .RegistryFolio }}, hoja
-        {{ .RegistrySheet }},
         representada en este acto por
         {{ .RepresentativeTitle }}
         {{ .RepresentativeName }},
         con correo electrónico
-        {{ .RepresentativeEmail }},
-        según acredita mediante escritura otorgada ante el Notario de
-        {{ .NotaryCity }},
-        {{ .NotaryTitle }} {{ .NotaryName }}, el {{ .NotaryDay }} de
-        {{ .NotaryMonth }},
-        {{ .NotaryYear }}, con el número
-        {{ .NotaryProtocolNumber }} de su protocolo
+        {{ .RepresentativeEmail }}
         (en adelante, el “<strong>Participante</strong>”).
     </p>
 
