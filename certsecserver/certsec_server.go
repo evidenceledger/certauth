@@ -420,6 +420,11 @@ func (s *CertSecServer) retrieveCertificate(c *fiber.Ctx) (
 		}
 	}
 
+	// Check that we received enough data
+	if len(certFromHeader) < 100 {
+		return nil, nil, nil, "", errl.Errorf("Certificate data too short: %d bytes", len(certFromHeader))
+	}
+
 	// Parse the certificate, which may come as DER or PEM format
 	// First, detect if it seems PEM
 	if strings.HasPrefix(certFromHeader, "-----BEGIN") {
