@@ -356,6 +356,9 @@ func LoadConfig() (*Config, string, error) {
 	cfg.OnboardURL = GetStringEnvOrDefault("ONBOARD_URL", cfg.OnboardURL)
 	cfg.OnboardPort = GetStringEnvOrDefault("ONBOARD_PORT", cfg.OnboardPort)
 
+	// Check for override of the TMF server URL
+	cfg.TMFServerURL = GetStringEnvOrDefault("TMF_SERVER_URL", cfg.TMFServerURL)
+
 	// Check for override of the TSA (Timestamping Authority) config
 	cfg.CertAuthConfig.TSAConfig.TSAURL = GetStringEnvOrDefault("TSA_URL", cfg.CertAuthConfig.TSAConfig.TSAURL)
 	cfg.CertAuthConfig.TSAConfig.CACertURL = GetStringEnvOrDefault("TSA_CA_CERT_URL", cfg.CertAuthConfig.TSAConfig.CACertURL)
