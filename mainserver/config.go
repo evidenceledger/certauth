@@ -188,8 +188,8 @@ func LoadConfig() (*Config, string, error) {
 			RelyingParty: &models.RelyingParty{
 				Name:        "ISBE Onboarding DEV in OVH",
 				Description: "The ISBE Onboarding Application in DEV in OVH server",
-				ClientID:    "isbeonboard",
-				RedirectURL: "https://onboard-dev.evidenceledger.org" + "/callback",
+				ClientID:    "https://onboard-dev.evidenceledger.org",
+				RedirectURL: "https://onboard-dev.evidenceledger.org/callback",
 				Scopes:      "openid eidas",
 				TokenExpiry: 3600,
 			},
@@ -253,7 +253,7 @@ func LoadConfig() (*Config, string, error) {
 			RelyingParty: &models.RelyingParty{
 				Name:        "ISBE Onboarding PRE in OVH",
 				Description: "The ISBE Onboarding Application in PRE",
-				ClientID:    "isbeonboard",
+				ClientID:    "https://onboard-pre.evidenceledger.org",
 				RedirectURL: "https://onboard-pre.evidenceledger.org/callback",
 				Scopes:      "openid eidas",
 				TokenExpiry: 3600,
