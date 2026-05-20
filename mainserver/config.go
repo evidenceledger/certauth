@@ -243,7 +243,7 @@ func LoadConfig() (*Config, string, error) {
 				Name:        "ISBE Onboarding PRE",
 				Description: "The ISBE Onboarding Application in PRE",
 				ClientID:    "isbeonboard",
-				RedirectURL: "https://onboard-pre.evidenceledger.eu/callback",
+				RedirectURL: "https://onboard-pre.evidenceledger.org/callback",
 				Scopes:      "openid eidas",
 				TokenExpiry: 3600,
 			},
