@@ -184,6 +184,17 @@ func LoadConfig() (*Config, string, error) {
 			},
 			ClientSecret: "isbesecret",
 		},
+		{
+			RelyingParty: &models.RelyingParty{
+				Name:        "ISBE Onboarding DEV in OVH",
+				Description: "The ISBE Onboarding Application in DEV in OVH server",
+				ClientID:    "isbeonboard",
+				RedirectURL: "https://onboard-dev.evidenceledger.org" + "/callback",
+				Scopes:      "openid eidas",
+				TokenExpiry: 3600,
+			},
+			ClientSecret: "isbesecret",
+		},
 	}
 
 	// ISBE Pre-Production environment
@@ -232,7 +243,18 @@ func LoadConfig() (*Config, string, error) {
 				Name:        "ISBE Onboarding PRE",
 				Description: "The ISBE Onboarding Application in PRE",
 				ClientID:    "isbeonboard",
-				RedirectURL: ISBE_PRE_CFG.OnboardURL + "/callback",
+				RedirectURL: "https://onboard-pre.evidenceledger.eu/callback",
+				Scopes:      "openid eidas",
+				TokenExpiry: 3600,
+			},
+			ClientSecret: "isbesecret",
+		},
+		{
+			RelyingParty: &models.RelyingParty{
+				Name:        "ISBE Onboarding PRE in OVH",
+				Description: "The ISBE Onboarding Application in PRE",
+				ClientID:    "isbeonboard",
+				RedirectURL: "https://onboard-pre.evidenceledger.org/callback",
 				Scopes:      "openid eidas",
 				TokenExpiry: 3600,
 			},
@@ -293,6 +315,17 @@ func LoadConfig() (*Config, string, error) {
 			},
 			ClientSecret: "isbesecret",
 		},
+		{
+			RelyingParty: &models.RelyingParty{
+				Name:        "ISBE Onboarding PRO in OVH",
+				Description: "The ISBE Onboarding Application in PRO",
+				ClientID:    "isbeonboard",
+				RedirectURL: "https://onboard-pro.evidenceledger.org/callback",
+				Scopes:      "openid eidas",
+				TokenExpiry: 3600,
+			},
+			ClientSecret: "isbesecret",
+		},
 	}
 
 	var cfg Config
@@ -344,6 +377,9 @@ func LoadConfig() (*Config, string, error) {
 	// Check for override of the Onboard server URL and port
 	cfg.OnboardURL = GetStringEnvOrDefault("ONBOARD_URL", cfg.OnboardURL)
 	cfg.OnboardPort = GetStringEnvOrDefault("ONBOARD_PORT", cfg.OnboardPort)
+
+	// Check for override of the TMF server URL
+	cfg.TMFServerURL = GetStringEnvOrDefault("TMF_SERVER_URL", cfg.TMFServerURL)
 
 	// Check for override of the TSA (Timestamping Authority) config
 	cfg.CertAuthConfig.TSAConfig.TSAURL = GetStringEnvOrDefault("TSA_URL", cfg.CertAuthConfig.TSAConfig.TSAURL)

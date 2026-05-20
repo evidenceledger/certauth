@@ -114,7 +114,10 @@ func New(
 	}
 
 	app := fiber.New(fiber.Config{
-		AppName: "CertSec Certificate Authentication",
+		AppName:        "CertSec Certificate Authentication",
+		ReadBufferSize: 64 * 1024, // 64 KB — allows large Authorization headers (e.g. JWTs with many claims)
+		ReadTimeout:    30 * time.Second,
+		WriteTimeout:   30 * time.Second,
 	})
 
 	app.Use(recover.New())
@@ -418,6 +421,11 @@ func (s *CertSecServer) retrieveCertificate(c *fiber.Ctx) (
 		} else {
 			return nil, nil, nil, "", errl.Errorf("No certificate provided, neither in %s nor in %s", stdCertHeader, kubeCertHeader)
 		}
+	}
+
+	// Check that we received enough data
+	if len(certFromHeader) < 100 {
+		return nil, nil, nil, "", errl.Errorf("Certificate data too short: %d bytes", len(certFromHeader))
 	}
 
 	// Parse the certificate, which may come as DER or PEM format

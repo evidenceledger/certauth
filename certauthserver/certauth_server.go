@@ -145,6 +145,7 @@ func NewCertAuth(
 	httpServer := fiber.New(fiber.Config{
 		AppName:                 "CertAuth OP",
 		ServerHeader:            "CertAuth",
+		ReadBufferSize:          64 * 1024, // 64 KB — allows large Authorization headers (e.g. JWTs with many claims)
 		EnableTrustedProxyCheck: false,
 		ReadTimeout:             30 * time.Second,
 		WriteTimeout:            30 * time.Second,
