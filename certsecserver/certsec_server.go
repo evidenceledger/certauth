@@ -114,7 +114,10 @@ func New(
 	}
 
 	app := fiber.New(fiber.Config{
-		AppName: "CertSec Certificate Authentication",
+		AppName:        "CertSec Certificate Authentication",
+		ReadBufferSize: 64 * 1024, // 64 KB — allows large Authorization headers (e.g. JWTs with many claims)
+		ReadTimeout:    30 * time.Second,
+		WriteTimeout:   30 * time.Second,
 	})
 
 	app.Use(recover.New())
