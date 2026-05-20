@@ -319,7 +319,7 @@ func LoadConfig() (*Config, string, error) {
 			RelyingParty: &models.RelyingParty{
 				Name:        "ISBE Onboarding PRO in OVH",
 				Description: "The ISBE Onboarding Application in PRO",
-				ClientID:    "isbeonboard",
+				ClientID:    "https://onboard-pro.evidenceledger.org",
 				RedirectURL: "https://onboard-pro.evidenceledger.org/callback",
 				Scopes:      "openid eidas",
 				TokenExpiry: 3600,
