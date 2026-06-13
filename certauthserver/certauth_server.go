@@ -51,7 +51,8 @@ type ConfigCertAuth struct {
 	EmailConfig *email.EmailConfig
 
 	// The URL for the management system where onboardings are reqistered
-	ManagementURL string
+	ManagementURL    string
+	ManagementAPIKey string
 
 	// The URL for the Digital Signature Services. We use it now for verification of certificates only.
 	EUDSSURL string
@@ -82,7 +83,8 @@ type CertAuthServer struct {
 	certSecURL string
 
 	// The URL for the management system where onboardings are reqistered
-	managementURL string
+	managementURL    string
+	managementAPIKey string
 
 	// The URL for the Digital Signature Services. We use it now for verification of certificates only.
 	euDSSURL string
@@ -203,26 +205,26 @@ func NewCertAuth(
 
 	// Put everything together in a server
 	s := &CertAuthServer{
-		profile:       cfg.Profile,
-		certAuthURL:   cfg.CertAuthURL,
-		certAuthPort:  cfg.CertAuthPort,
-		certSecURL:    cfg.CertSecURL,
-		managementURL: cfg.ManagementURL,
-		euDSSURL:      cfg.EUDSSURL,
-		httpServer:    httpServer,
-		db:            db,
-		jwtService:    jwtService,
-		htmlRender:    htmlrender,
-		authprocCache: authprocCache,
-		ssoCache:      ssoCache,
-		tsaService:    tsaService,
-		emailService:  emailService,
-		tmfService:    tmfservice,
+		profile:          cfg.Profile,
+		certAuthURL:      cfg.CertAuthURL,
+		certAuthPort:     cfg.CertAuthPort,
+		certSecURL:       cfg.CertSecURL,
+		managementURL:    cfg.ManagementURL,
+		managementAPIKey: cfg.ManagementAPIKey,
+		euDSSURL:         cfg.EUDSSURL,
+		httpServer:       httpServer,
+		db:               db,
+		jwtService:       jwtService,
+		htmlRender:       htmlrender,
+		authprocCache:    authprocCache,
+		ssoCache:         ssoCache,
+		tsaService:       tsaService,
+		emailService:     emailService,
+		tmfService:       tmfservice,
 	}
 
 	// Register the health check endpoint
 	s.httpServer.Get("/health", func(c *fiber.Ctx) error {
-		slog.Info("Health check", "from", c.Hostname())
 		return c.JSON(fiber.Map{"status": "healthy", "hostname": c.Hostname()})
 	})
 

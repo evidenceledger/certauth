@@ -46,7 +46,6 @@ type EmailCreds struct {
 // Config is the configuration for the server.
 // It contains the configuration for CertAuth, CertSec and Onboard servers.
 type Config struct {
-	// Development    bool
 	Profile        types.Profile
 	OnboardURL     string
 	OnboardPort    string
@@ -79,8 +78,8 @@ func LoadConfig() (*Config, string, error) {
 	var profilestr string
 
 	// Parse flags
-	flag.StringVar(&profilestr, "profile", string(types.LOCAL), "Profile to use: local, isbe-dev, isbe-pre or isbe-pro")
-	flag.StringVar(&profilestr, "p", string(types.LOCAL), "Profile to use (shorthand): local, isbe-dev, isbe-pre or isbe-pro")
+	flag.StringVar(&profilestr, "profile", string(types.PROFILE_LOCAL), "Profile to use: local, isbe-dev, isbe-pre or isbe-pro")
+	flag.StringVar(&profilestr, "p", string(types.PROFILE_LOCAL), "Profile to use (shorthand): local, isbe-dev, isbe-pre or isbe-pro")
 	flag.StringVar(&adminPassword, "admin-password", "", "Admin password for the server")
 
 	flag.Parse()
@@ -88,19 +87,21 @@ func LoadConfig() (*Config, string, error) {
 	// Determine the configuration to use depending on the profile specified in the environment variable PROFILE
 	// If no profile specified, we use the LOCAL development profile
 	profilestr = GetStringEnvOrDefault("PROFILE", profilestr)
-	profile := types.Profile(strings.ToLower(profilestr))
+	profile := types.ProfileFromString(profilestr)
 
 	// Local VPS development environment, which uses the domain mycredential.eu
+	const localDomain = "mycredential.eu"
+
 	var LOCAL_CFG = Config{
-		OnboardURL:   "https://onboard.mycredential.eu",
+		OnboardURL:   "https://onboard." + localDomain,
 		OnboardPort:  "8012",
 		PrivateArea:  "/",
 		TMFServerURL: "https://tmf.evidenceledger.eu/",
 		CertAuthConfig: &certauth.ConfigCertAuth{
-			Profile:       types.LOCAL,
-			CertAuthURL:   "https://certauth.mycredential.eu",
+			Profile:       types.PROFILE_LOCAL,
+			CertAuthURL:   "https://certauth." + localDomain,
 			CertAuthPort:  "8010",
-			CertSecURL:    "https://certsec.mycredential.eu",
+			CertSecURL:    "https://certsec." + localDomain,
 			CertSecPort:   "8011",
 			TSAConfig:     defaultTsaConfig,
 			EmailConfig:   defaultEmailConfig,
@@ -111,8 +112,8 @@ func LoadConfig() (*Config, string, error) {
 	LOCAL_CFG.PredefinedRPs = []PredefinedRP{
 		{
 			RelyingParty: &models.RelyingParty{
-				Name:        "ALTIA Onboarding local",
-				Description: "The ALTIA Onboarding Application in local",
+				Name:        "Onboarding in local",
+				Description: "The Onboarding Application in local",
 				ClientID:    "isbeonboard",
 				RedirectURL: LOCAL_CFG.OnboardURL + "/callback",
 				Scopes:      "openid eidas",
@@ -133,13 +134,14 @@ func LoadConfig() (*Config, string, error) {
 		},
 	}
 
+	// ISBE Development environment
 	var ISBE_DEV_CFG = Config{
 		OnboardURL:   "https://onboard-dev.redisbe.com",
 		OnboardPort:  "8012",
 		PrivateArea:  "https://poc-front.dev.cloud-w.envs.redisbe.com",
 		TMFServerURL: "https://tmf.dev.portal.redisbe.com",
 		CertAuthConfig: &certauth.ConfigCertAuth{
-			Profile:       types.ISBE_DEV,
+			Profile:       types.PROFILE_ISBE_DEV,
 			CertAuthURL:   "https://certauth-dev.redisbe.com",
 			CertAuthPort:  "8010",
 			CertSecURL:    "https://certsec.evidenceledger.eu",
@@ -204,7 +206,7 @@ func LoadConfig() (*Config, string, error) {
 		PrivateArea:  "https://pre.portal.redisbe.com/",
 		TMFServerURL: "https://tmf-pre.evidenceledger.eu",
 		CertAuthConfig: &certauth.ConfigCertAuth{
-			Profile:       types.ISBE_PRE,
+			Profile:       types.PROFILE_ISBE_PRE,
 			CertAuthURL:   "https://certauth.pre.portal.redisbe.com",
 			CertAuthPort:  "8010",
 			CertSecURL:    "https://certsec-pre.evidenceledger.eu",
@@ -262,13 +264,14 @@ func LoadConfig() (*Config, string, error) {
 		},
 	}
 
+	// ISBE PRODUCTION environment
 	var ISBE_PRO_CFG = Config{
 		OnboardURL:   "https://onboard.portal.redisbe.com",
 		OnboardPort:  "8012",
 		PrivateArea:  "https://portal.redisbe.com/",
 		TMFServerURL: "https://tmf.portal.redisbe.com",
 		CertAuthConfig: &certauth.ConfigCertAuth{
-			Profile:       types.ISBE_PRO,
+			Profile:       types.PROFILE_ISBE_PRO,
 			CertAuthURL:   "https://certauth.portal.redisbe.com",
 			CertAuthPort:  "8010",
 			CertSecURL:    "https://certsec-pro.evidenceledger.eu",
@@ -279,8 +282,6 @@ func LoadConfig() (*Config, string, error) {
 			EUDSSURL:      defaultEUDSSURL,
 		},
 	}
-
-	// Set the predefined Relying Parties for ISBE PRO
 	ISBE_PRO_CFG.PredefinedRPs = []PredefinedRP{
 		{
 			RelyingParty: &models.RelyingParty{
@@ -330,13 +331,13 @@ func LoadConfig() (*Config, string, error) {
 
 	var cfg Config
 	switch profile {
-	case types.LOCAL:
+	case types.PROFILE_LOCAL:
 		cfg = LOCAL_CFG
-	case types.ISBE_DEV:
+	case types.PROFILE_ISBE_DEV:
 		cfg = ISBE_DEV_CFG
-	case types.ISBE_PRE:
+	case types.PROFILE_ISBE_PRE:
 		cfg = ISBE_PRE_CFG
-	case types.ISBE_PRO:
+	case types.PROFILE_ISBE_PRO:
 		cfg = ISBE_PRO_CFG
 	default:
 		return nil, "", errl.Errorf("unknown profile: %s", profile)
@@ -350,7 +351,7 @@ func LoadConfig() (*Config, string, error) {
 	// In any environment except LOCAL development, the admin password is required.
 	// In LOCAL development, the admin password is optional, and if not provided, it will have a default value.
 	adminPassword = GetStringEnvOrDefault("CERTAUTH_ADMIN_PASSWORD", adminPassword)
-	if cfg.Profile == types.LOCAL && adminPassword == "" {
+	if cfg.Profile == types.PROFILE_LOCAL && adminPassword == "" {
 		adminPassword = "pepe"
 	} else if adminPassword == "" {
 		return nil, "", errl.Errorf("admin password required")
@@ -359,7 +360,7 @@ func LoadConfig() (*Config, string, error) {
 	// Get the ISBETMF_ADMIN_TOKEN from environment variable. This is used to authenticate with the TMF server.
 	// It is compulsory for any environment except LOCAL
 	adminToken := GetStringEnvOrDefault("ISBETMF_ADMIN_TOKEN", "")
-	if cfg.Profile == types.LOCAL && adminToken == "" {
+	if cfg.Profile == types.PROFILE_LOCAL && adminToken == "" {
 		adminToken = "eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX"
 	} else if adminToken == "" {
 		return nil, "", errl.Errorf("ISBETMF_ADMIN_TOKEN required")
@@ -395,6 +396,14 @@ func LoadConfig() (*Config, string, error) {
 
 	// Check for override of the management service URL
 	cfg.CertAuthConfig.ManagementURL = GetStringEnvOrDefault("MANAGEMENT_URL", cfg.CertAuthConfig.ManagementURL)
+	managementAPIKey := GetStringEnvOrDefault("MANAGEMENT_API_KEY", "")
+	// It is compulsory for all environments except LOCAL, where we use a testing key
+	if cfg.Profile == types.PROFILE_LOCAL && managementAPIKey == "" {
+		managementAPIKey = "aa83b134-1a59-4ea3-b632-812f36d6b4c1"
+	} else if managementAPIKey == "" {
+		return nil, "", errl.Errorf("MANAGEMENT_API_KEY required")
+	}
+	cfg.CertAuthConfig.ManagementAPIKey = managementAPIKey
 
 	// The secrets are either in a file which is not in the Git repo or in the environment variables.
 	secretConfig := parseYamlConfig("secrets/config.yaml")

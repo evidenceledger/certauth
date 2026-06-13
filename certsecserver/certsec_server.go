@@ -100,7 +100,7 @@ func New(
 	cfg *Config) (*CertSecServer, error) {
 
 	// The engine to display the HTML screens to the users
-	htmlrender, err := html.NewRendererFiber(cfg.Profile == types.LOCAL, viewsfs, templateDirectory, templateExtension)
+	htmlrender, err := html.NewRendererFiber(cfg.Profile == types.PROFILE_LOCAL, viewsfs, templateDirectory, templateExtension)
 	if err != nil {
 		return nil, errl.Errorf("failed to initialize template engine: %w", err)
 	}
