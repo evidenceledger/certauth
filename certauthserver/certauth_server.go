@@ -184,7 +184,7 @@ func NewCertAuth(
 	// Initialize timestamping service
 	tsaService, err := tsaservice.NewTSAService(cfg.TSAConfig)
 	if err != nil {
-		return nil, errl.Errorf("failed to initialize TSA service: %w", err)
+		return nil, errl.Errorf("failed to initialize TSA service at: %s, %w", cfg.TSAConfig.TSAURL, err)
 	}
 
 	// Initialize the email service
