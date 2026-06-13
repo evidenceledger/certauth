@@ -35,6 +35,14 @@ COPY --from=builder /app/certauthserver/views /certauthserver/views
 COPY --from=builder /app/certsecserver/views /certsecserver/views
 COPY --from=builder /app/onboard/views /onboard/views
 
+HEALTHCHECK \
+    --interval=60s \
+    --timeout=5s \
+    --start-period=10s \
+    --start-interval=3s \
+    --retries=3 \
+    CMD curl -f http://localhost:9991/health || exit 1
+
 # Expose the port the server runs on
 EXPOSE 8010
 EXPOSE 8011
