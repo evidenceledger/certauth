@@ -213,7 +213,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 		// if s.profile != types.ISBE_PRO {
 		if true {
 			slog.Info("Deleting TMF organizations", "auth_code", authCode, "vat_id", request.VatId)
-			err := s.tmfService.TMFDeleteAllOrganizationsByELSI("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", request.VatId)
+			err := s.tmfService.TMFDeleteAllOrganizationsByELSI(s.tmfAdminToken, request.VatId)
 			if err != nil {
 				err = errl.Errorf("deleting TMF organizations: %w", err)
 				slog.Error(err.Error(), "auth_code", authCode)
@@ -224,7 +224,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 			slog.Info("TMF organizations not deleted (production mode)", "auth_code", authCode)
 		}
 
-		_, err = s.tmfService.TMFCreateOrganization("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", createOrg)
+		_, err = s.tmfService.TMFCreateOrganization(s.tmfAdminToken, createOrg)
 		if err != nil {
 			err = errl.Errorf("creating TMF organization: %w", err)
 			slog.Error(err.Error(), "auth_code", authCode)
@@ -898,14 +898,14 @@ func (s *CertAuthServer) handleContractAccepted(c *fiber.Ctx) error {
 	// If we are not in Production, delete all existing organizations
 	if s.profile != types.PROFILE_ISBE_PRO {
 		slog.Info("Deleting TMF organizations", "auth_code", authCode, "vat_id", request.VatId)
-		err := s.tmfService.TMFDeleteAllOrganizationsByELSI("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", request.VatId)
+		err := s.tmfService.TMFDeleteAllOrganizationsByELSI(s.tmfAdminToken, request.VatId)
 		if err != nil {
 			err = errl.Errorf("deleting TMF organizations: %w", err)
 			slog.Error(err.Error(), "auth_code", authCode)
 		}
 	}
 
-	_, err = s.tmfService.TMFCreateOrganization("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", createOrg)
+	_, err = s.tmfService.TMFCreateOrganization(s.tmfAdminToken, createOrg)
 	if err != nil {
 		err = errl.Errorf("creating TMF organization: %w", err)
 		slog.Error(err.Error(), "auth_code", authCode)

@@ -359,13 +359,13 @@ func LoadConfig() (*Config, string, error) {
 
 	// Get the ISBETMF_ADMIN_TOKEN from environment variable. This is used to authenticate with the TMF server.
 	// It is compulsory for any environment except LOCAL
-	adminToken := GetStringEnvOrDefault("ISBETMF_ADMIN_TOKEN", "")
-	if cfg.Profile == types.PROFILE_LOCAL && adminToken == "" {
-		adminToken = "eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX"
-	} else if adminToken == "" {
+	tmfAdminToken := GetStringEnvOrDefault("ISBETMF_ADMIN_TOKEN", "")
+	if cfg.Profile == types.PROFILE_LOCAL && tmfAdminToken == "" {
+		tmfAdminToken = "eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX"
+	} else if tmfAdminToken == "" {
 		return nil, "", errl.Errorf("ISBETMF_ADMIN_TOKEN required")
 	}
-	cfg.CertAuthConfig.AdminToken = adminToken
+	cfg.CertAuthConfig.TMFAdminToken = tmfAdminToken
 
 	// Check for override of the CertAuth server URL and port
 	cfg.CertAuthConfig.CertAuthURL = GetStringEnvOrDefault("CERTAUTH_URL", cfg.CertAuthConfig.CertAuthURL)

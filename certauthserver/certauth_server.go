@@ -61,7 +61,7 @@ type ConfigCertAuth struct {
 	TMFServerURL string
 
 	// The admin token used to authenticate the superadmin to the TMF server
-	AdminToken string
+	TMFAdminToken string
 }
 
 // CertAuthServer represents the CertAuth server
@@ -114,7 +114,7 @@ type CertAuthServer struct {
 	tmfService *tmfservice.TMFService
 
 	// The admin token used to authenticate the superadmin in the TMF server
-	adminToken string
+	tmfAdminToken string
 }
 
 const templateDebug = true
@@ -221,6 +221,7 @@ func NewCertAuth(
 		tsaService:       tsaService,
 		emailService:     emailService,
 		tmfService:       tmfservice,
+		tmfAdminToken:    cfg.TMFAdminToken,
 	}
 
 	// Register the health check endpoint
@@ -289,7 +290,7 @@ func (s *CertAuthServer) MigrateTMFOrganizations() error {
 		organizationDID := "did:elsi:" + registration.OrganizationIdentifier
 
 		// Get the existingOrganization from the TMF server
-		existingOrganization, err := s.tmfService.TMFRetrieveOrganization("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", organizationId, "")
+		existingOrganization, err := s.tmfService.TMFRetrieveOrganization(s.tmfAdminToken, organizationId, "")
 		if err != nil {
 			slog.Error("failed to retrieve organization from TMF", "error", err, "organizationId", organizationId)
 			continue
@@ -319,7 +320,7 @@ func (s *CertAuthServer) MigrateTMFOrganizations() error {
 		}
 
 		// Delete the existing Object
-		err = s.tmfService.TMFDeleteOrganization("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", organizationId)
+		err = s.tmfService.TMFDeleteOrganization(s.tmfAdminToken, organizationId)
 		if err != nil {
 			slog.Error("failed to delete organization", "error", err, "organizationId", organizationId)
 			continue
@@ -329,7 +330,7 @@ func (s *CertAuthServer) MigrateTMFOrganizations() error {
 		orgCreate := tmfservice.OrgCreateFromOrg(existingOrganization)
 
 		// Create the organization in the TMF server
-		_, err = s.tmfService.TMFCreateOrganization("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", orgCreate)
+		_, err = s.tmfService.TMFCreateOrganization(s.tmfAdminToken, orgCreate)
 		if err != nil {
 			slog.Error("failed to create organization", "error", err, "organizationId", organizationId)
 			continue
