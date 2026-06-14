@@ -41,7 +41,7 @@ HEALTHCHECK \
     --start-period=10s \
     --start-interval=3s \
     --retries=3 \
-    CMD curl -f http://localhost:9991/health || exit 1
+    CMD curl -f http://localhost:8010/health || exit 1
 
 # Expose the port the server runs on
 EXPOSE 8010
