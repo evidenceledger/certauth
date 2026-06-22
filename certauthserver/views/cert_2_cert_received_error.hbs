@@ -48,6 +48,17 @@
 
         <h2 class="ui huge header">Certificado recibido</h2>
 
+        {{ if .isPersonal }}
+        <div class="ui red icon message">
+            <i class="exclamation triangle icon"></i>
+            <div class="content">
+                <div class="header">Nota</div>
+                No aceptamos certificados personales. Por favor, utilice un certificado de representante de
+                organización.
+            </div>
+        </div>
+        {{ end }}
+
         {{ if .serviceError }}
         <div class="ui red icon message">
             <i class="exclamation triangle icon"></i>

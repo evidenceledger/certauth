@@ -154,12 +154,27 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 	if certData.OrganizationID == "" {
 		err = errl.Errorf("personal certificates are not allowed")
 		slog.Error(err.Error(), "auth_code", authCode)
+
+		// Present the screen
+		templateName := "cert_received_error"
+		postAction := sendEmailVerificationEndpoint
 		if isEnglish {
-			return s.htmlRender.Render(c, "error_en", fiber.Map{"message": err})
+			templateName = "cert_received_error_n"
+			postAction += "/en"
 		}
-		return s.htmlRender.Render(c, "error", fiber.Map{"message": err})
+		return s.htmlRender.Render(c, templateName, fiber.Map{
+			"certData":        certData,
+			"isPersonal":      true,
+			"certType":        certData.CertificateType,
+			"subject":         certData.Subject,
+			"postAction":      postAction,
+			"production":      s.profile == types.PROFILE_ISBE_PRO,
+			"serviceError":    false,
+			"validationError": false,
+		})
 	}
 
+	// Check that the certificate is a valid eIDAS one
 	_, errService, errValidation := VerifyCertificate(certData.CertificateDER, s.euDSSURL)
 	if errService == nil && errValidation == nil {
 		certData.EIDASCertificate = true
