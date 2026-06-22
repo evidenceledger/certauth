@@ -150,6 +150,16 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 		return errl.Errorf("certificate data is nil")
 	}
 
+	// We do not accept personal certificates, which do not have the organizationIdentifier field
+	if certData.OrganizationID == "" {
+		err = errl.Errorf("personal certificates are not allowed")
+		slog.Error(err.Error(), "auth_code", authCode)
+		if isEnglish {
+			return s.htmlRender.Render(c, "error_en", fiber.Map{"message": err})
+		}
+		return s.htmlRender.Render(c, "error", fiber.Map{"message": err})
+	}
+
 	_, errService, errValidation := VerifyCertificate(certData.CertificateDER, s.euDSSURL)
 	if errService == nil && errValidation == nil {
 		certData.EIDASCertificate = true
