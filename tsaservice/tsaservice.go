@@ -85,7 +85,7 @@ func NewTSAService(cfg *TSAConfig) (*TSAService, error) {
 
 	caCert, err := retrieveCaCert(cfg.CACertURL)
 	if err != nil {
-		return nil, err
+		return nil, errl.Errorf("failed to retrieve CA certificate from %s: %w", cfg.CACertURL, err)
 	}
 
 	return &TSAService{
@@ -97,19 +97,19 @@ func NewTSAService(cfg *TSAConfig) (*TSAService, error) {
 func (s *TSAService) Timestamp(data []byte) ([]byte, error) {
 
 	if len(s.CACert) == 0 {
-		return nil, fmt.Errorf("CA cert is empty")
+		return nil, errl.Errorf("CA cert is empty")
 	}
 
 	// Create TimeStamp Query (TSQ)
 	tsqDetails, err := createTSQ(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create TSQ: %w", err)
+		return nil, errl.Errorf("failed to create TSQ: %w", err)
 	}
 
 	// Send to TSA
 	tsrBytes, err := sendTSQToService(tsqDetails)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send TSQ to service: %w", err)
+		return nil, errl.Errorf("failed to send TSQ to service: %w", err)
 	}
 
 	return tsrBytes, nil
@@ -501,7 +501,7 @@ func createTSQ(data []byte) ([]byte, error) {
 func sendTSQToService(tsq []byte) ([]byte, error) {
 	req, err := http.NewRequest("POST", defaultTsaURL, bytes.NewReader(tsq))
 	if err != nil {
-		return nil, err
+		return nil, errl.Errorf("failed to create TSQ request: %w", err)
 	}
 
 	req.SetBasicAuth(defaultTsaUser, defaultTsaPassword)
@@ -510,13 +510,13 @@ func sendTSQToService(tsq []byte) ([]byte, error) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, errl.Errorf("failed to send TSQ to service: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("TSA returned error %d: %s", resp.StatusCode, string(body))
+		return nil, errl.Errorf("TSA returned error %d: %s", resp.StatusCode, string(body))
 	}
 
 	return io.ReadAll(resp.Body)
@@ -543,11 +543,11 @@ func verifyMessageImprint(mi MessageImprint, data []byte) error {
 		h.Write(data)
 		calculated = h.Sum(nil)
 	default:
-		return fmt.Errorf("unsupported hash algorithm: %s", mi.HashAlgorithm.Algorithm)
+		return errl.Errorf("unsupported hash algorithm: %s", mi.HashAlgorithm.Algorithm)
 	}
 
 	if !bytes.Equal(calculated, mi.HashedMessage) {
-		return fmt.Errorf("hash mismatch: expected %x, got %x", mi.HashedMessage, calculated)
+		return errl.Errorf("hash mismatch: expected %x, got %x", mi.HashedMessage, calculated)
 	}
 	return nil
 }
@@ -563,7 +563,7 @@ func computeHash(data []byte, alg pkix.AlgorithmIdentifier) ([]byte, error) {
 	case alg.Algorithm.Equal(oidSHA1):
 		h = sha1.New()
 	default:
-		return nil, fmt.Errorf("unsupported hash algorithm: %s", alg.Algorithm)
+		return nil, errl.Errorf("unsupported hash algorithm: %s", alg.Algorithm)
 	}
 
 	h.Write(data)
@@ -579,6 +579,6 @@ func getHashType(alg pkix.AlgorithmIdentifier) (crypto.Hash, error) {
 	case alg.Algorithm.Equal(oidSHA1):
 		return crypto.SHA1, nil
 	default:
-		return 0, fmt.Errorf("unsupported hash algorithm: %s", alg.Algorithm)
+		return 0, errl.Errorf("unsupported hash algorithm: %s", alg.Algorithm)
 	}
 }

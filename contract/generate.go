@@ -56,7 +56,7 @@ func Generate(contractForm *models.ContractForm, profile types.Profile, certUrl 
 
 	// Run WeasyPrint as external process to generate PDF, using stdin and stdout
 	cmd := exec.Command("weasyprint", "-", "-")
-	if profile == types.LOCAL {
+	if profile == types.PROFILE_LOCAL {
 		cmd = exec.Command("docker", "run", "--rm", "-i", "weasyprint", "-", "-")
 		slog.Info("using the docker container to run WeasyPrint")
 	} else {

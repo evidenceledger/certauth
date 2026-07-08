@@ -150,6 +150,31 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 		return errl.Errorf("certificate data is nil")
 	}
 
+	// We do not accept personal certificates, which do not have the organizationIdentifier field
+	if certData.OrganizationID == "" {
+		err = errl.Errorf("personal certificates are not allowed")
+		slog.Error(err.Error(), "auth_code", authCode)
+
+		// Present the screen
+		templateName := "cert_received_error"
+		postAction := sendEmailVerificationEndpoint
+		if isEnglish {
+			templateName = "cert_received_error_n"
+			postAction += "/en"
+		}
+		return s.htmlRender.Render(c, templateName, fiber.Map{
+			"certData":        certData,
+			"isPersonal":      true,
+			"certType":        certData.CertificateType,
+			"subject":         certData.Subject,
+			"postAction":      postAction,
+			"production":      s.profile == types.PROFILE_ISBE_PRO,
+			"serviceError":    false,
+			"validationError": false,
+		})
+	}
+
+	// Check that the certificate is a valid eIDAS one
 	_, errService, errValidation := VerifyCertificate(certData.CertificateDER, s.euDSSURL)
 	if errService == nil && errValidation == nil {
 		certData.EIDASCertificate = true
@@ -158,7 +183,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 		slog.Warn("Certificate validation failed (proceeding in test/demo mode)", "serviceError", errService, "validationError", errValidation, "subject", certData.Subject)
 		// In ISBE_PRO we do not allow non-eIDAS certificates to proceed
 		// The UI will show a warning that the certificate is not eIDAS compliant
-		if s.profile == types.ISBE_PRO && certData.OrganizationID != "VATES-12345678J" {
+		if s.profile == types.PROFILE_ISBE_PRO && certData.OrganizationID != "VATES-12345678J" {
 			// Present the screen
 			templateName := "cert_received_error"
 			postAction := sendEmailVerificationEndpoint
@@ -173,7 +198,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 				"certType":        certData.CertificateType,
 				"subject":         certData.Subject,
 				"postAction":      postAction,
-				"production":      s.profile == types.ISBE_PRO,
+				"production":      s.profile == types.PROFILE_ISBE_PRO,
 				"serviceError":    errService != nil,
 				"validationError": errValidation != nil,
 			})
@@ -213,7 +238,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 		// if s.profile != types.ISBE_PRO {
 		if true {
 			slog.Info("Deleting TMF organizations", "auth_code", authCode, "vat_id", request.VatId)
-			err := s.tmfService.TMFDeleteAllOrganizationsByELSI("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", request.VatId)
+			err := s.tmfService.TMFDeleteAllOrganizationsByELSI(s.tmfAdminToken, request.VatId)
 			if err != nil {
 				err = errl.Errorf("deleting TMF organizations: %w", err)
 				slog.Error(err.Error(), "auth_code", authCode)
@@ -224,7 +249,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 			slog.Info("TMF organizations not deleted (production mode)", "auth_code", authCode)
 		}
 
-		_, err = s.tmfService.TMFCreateOrganization("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", createOrg)
+		_, err = s.tmfService.TMFCreateOrganization(s.tmfAdminToken, createOrg)
 		if err != nil {
 			err = errl.Errorf("creating TMF organization: %w", err)
 			slog.Error(err.Error(), "auth_code", authCode)
@@ -265,7 +290,7 @@ func (s *CertAuthServer) pageRequestEmail(c *fiber.Ctx) error {
 		"certType":    certData.CertificateType,
 		"subject":     certData.Subject,
 		"postAction":  postAction,
-		"production":  s.profile == types.ISBE_PRO,
+		"production":  s.profile == types.PROFILE_ISBE_PRO,
 	})
 
 }
@@ -461,7 +486,7 @@ func (s *CertAuthServer) sendEmailVerification(c *fiber.Ctx) error {
 	err = s.emailService.SendVerificationEmail(email, emailVerificationCode)
 	if err != nil {
 		// In local profile, we allow the process to continue even if email sending fails
-		if s.profile == types.LOCAL {
+		if s.profile == types.PROFILE_LOCAL {
 			slog.Warn("Failed to send verification email (proceeding in local mode)", "error", err, "auth_code", authCode, "email", email)
 			// Continue with the flow and show the verification code on screen
 		} else {
@@ -485,9 +510,9 @@ func (s *CertAuthServer) sendEmailVerification(c *fiber.Ctx) error {
 	return s.htmlRender.Render(c, templateName, fiber.Map{
 		"email":            email,
 		"authCode":         authCode,
-		"verificationCode": emailVerificationCode,    // For testing in local mode
-		"emailSendFailed":  err != nil,               // Flag to show warning message
-		"isLocalProfile":   s.profile == types.LOCAL, // Flag to show verification code only in local mode
+		"verificationCode": emailVerificationCode,            // For testing in local mode
+		"emailSendFailed":  err != nil,                       // Flag to show warning message
+		"isLocalProfile":   s.profile == types.PROFILE_LOCAL, // Flag to show verification code only in local mode
 		"subject":          certData.Subject,
 		"postAction":       postAction,
 	})
@@ -896,16 +921,16 @@ func (s *CertAuthServer) handleContractAccepted(c *fiber.Ctx) error {
 	createOrg := tmfservice.BuildTMFOrganizationFromRequest(request, authProcess.CertificateData.CertificateDER)
 
 	// If we are not in Production, delete all existing organizations
-	if s.profile != types.ISBE_PRO {
+	if s.profile != types.PROFILE_ISBE_PRO {
 		slog.Info("Deleting TMF organizations", "auth_code", authCode, "vat_id", request.VatId)
-		err := s.tmfService.TMFDeleteAllOrganizationsByELSI("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", request.VatId)
+		err := s.tmfService.TMFDeleteAllOrganizationsByELSI(s.tmfAdminToken, request.VatId)
 		if err != nil {
 			err = errl.Errorf("deleting TMF organizations: %w", err)
 			slog.Error(err.Error(), "auth_code", authCode)
 		}
 	}
 
-	_, err = s.tmfService.TMFCreateOrganization("eyJhdWQiOiJodHRwczovL2NhdGFsb2cuaX", createOrg)
+	_, err = s.tmfService.TMFCreateOrganization(s.tmfAdminToken, createOrg)
 	if err != nil {
 		err = errl.Errorf("creating TMF organization: %w", err)
 		slog.Error(err.Error(), "auth_code", authCode)
@@ -1047,14 +1072,9 @@ func (s *CertAuthServer) notifyManagement(contractForm *models.ContractForm, fil
 	}
 	slog.Info("Deleted organization from Management portal", "url", deleteURL)
 
-	// Get the API key from the environment based on the profile
-	apiKey := os.Getenv("MANAGEMENT_API_KEY")
-	if apiKey == "" {
-		// Try with the development API key. It is not a security exposure as the development environment is just local
-		apiKey = "aa83b134-1a59-4ea3-b632-812f36d6b4c1"
-	}
-	deleteReq.Header.Set("X-Api-Key", apiKey)
-	slog.Debug("API key", "X-Api-Key", apiKey)
+	// Set the API key in the header
+	deleteReq.Header.Set("X-Api-Key", s.managementAPIKey)
+	slog.Debug("API key", "X-Api-Key", s.managementAPIKey)
 
 	deleteClient := &http.Client{}
 	deleteResp, err := deleteClient.Do(deleteReq)
@@ -1074,8 +1094,7 @@ func (s *CertAuthServer) notifyManagement(contractForm *models.ContractForm, fil
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	req.Header.Set("X-Api-Key", apiKey)
+	req.Header.Set("X-Api-Key", s.managementAPIKey)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -1129,20 +1148,14 @@ func (s *CertAuthServer) retrieveManagementPowers(certData *models.CertificateDa
 
 	organizationIdentifier := certData.OrganizationID
 
-	// Get the API key from the environment based on the profile
-	apiKey := os.Getenv("MANAGEMENT_API_KEY")
-	if apiKey == "" {
-		// Try with the development API key. It is not a security exposure as the development environment is just local
-		apiKey = "aa83b134-1a59-4ea3-b632-812f36d6b4c1"
-	}
-
 	// Create and send the HTTP request
 	req, err := http.NewRequest("GET", s.managementURL+"/organization/"+organizationIdentifier, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("X-Api-Key", apiKey)
+	// Set the API key in the header
+	req.Header.Set("X-Api-Key", s.managementAPIKey)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
